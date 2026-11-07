@@ -69,6 +69,16 @@ printf 'pile=rust\nprojet=essai\nbranche=feat/x,y#z\nspec=s.md\nlieu_test=ici\n'
 "$pose" "$tmp/b" "$tmp/y" >/dev/null
 grep -qxF '    branches: ["feat/x,y#z"]' "$tmp/b/.github/workflows/ci.yml" || echoue "ci.yml : branche non citée"
 
+# Branche avec `"` ou `\` : refusée avant toute écriture.
+for branche in 'a"b' 'a\b'; do
+  mkdir "$tmp/c"
+  printf 'pile=rust\nprojet=essai\nbranche=%s\nspec=s.md\nlieu_test=ici\n' "$branche" >"$tmp/z"
+  if "$pose" "$tmp/c" "$tmp/z" 2>"$tmp/err"; then echoue "branche $branche acceptée"; fi
+  grep -q 'refusée' "$tmp/err" || echoue "branche $branche : message sans refus"
+  [[ -z $(ls -A "$tmp/c") ]] || echoue "branche $branche : écriture malgré le refus"
+  rm -rf "$tmp/c"
+done
+
 mkdir "$tmp/q"
 printf 'pile=rust\nprojet=essai\n' >"$tmp/w"
 if "$pose" "$tmp/q" "$tmp/w" 2>"$tmp/err"; then echoue "valeur manquante acceptée"; fi

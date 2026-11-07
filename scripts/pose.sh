@@ -54,6 +54,13 @@ fi
 [[ -f $racine/templates/$pile/valeurs.defaut ]] && lire_valeurs "$racine/templates/$pile/valeurs.defaut"
 lire_valeurs "$valeurs_utilisateur"
 
+# `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`
+# casserait la chaîne. Git les accepte, le gabarit non.
+if [[ ${valeurs[branche]:-} == *[\"\\]* ]]; then
+  echo "pose.sh : branche « ${valeurs[branche]} » refusée : un \" ou un \\ casserait le YAML de la CI" >&2
+  exit 2
+fi
+
 # Valeurs dérivées. Le script calcule `vault_cite` et `ligne_vault`, même si
 # le fichier de valeurs les donne.
 # `projet_dossier` : un nom de dossier sûr dans du shell, fait des seuls
