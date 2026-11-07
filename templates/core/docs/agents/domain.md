@@ -5,7 +5,7 @@ Comment les skills d'ingénierie lisent la documentation du domaine de ce dépô
 ## Avant d'explorer, lire
 
 - **`CONTEXT.md`** à la racine : le glossaire.
-- **`{{spec}}`** : la spec fait foi. Lire les sections qui touchent la zone de travail, et les décisions datées de {{decisions}} qui la concernent.
+- **`{{spec}}`** : la spec fait foi. Lire les sections qui touchent la zone de travail, et les décisions datées qui la concernent. Les décisions sont dans {{decisions}}.
 
 Si `CONTEXT.md` n'existe pas, **continuer sans le dire**. Ne pas signaler son absence et ne pas proposer de le créer d'avance. Le skill `/domain-modeling` le crée quand un terme est tranché.
 

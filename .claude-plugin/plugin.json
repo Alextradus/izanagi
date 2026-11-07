@@ -1,7 +1,7 @@
 {
   "name": "izanagi",
   "displayName": "Izanagi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cadre de projet : /izanagi:init pose les conventions et les vérifications, /izanagi:jalon conduit un jalon du cadrage au tag.",
   "author": {
     "name": "Alextradus"

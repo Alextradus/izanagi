@@ -54,10 +54,20 @@ fi
 [[ -f $racine/templates/$pile/valeurs.defaut ]] && lire_valeurs "$racine/templates/$pile/valeurs.defaut"
 lire_valeurs "$valeurs_utilisateur"
 
-# La ligne de CLAUDE.md qui pointe vers le vault se déduit du chemin du vault.
+# Valeurs dérivées, que le fichier de valeurs ne fixe pas.
+# `projet_dossier` : le nom du projet en minuscules et sans espace, pour un
+# nom de dossier (`Raimei` donne `raimei`).
+if [[ -n ${valeurs[projet]:-} ]]; then
+  projet_dossier="${valeurs[projet],,}"
+  valeurs[projet_dossier]="${projet_dossier// /-}"
+fi
+# `vault_cite` : le chemin du vault entre accents graves, ou `non`.
+# `ligne_vault` : la ligne de CLAUDE.md qui pointe vers le vault, ou rien.
 if [[ ${valeurs[vault]:-non} == non ]]; then
+  valeurs[vault_cite]="non"
   valeurs[ligne_vault]=""
 else
+  valeurs[vault_cite]="\`${valeurs[vault]}\`"
   valeurs[ligne_vault]="- Vault Obsidian : \`${valeurs[vault]}\`, tenu à jour au fil de l'eau selon \`docs/agents/vault.md\`."
 fi
 

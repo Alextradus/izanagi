@@ -28,11 +28,11 @@ Tu poses le cadre Izanagi dans le projet courant. Le script `${CLAUDE_PLUGIN_ROO
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase (« dans WSL », « dans son terminal ») | question |
 | `vault` | chemin du vault Obsidian du projet, ou `non` | question |
 
-Les autres clés ont un défaut dans `templates/core/valeurs.defaut` et `templates/<pile>/valeurs.defaut`. Une ligne de ton fichier les remplace.
+Les autres clés ont un défaut dans `templates/core/valeurs.defaut` et `templates/<pile>/valeurs.defaut`. Une ligne de ton fichier les remplace. `decisions` se lit après « dans » : donne-la avec son article (« le §14 de la spec »). Le script dérive lui-même `projet_dossier`, `vault_cite` et `ligne_vault`.
 
 - **Arguments** : une valeur donnée en argument de `/izanagi:init` (`spec=…`, `vault=non`) vaut réponse ; ne pose pas sa question.
 - **Première pose** : pose les questions restantes parmi les quatre (spec, test manuel, lieu, vault) en un seul appel à AskUserQuestion, chacune avec sa valeur proposée en premier. Pour la spec, propose `docs/superpowers/specs/<date>-<projet>-design.md` : c'est le chemin où `superpowers:brainstorming` l'écrira.
-- **Relance** : reprends chaque valeur dans le `docs/agents/jalon.md` et le titre du `CLAUDE.md` existants, sans rien demander. Tu compares ainsi le projet au gabarit à valeurs égales, et les écarts affichés viennent du gabarit ou des ajouts du projet, jamais d'une valeur changée.
+- **Relance** : reprends chaque valeur dans le `docs/agents/jalon.md` et le titre du `CLAUDE.md` existants, sans rien demander, et sans les accents graves qui entourent un chemin. Tu compares ainsi le projet au gabarit à valeurs égales, et les écarts affichés viennent du gabarit ou des ajouts du projet, jamais d'une valeur changée.
 
 ## 3. Poser
 
