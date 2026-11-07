@@ -57,5 +57,5 @@ if [[ $platform == windows && $host_only == false ]]; then
   # sans le shell par défaut ; `bash -l` charge le PATH de rustup, et la
   # commande arrive dans "$0" "$@".
   run_checks wsl wsl.exe --cd "$(pwd -W)" --exec bash -lc \
-    'CARGO_TARGET_DIR="$HOME/.cache/{{projet}}-target" exec "$0" "$@"'
+    'CARGO_TARGET_DIR="$HOME/.cache/{{projet_dossier}}-target" exec "$0" "$@"'
 fi

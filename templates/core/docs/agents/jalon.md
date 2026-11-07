@@ -10,4 +10,4 @@ Les valeurs propres à ce projet, lues par `/izanagi:jalon` à chaque phase. Cha
 - **Test manuel** : l'utilisateur essaie la branche avec `{{test_manuel}}`, {{lieu_test}}.
 - **Taille d'une tranche** : un diff sous {{taille_tranche}} lignes, hors tests et snapshots.
 - **Version** : {{fichier_version}}.
-- **Vault** : {{vault}}.
+- **Vault** : {{vault_cite}}.

@@ -54,10 +54,38 @@ fi
 [[ -f $racine/templates/$pile/valeurs.defaut ]] && lire_valeurs "$racine/templates/$pile/valeurs.defaut"
 lire_valeurs "$valeurs_utilisateur"
 
-# La ligne de CLAUDE.md qui pointe vers le vault se déduit du chemin du vault.
+# `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`
+# casserait la chaîne. Git les accepte, le gabarit non.
+if [[ ${valeurs[branche]:-} == *[\"\\]* ]]; then
+  echo "pose.sh : branche « ${valeurs[branche]} » refusée : un \" ou un \\ casserait le YAML de la CI" >&2
+  exit 2
+fi
+
+# Valeurs dérivées. Le script calcule `vault_cite` et `ligne_vault`, même si
+# le fichier de valeurs les donne.
+# `projet_dossier` : un nom de dossier sûr dans du shell, fait des seuls
+# `[a-z0-9._-]`. Le fichier de valeurs peut le donner ; sinon il se dérive
+# de `projet` (`Raimei` donne `raimei`).
+# Le filtre travaille octet par octet en locale C : une lettre accentuée ou
+# une apostrophe devient un tiret, quelle que soit la locale de l'appelant.
+dossier_sur() {
+  local d
+  d="$(printf '%s' "$1" | LC_ALL=C tr 'A-Z' 'a-z' | LC_ALL=C tr -cs 'a-z0-9._-' '-')"
+  d="${d#-}"
+  printf '%s' "${d%-}"
+}
+source_dossier="${valeurs[projet_dossier]:-${valeurs[projet]:-}}"
+if [[ -n $source_dossier ]]; then
+  valeurs[projet_dossier]="$(dossier_sur "$source_dossier")"
+  [[ -n ${valeurs[projet_dossier]} ]] || valeurs[projet_dossier]=projet
+fi
+# `vault_cite` : le chemin du vault entre accents graves, ou `non`.
+# `ligne_vault` : la ligne de CLAUDE.md qui pointe vers le vault, ou rien.
 if [[ ${valeurs[vault]:-non} == non ]]; then
+  valeurs[vault_cite]="non"
   valeurs[ligne_vault]=""
 else
+  valeurs[vault_cite]="\`${valeurs[vault]}\`"
   valeurs[ligne_vault]="- Vault Obsidian : \`${valeurs[vault]}\`, tenu à jour au fil de l'eau selon \`docs/agents/vault.md\`."
 fi
 
