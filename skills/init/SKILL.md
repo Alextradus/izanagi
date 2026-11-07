@@ -62,7 +62,7 @@ Laisse les fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une
 Donne à l'utilisateur :
 
 - les fichiers créés, identiques et différents, avec les écarts de l'étape 4 ;
-- ce qui reste à remplir : les sections commentées de `docs/CODING_STANDARDS.md` ; la spec si son fichier n'existe pas (propose `superpowers:brainstorming`, ou `/izanagi:jalon` qui l'enchaîne) ; `scripts/check.sh` et la CI si la pile est `aucune` ; pour Rust, `Cargo.lock` à commiter, puisque la vérification passe `--locked` ;
+- ce qui reste à remplir : les sections de `docs/CODING_STANDARDS.md` qui gardent un commentaire `<!--` du gabarit ; la spec si son fichier n'existe pas (propose `superpowers:brainstorming`, ou `/izanagi:jalon` qui l'enchaîne) ; `scripts/check.sh` et la CI si la pile est `aucune` ; pour Rust, `Cargo.lock` à commiter, puisque la vérification passe `--locked` ;
 - les prérequis absents de ta liste de skills : `mattpocock-skills:*` et `superpowers:*`. `retro` ne figure jamais dans cette liste, car seul l'utilisateur le lance : ne le signale pas.
 
 Fin : l'utilisateur a le bilan. Propose un commit `chore: cadre Izanagi` des fichiers créés, et fais-le sur son accord.

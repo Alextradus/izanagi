@@ -20,6 +20,7 @@ Un jalon se livre par **tranches** : chacune a sa branche, sa revue, sa PR vers 
 Lis l'état avant d'agir :
 
 - `docs/agents/jalon.md`. S'il manque, demande à l'utilisateur de lancer `/izanagi:init` et reprends après ;
+- `git remote -v`. Sans remote, les PR sont impossibles : avant la phase tranches, fais créer le dépôt distant (`mattpocock-skills:wizard`) ;
 - la branche courante et `git log` de la branche principale ;
 - le plan du jalon dans les plans et son journal SDD `.superpowers/sdd/<plan>/progress.md`, s'ils existent.
 
@@ -48,7 +49,7 @@ Si la spec n'existe pas encore, lance d'abord `superpowers:brainstorming` : il l
 - **Décisions** : au lieu des décisions des réglages, datées, et reportées dans la section de la spec concernée. Elles remplacent les ADR : le dépôt n'a pas de `docs/adr/`. Une décision marquante reçoit aussi sa note dans le vault.
 - **Détours** : une question qui demande une réponse exécutable (un état à manipuler, un rendu à voir) passe par `mattpocock-skills:prototype`. Une question de faits (comportement d'un outil, API d'une bibliothèque) passe par `mattpocock-skills:research`. Leur résultat revient dans l'interview.
 
-Fin de phase : la frontière est vide, l'utilisateur confirme l'accord, chaque décision est dans la spec, et la spec et `CONTEXT.md` sont commités (`docs:`).
+Fin de phase : la frontière est vide, l'utilisateur confirme l'accord, chaque décision est dans la spec, et la spec et `CONTEXT.md` (s'il a reçu un terme) sont commités (`docs:`).
 
 Enchaîne sur le plan dans la même fenêtre de contexte : le plan a besoin du raisonnement du cadrage tel quel, pas d'un résumé.
 
@@ -70,15 +71,15 @@ Fin de phase : coutures et tranches validées, plan commité, branche du jalon `
 Traite les tranches dans l'ordre du plan. Pour chacune :
 
 1. **Branche** : `<branche du jalon>-tN`, créée depuis la branche du jalon à jour.
-2. **Tâches** : lance `superpowers:subagent-driven-development` sur les tâches de la tranche, avec son journal. Ajoute :
+2. **Tâches** : lance `superpowers:subagent-driven-development` sur les tâches de la tranche, avec son journal. Là où ses règles diffèrent de celles de ce skill, ce skill l'emporte. En particulier, SDD s'arrête après la dernière tâche de la tranche : sa revue finale et `finishing-a-development-branch` cèdent la place aux étapes 3 et 4, et le journal reste jusqu'à la clôture. Ajoute :
    - **TDD** : le brief de chaque implémenteur commence par « Lance le skill `mattpocock-skills:tdd`. Les coutures de cette tâche sont convenues avec l'utilisateur : teste à ces coutures, un cycle rouge puis vert à la fois. » Pour un plan écrit avant ce skill, les tests nommés par la tâche tiennent lieu de coutures.
-   - **Brief** : le script `task-brief` cherche « Task N » et les plans disent « Tâche N ». Extrais le brief à la main (awk entre `### Tâche N` et le titre suivant).
+   - **Brief** : le script `task-brief` cherche « Task N » et les plans disent « Tâche N ». Extrais le brief à la main (awk entre `### Tâche N` et le titre suivant), puis ajoute-lui l'en-tête du plan (coutures convenues) et les sections de la spec que la tâche cite.
    - **Bug** : un test qui casse sans cause évidente, une régression ou une lenteur passe par `mattpocock-skills:diagnosing-bugs`, que ce soit toi ou un sous-agent dédié qui s'en charge.
    - **Conflit** : un rebase en conflit passe par `mattpocock-skills:resolving-merge-conflicts`.
 3. **Revue** : la revue convergente (section 9), avec la branche du jalon pour point fixe et la tranche du plan pour axe Spec.
 4. **PR de tranche** : `gh pr create --base <branche du jalon>`, corps passé par `--body-file` (`docs/agents/issue-tracker.md`). Le corps dit ce que la tranche fait, comment l'essayer (commandes et gestes) et colle la sortie de la vérification.
 5. **Test ciblé** : l'utilisateur essaie la tranche avec le test manuel, depuis la branche de la tranche. Traite ses retours selon la section 8.
-6. **Fusion** : avec l'accord de l'utilisateur, fusionne la PR dans la branche du jalon. Coche la tranche au journal avec son nombre de tours de revue, et ajoute-la à la note du jalon dans le vault.
+6. **Fusion** : avec l'accord de l'utilisateur, fusionne la PR dans la branche du jalon. Ajoute au journal la ligne `Tranche N : fusionnée, <k> tours de revue`, et ajoute la tranche à la note du jalon dans le vault.
 
 Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vérification verte sur cette branche.
 
@@ -122,16 +123,19 @@ Valable pour le test ciblé d'une tranche comme pour le test du jalon. Traite ch
 
 Une revue qui converge en peu de tours. La phase appelante fournit le point fixe et l'axe Spec.
 
-1. **Premier tour** : lance `mattpocock-skills:code-review` depuis le point fixe. Axe Standards : `docs/CODING_STANDARDS.md` et `CLAUDE.md`. Passe aux deux relecteurs le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/constat.md`, qui fixe la forme et les étiquettes de leurs constats, et la liste des constats écartés notés au journal pour ce jalon, pour qu'ils ne les reprennent pas.
+1. **Premier tour** : lance `mattpocock-skills:code-review` depuis le point fixe. Axe Standards : `docs/CODING_STANDARDS.md` et `CLAUDE.md`. Passe aux deux relecteurs :
+   - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/constat.md`. Sa forme et ses étiquettes remplacent le format de rapport de `code-review` ;
+   - les constats écartés notés au journal pour ce jalon, pour qu'ils ne les reprennent pas ;
+   - les mineurs que les revues de tâche ont laissés au journal, à confirmer avec une étiquette ou à écarter.
 2. **Traite chaque constat** selon son étiquette :
-   - **Important** : corrige-le. Une classe de bug se corrige sur toutes ses occurrences, cherchées dans tout le dépôt, pas seulement celles citées. Si tu penses que le constat est faux ou voulu, présente-le à l'utilisateur avec ta raison et applique sa réponse.
+   - **Important** : fais-le corriger par un sous-agent implémenteur, comme une tâche. Une classe de bug se corrige sur toutes ses occurrences, cherchées dans tout le dépôt, pas seulement celles citées. Si tu penses que le constat est faux ou voulu, présente-le à l'utilisateur avec ta raison et applique sa réponse.
    - **Nit** : corrige-le s'il tient en une ligne, sinon laisse-le.
    - **Préexistant** : ouvre une issue (`docs/agents/issue-tracker.md`) et laisse le code tel quel dans cette branche.
-   - **Jugement** (odeur de code, écart de périmètre) : présente-le à l'utilisateur et applique sa réponse.
+   - **Jugement** : présente-le à l'utilisateur et applique sa réponse.
 
    Note au journal chaque constat écarté, avec sa raison. Hors jalon, sans journal, note-les dans la description de la PR.
 3. **Vérifie** : la vérification, puis commit des corrections.
-4. **Tours suivants** : relance `code-review` avec pour point fixe le dernier commit relu au tour précédent, pour ne relire que les corrections. La revue a convergé quand un tour ne rend aucun Important.
+4. **Tours suivants** : relance les deux relecteurs de `code-review`, avec les mêmes pièces qu'au premier tour, et pour point fixe le dernier commit relu au tour précédent, pour ne relire que les corrections. La revue a convergé quand un tour ne rend aucun Important.
 5. **Plafond** : si le troisième tour rend encore un Important, arrête les tours. Présente à l'utilisateur ce qui revient et pourquoi, et propose de revoir l'approche ou le découpage plutôt qu'un quatrième tour.
 6. **Source** : si une règle ou une classe de bug a déjà été signalée dans une tranche précédente (journal), propose à l'utilisateur de la traiter à la source : une règle dans `docs/CODING_STANDARDS.md`, une lint ou un test.
 
