@@ -21,14 +21,15 @@ Tu poses le cadre Izanagi dans le projet courant. Le script `${CLAUDE_PLUGIN_ROO
 | Clé | Sens | D'où elle vient |
 |---|---|---|
 | `pile` | `rust` ou `aucune` | étape 1 |
-| `projet` | nom du projet | `name` de `Cargo.toml`, sinon le nom du dossier |
+| `projet` | nom du projet, tel qu'il s'affiche | `name` de `Cargo.toml`, sinon le nom du dossier |
+| `projet_dossier` | nom de dossier tiré du projet (cache de build) | pile Rust : `name` de `Cargo.toml` ; sinon omets-la, le script la dérive de `projet` |
 | `spec` | chemin de la spec, qui fait foi | question |
 | `branche` | branche principale | `git symbolic-ref --short HEAD`, sinon `main` |
 | `test_manuel` | commande qui installe ou lance la branche pour l'essayer | question ; défaut de la pile Rust : `cargo install --path . --locked` |
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase (« dans WSL », « dans son terminal ») | question |
 | `vault` | chemin du vault Obsidian du projet, ou `non` | question |
 
-Les autres clés ont un défaut dans `templates/core/valeurs.defaut` et `templates/<pile>/valeurs.defaut`. Une ligne de ton fichier les remplace. `decisions` se lit après « dans » : donne-la avec son article (« le §14 de la spec »). Le script dérive lui-même `projet_dossier`, `vault_cite` et `ligne_vault`.
+Les autres clés ont un défaut dans `templates/core/valeurs.defaut` et `templates/<pile>/valeurs.defaut`. Une ligne de ton fichier les remplace. `decisions` se lit après « dans » : donne-la avec son article (« le §14 de la spec »). Le script calcule lui-même `vault_cite` et `ligne_vault`.
 
 - **Arguments** : une valeur donnée en argument de `/izanagi:init` (`spec=…`, `vault=non`) vaut réponse ; ne pose pas sa question.
 - **Première pose** : pose les questions restantes parmi les quatre (spec, test manuel, lieu, vault) en un seul appel à AskUserQuestion, chacune avec sa valeur proposée en premier. Pour la spec, propose `docs/superpowers/specs/<date>-<projet>-design.md` : c'est le chemin où `superpowers:brainstorming` l'écrira.

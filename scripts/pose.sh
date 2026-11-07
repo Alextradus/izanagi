@@ -54,12 +54,23 @@ fi
 [[ -f $racine/templates/$pile/valeurs.defaut ]] && lire_valeurs "$racine/templates/$pile/valeurs.defaut"
 lire_valeurs "$valeurs_utilisateur"
 
-# Valeurs dérivées, que le fichier de valeurs ne fixe pas.
-# `projet_dossier` : le nom du projet en minuscules et sans espace, pour un
-# nom de dossier (`Raimei` donne `raimei`).
-if [[ -n ${valeurs[projet]:-} ]]; then
-  projet_dossier="${valeurs[projet],,}"
-  valeurs[projet_dossier]="${projet_dossier// /-}"
+# Valeurs dérivées. Le script calcule `vault_cite` et `ligne_vault`, même si
+# le fichier de valeurs les donne.
+# `projet_dossier` : un nom de dossier sûr dans du shell, fait des seuls
+# `[a-z0-9._-]`. Le fichier de valeurs peut le donner (le `name` de
+# `Cargo.toml`) ; sinon il se dérive de `projet` (`Raimei` donne `raimei`).
+# Le filtre travaille octet par octet en locale C : une lettre accentuée ou
+# une apostrophe devient un tiret, quelle que soit la locale de l'appelant.
+dossier_sur() {
+  local d
+  d="$(printf '%s' "$1" | LC_ALL=C tr 'A-Z' 'a-z' | LC_ALL=C tr -cs 'a-z0-9._-' '-')"
+  d="${d#-}"
+  printf '%s' "${d%-}"
+}
+source_dossier="${valeurs[projet_dossier]:-${valeurs[projet]:-}}"
+if [[ -n $source_dossier ]]; then
+  valeurs[projet_dossier]="$(dossier_sur "$source_dossier")"
+  [[ -n ${valeurs[projet_dossier]} ]] || valeurs[projet_dossier]=projet
 fi
 # `vault_cite` : le chemin du vault entre accents graves, ou `non`.
 # `ligne_vault` : la ligne de CLAUDE.md qui pointe vers le vault, ou rien.

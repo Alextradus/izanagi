@@ -6,5 +6,4 @@ branche=main
 verification=scripts/check.sh
 taille_tranche=1 500
 vault=non
-ligne_vault=
 hors_revue=`docs/superpowers/plans/`, `.superpowers/`
