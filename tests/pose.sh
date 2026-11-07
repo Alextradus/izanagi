@@ -50,6 +50,10 @@ mkdir "$tmp/r"
 printf "pile=rust\nprojet=Élan d'été & Co/x\nspec=s.md\nlieu_test=ici\n" >"$tmp/u"
 LC_ALL=C "$pose" "$tmp/r" "$tmp/u" >/dev/null
 grep -qF 'cache/lan-d-t-co-x-target"' "$tmp/r/scripts/check.sh" || echoue "cache WSL : nom de dossier non filtré"
+# Même résultat sous une locale UTF-8, où `${x,,}` changerait « É ».
+mkdir "$tmp/r8"
+LC_ALL=C.UTF-8 "$pose" "$tmp/r8" "$tmp/u" >/dev/null
+cmp -s "$tmp/r/scripts/check.sh" "$tmp/r8/scripts/check.sh" || echoue "projet_dossier dépend de la locale"
 bash -n "$tmp/r/scripts/check.sh" || echoue "check.sh n'est plus du shell valide"
 grep -qF "# Élan d'été & Co/x" "$tmp/r/CLAUDE.md" || echoue "CLAUDE.md : le nom du projet doit rester tel quel"
 
@@ -58,6 +62,12 @@ mkdir "$tmp/s"
 printf 'pile=rust\nprojet=Raimei\nprojet_dossier=raimei-editeur\nspec=s.md\nlieu_test=ici\n' >"$tmp/x"
 "$pose" "$tmp/s" "$tmp/x" >/dev/null
 grep -qF 'cache/raimei-editeur-target"' "$tmp/s/scripts/check.sh" || echoue "projet_dossier fourni ignoré"
+
+# Branche avec `,` et `#`, permis par git : la CI la garde en une seule entrée.
+mkdir "$tmp/b"
+printf 'pile=rust\nprojet=essai\nbranche=feat/x,y#z\nspec=s.md\nlieu_test=ici\n' >"$tmp/y"
+"$pose" "$tmp/b" "$tmp/y" >/dev/null
+grep -qxF '    branches: ["feat/x,y#z"]' "$tmp/b/.github/workflows/ci.yml" || echoue "ci.yml : branche non citée"
 
 mkdir "$tmp/q"
 printf 'pile=rust\nprojet=essai\n' >"$tmp/w"

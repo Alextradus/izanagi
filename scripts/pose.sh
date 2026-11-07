@@ -57,8 +57,8 @@ lire_valeurs "$valeurs_utilisateur"
 # Valeurs dérivées. Le script calcule `vault_cite` et `ligne_vault`, même si
 # le fichier de valeurs les donne.
 # `projet_dossier` : un nom de dossier sûr dans du shell, fait des seuls
-# `[a-z0-9._-]`. Le fichier de valeurs peut le donner (le `name` de
-# `Cargo.toml`) ; sinon il se dérive de `projet` (`Raimei` donne `raimei`).
+# `[a-z0-9._-]`. Le fichier de valeurs peut le donner ; sinon il se dérive
+# de `projet` (`Raimei` donne `raimei`).
 # Le filtre travaille octet par octet en locale C : une lettre accentuée ou
 # une apostrophe devient un tiret, quelle que soit la locale de l'appelant.
 dossier_sur() {
