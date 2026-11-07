@@ -1,0 +1,4 @@
+# Les scripts shell gardent des fins de ligne LF, même avec core.autocrlf :
+# bash refuse un script en CRLF sous Linux.
+*.sh text eol=lf
+.githooks/* text eol=lf

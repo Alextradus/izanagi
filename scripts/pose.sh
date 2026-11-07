@@ -23,7 +23,10 @@ fi
 
 racine="$(cd "$(dirname "$0")/.." && pwd)"
 cible="$(cd "$1" && pwd)"
-valeurs_utilisateur="$2"
+rapport="$(mktemp -d)"
+# Copie : le fichier est lu deux fois, et il peut être un tube.
+valeurs_utilisateur="$rapport/valeurs"
+cat "$2" >"$valeurs_utilisateur"
 
 declare -A valeurs=()
 
@@ -78,7 +81,6 @@ rendre() {
   printf '%s' "$texte"
 }
 
-rapport="$(mktemp -d)"
 declare -a fichiers=()
 manque=false
 for source in "${sources[@]}"; do
