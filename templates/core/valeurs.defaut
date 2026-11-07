@@ -1,0 +1,10 @@
+# Valeurs par défaut du cœur, une par ligne : clé=valeur.
+# Le gabarit de la pile, puis le fichier de valeurs passé à pose.sh, les remplacent.
+decisions=la section « Décisions » de la spec
+plans=docs/superpowers/plans/
+branche=main
+verification=scripts/check.sh
+taille_tranche=1 500
+vault=non
+ligne_vault=
+hors_revue=`docs/superpowers/plans/`, `.superpowers/`

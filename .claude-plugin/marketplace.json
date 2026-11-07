@@ -1,0 +1,14 @@
+{
+  "name": "izanagi",
+  "description": "Marketplace du plugin Izanagi",
+  "owner": {
+    "name": "Alextradus"
+  },
+  "plugins": [
+    {
+      "name": "izanagi",
+      "source": "./",
+      "description": "Cadre de projet : init des conventions et conduite des jalons"
+    }
+  ]
+}

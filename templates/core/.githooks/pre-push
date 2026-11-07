@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Avant chaque `git push` : les vérifications de la CI sur la machine courante.
+# La CI refait tout sous Linux et Windows ; `git push --no-verify` passe outre.
+# Activation, une fois par clone : git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check.sh" --host
