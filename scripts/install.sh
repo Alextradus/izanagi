@@ -4,9 +4,12 @@
 #   install.sh <projet> <fichier-valeurs>
 #
 # Le fichier de valeurs porte une valeur par ligne (`clé=valeur`), dont
-# `pile` (`rust`, ou `aucune` pour le seul cœur). Les valeurs se superposent
-# dans cet ordre : templates/core/defaults.env, templates/<pile>/defaults.env,
-# puis le fichier passé en argument.
+# `composant=<nom>|<chemin>|<pile>|<lancement>` (répétable, un par composant)
+# et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
+# `composant=`, `pile=<p>` (autre que `aucune`) crée le composant `<p>|.|<p>|`.
+# Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
+# templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
+# argument.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -40,19 +43,84 @@ lire_valeurs() {
       echo "install.sh : ligne illisible dans $1 : $ligne" >&2
       exit 2
     fi
+    [[ $cle == composant ]] && continue
     valeurs[$cle]="${ligne#*=}"
   done <"$1"
 }
 
 lire_valeurs "$racine/templates/core/defaults.env"
-pile_demandee="$(grep -E '^pile=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r')"
+pile_demandee="$(grep -E '^pile=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
 pile="${pile_demandee:-aucune}"
 if [[ $pile != aucune && ! -d $racine/templates/$pile ]]; then
   echo "install.sh : pas de gabarit pour la pile « $pile »" >&2
   exit 2
 fi
-[[ -f $racine/templates/$pile/defaults.env ]] && lire_valeurs "$racine/templates/$pile/defaults.env"
+
+# Composants : `nom|chemin|pile|lancement`, dans l'ordre du fichier.
+declare -a composants=()
+while IFS= read -r ligne; do
+  composants+=("${ligne%$'\r'}")
+done < <(grep -E '^composant=' "$valeurs_utilisateur" | cut -d= -f2- || true)
+if [[ ${#composants[@]} -eq 0 && $pile != aucune ]]; then
+  composants=("$pile|.|$pile|")
+fi
+
+# Validation avant toute écriture. Les noms de pile des composants servent de
+# nom de dossier de gabarits : ni `/` ni `..`, et pas un dossier réservé.
+declare -A noms_vus=()
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  if [[ ! $c_nom =~ ^[a-z0-9-]+$ ]]; then
+    echo "install.sh : composant « $c_nom » refusé : le nom suit [a-z0-9-]+" >&2
+    exit 2
+  fi
+  if [[ -n ${noms_vus[$c_nom]:-} ]]; then
+    echo "install.sh : composant « $c_nom » refusé : nom en double" >&2
+    exit 2
+  fi
+  noms_vus[$c_nom]=1
+  if [[ -z $c_chemin || $c_chemin == /* || $c_chemin == *[\"\$\`\]* || /$c_chemin/ == */../* ]]; then
+    echo "install.sh : chemin « $c_chemin » du composant $c_nom refusé : relatif à la racine, sans \" \$ \` \ ni .." >&2
+    exit 2
+  fi
+  if [[ ! $c_pile =~ ^[a-z0-9-]+$ || $c_pile =~ ^(aucune|core|code|vault|multi)$ ]]; then
+    echo "install.sh : pile « $c_pile » du composant $c_nom refusée" >&2
+    exit 2
+  fi
+done
+
+# Systèmes de la CI et de check.sh.
+systemes_demandes="$(grep -E '^systemes=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
+systemes="${systemes_demandes:-$(sed -n 's/^systemes=//p' "$racine/templates/core/defaults.env" | tr -d '\r')}"
+ci_os=""
+IFS=',' read -r -a liste_systemes <<<"$systemes"
+[[ ${#liste_systemes[@]} -gt 0 ]] || liste_systemes=("")
+for s in "${liste_systemes[@]}"; do
+  case "$s" in
+    linux) os=ubuntu-latest ;;
+    windows) os=windows-latest ;;
+    macos) os=macos-latest ;;
+    *)
+      echo "install.sh : systèmes « $systemes » refusés : linux, windows ou macos, séparés par des virgules" >&2
+      exit 2
+      ;;
+  esac
+  ci_os+="${ci_os:+, }$os"
+done
+valeurs[systemes]="$systemes"
+valeurs[ci_os]="[$ci_os]"
+
+# Valeurs par défaut de chaque pile utilisée (pile demandée, puis composants).
+declare -A piles_lues=()
+for p in "$pile" "${composants[@]/#/}"; do
+  [[ $p == *'|'* ]] && { IFS='|' read -r _ _ p _ <<<"$p"; }
+  [[ $p == aucune || -n ${piles_lues[$p]:-} ]] && continue
+  piles_lues[$p]=1
+  [[ -f $racine/templates/$p/defaults.env ]] && lire_valeurs "$racine/templates/$p/defaults.env"
+done
 lire_valeurs "$valeurs_utilisateur"
+valeurs[systemes]="$systemes"
+valeurs[ci_os]="[$ci_os]"
 
 # `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`
 # casserait la chaîne. Git les accepte, le gabarit non.
@@ -92,6 +160,7 @@ fi
 # Dossiers de gabarits à poser, du plus général au plus particulier.
 sources=("$racine/templates/core")
 [[ $pile != aucune ]] && sources+=("$racine/templates/$pile")
+[[ ${#composants[@]} -gt 0 ]] && sources+=("$racine/templates/code")
 [[ ${valeurs[vault]:-non} != non ]] && sources+=("$racine/templates/vault")
 
 # Rend un gabarit sur la sortie standard. Une ligne réduite à un `{{clé}}` de
@@ -109,12 +178,56 @@ rendre() {
   printf '%s' "$texte"
 }
 
+# Rend un fragment avec les seules clés données (`clé=valeur`).
+rendre_fragment() {
+  local texte kv f="$1"
+  shift
+  texte="$(cat "$f"; printf x)"
+  texte="${texte%x}"
+  for kv in "$@"; do
+    texte="${texte//"{{${kv%%=*}}}"/"${kv#*=}"}"
+  done
+  printf '%s' "$texte"
+}
+
+# Fragment d'une pile, ou celui du cœur quand la pile n'a pas de gabarit.
+fragment() {
+  if [[ -f $racine/templates/$2/fragments/$1 ]]; then
+    printf '%s' "$racine/templates/$2/fragments/$1"
+  else
+    printf '%s' "$racine/templates/core/fragments/$1"
+  fi
+}
+
+# Valeurs calculées : sections, appels et installation CI des composants.
+sections=""
+appels=""
+ci_setup=""
+declare -a a_ecrire=() resume=()
+declare -A setup_vus=()
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  c_id="${c_nom//-/_}"
+  sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
+    "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
+  appels+="${appels:+$'\n'}  verifier_$c_id"
+  if [[ -z ${setup_vus[$c_pile]:-} ]]; then
+    setup_vus[$c_pile]=1
+    ci_setup+="${ci_setup:+$'\n'}$(rendre_fragment "$(fragment ci-setup.yml "$c_pile")" "pile=$c_pile")"
+  fi
+  [[ -f $racine/templates/$c_pile/fragments/check-section.sh ]] || a_ecrire+=("$c_nom ($c_pile)")
+  resume+=("$c_nom($c_pile)")
+done
+valeurs[sections]="$sections"
+valeurs[appels]="$appels"
+valeurs[ci_setup]="$ci_setup"
+
 declare -a fichiers=()
 manque=false
 for source in "${sources[@]}"; do
   while IFS= read -r -d '' f; do
     rel="${f#"$source"/}"
-    [[ $rel == defaults.env ]] && continue
+    [[ $rel == defaults.env || $rel == fragments/* ]] && continue
     fichiers+=("$source|$rel")
     if restes="$(rendre "$f" | grep -oE '\{\{[a-z_]+\}\}' | sort -u)" && [[ -n $restes ]]; then
       echo "install.sh : $rel attend une valeur pour : $(echo $restes)" >&2
@@ -146,5 +259,14 @@ for entree in "${fichiers[@]}"; do
   fi
 done
 
-echo "pile : $pile"
+for e in "${a_ecrire[@]}"; do
+  echo "à écrire   $e"
+done
+if [[ ${#resume[@]} -eq 0 ]]; then
+  echo "composants : aucun"
+else
+  liste="${resume[0]}"
+  for e in "${resume[@]:1}"; do liste+=", $e"; done
+  echo "composants : $liste"
+fi
 echo "rapport : $rapport"

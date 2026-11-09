@@ -23,7 +23,6 @@ sortie="$("$install" "$tmp/p" "$tmp/v")"
 [[ $(grep -c '^créé' <<<"$sortie") -eq 10 ]] || echoue "première pose : $sortie"
 [[ -x $tmp/p/scripts/check.sh && -x $tmp/p/.githooks/pre-push ]] || echoue "bit exécutable"
 grep -q '{{' "$tmp/p/CLAUDE.md" && echoue "CLAUDE.md garde un {{"
-grep -q 'cache/essai-rapide-target' "$tmp/p/scripts/check.sh" || echoue "cache WSL sans le nom du projet en minuscules"
 grep -qF 'Les décisions sont dans le §14 de la spec.' "$tmp/p/docs/agents/domain.md" || echoue "domain.md : décisions mal accordées"
 grep -qF 'de le §14' "$tmp/p/docs/agents/domain.md" && echoue "domain.md contient « de le »"
 grep -qxF -- '- **Vault** : non.' "$tmp/p/docs/agents/jalon.md" || echoue "jalon.md : vault absent mal affiché"
@@ -49,7 +48,6 @@ grep -qxF -- '- **Vault** : `C:/Vault/essai`.' "$rapport/rendu/docs/agents/jalon
 mkdir "$tmp/r"
 printf "pile=rust\nprojet=Élan d'été & Co/x\nspec=s.md\nlieu_test=ici\n" >"$tmp/u"
 LC_ALL=C "$install" "$tmp/r" "$tmp/u" >/dev/null
-grep -qF 'cache/lan-d-t-co-x-target"' "$tmp/r/scripts/check.sh" || echoue "cache WSL : nom de dossier non filtré"
 # Même résultat sous une locale UTF-8, où `${x,,}` changerait « É ».
 mkdir "$tmp/r8"
 LC_ALL=C.UTF-8 "$install" "$tmp/r8" "$tmp/u" >/dev/null
@@ -61,7 +59,70 @@ grep -qF "# Élan d'été & Co/x" "$tmp/r/CLAUDE.md" || echoue "CLAUDE.md : le n
 mkdir "$tmp/s"
 printf 'pile=rust\nprojet=Atelier\nprojet_dossier=atelier-editeur\nspec=s.md\nlieu_test=ici\n' >"$tmp/x"
 "$install" "$tmp/s" "$tmp/x" >/dev/null
-grep -qF 'cache/atelier-editeur-target"' "$tmp/s/scripts/check.sh" || echoue "projet_dossier fourni ignoré"
+
+# --- composants multiples, systèmes, squelette de check.sh ---
+base=(projet=essai spec=s.md lieu_test=ici test_manuel=x fichier_version=y)
+mkdir "$tmp/m1"
+printf '%s
+' 'composant=cli|.|rust|cargo run' systemes=linux,windows "${base[@]}" >"$tmp/m1v"
+sortie="$("$install" "$tmp/m1" "$tmp/m1v")"
+grep -q '^composants : cli(rust)$' <<<"$sortie" || echoue "ligne composants : $sortie"
+grep -q '^pile :' <<<"$sortie" && echoue "ligne pile : conservée"
+grep -q '^à écrire' <<<"$sortie" && echoue "à écrire pour une pile connue"
+grep -qxF '# --- composant cli (rust) ---' "$tmp/m1/scripts/check.sh" || echoue "marqueur de composant"
+grep -qx '  verifier_cli' "$tmp/m1/scripts/check.sh" || echoue "appel verifier_cli"
+bash -n "$tmp/m1/scripts/check.sh" || echoue "check.sh invalide"
+grep -qxF '        os: [ubuntu-latest, windows-latest]' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : os"
+grep -qF 'run: bash scripts/check.sh --host' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : run"
+grep -q 'cargo test' "$tmp/m1/.github/workflows/ci.yml" && echoue "ci.yml garde cargo test"
+grep -qF 'rust-toolchain' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : installation Rust"
+[[ -e $tmp/m1/fragments || -e $tmp/m1/defaults.env ]] && echoue "fragments posés"
+
+# 0.1 : pile=rust sans composant= équivaut à un composant `rust|.|rust|`.
+mkdir "$tmp/m2"
+printf '%s\n' pile=rust "${base[@]}" >"$tmp/m2v"
+sortie="$("$install" "$tmp/m2" "$tmp/m2v")"
+grep -q '^composants : rust(rust)$' <<<"$sortie" || echoue "compat pile : $sortie"
+diff <(sed -e 's/\bcli\b/rust/g' -e 's/verifier_cli/verifier_rust/' "$tmp/m1/scripts/check.sh") "$tmp/m2/scripts/check.sh" >/dev/null || echoue "compat pile : check.sh diffère"
+
+# Pile sans gabarit : section à écrire, et le script reste exécutable.
+mkdir "$tmp/m3"
+printf '%s\n' 'composant=outil|.|zig|' "${base[@]}" >"$tmp/m3v"
+sortie="$("$install" "$tmp/m3" "$tmp/m3v")"
+grep -qxF 'à écrire   outil (zig)' <<<"$sortie" || echoue "à écrire : $sortie"
+grep -qxF '    # À ÉCRIRE : outil (zig), format, lint, tests' "$tmp/m3/scripts/check.sh" || echoue "section à écrire"
+sed -i 's/^.*# À ÉCRIRE.*$/    true/' "$tmp/m3/scripts/check.sh"
+(cd "$tmp/m3" && scripts/check.sh --host >/dev/null) || echoue "check.sh --host avec true"
+sed -i 's/^    true$/    false/' "$tmp/m3/scripts/check.sh"
+if (cd "$tmp/m3" && scripts/check.sh --host >/dev/null 2>&1); then echoue "check.sh --host avec false réussit"; fi
+set +e; (cd "$tmp/m3" && scripts/check.sh --inconnu >/dev/null 2>&1); code=$?; set -e
+[[ $code -eq 2 ]] || echoue "option inconnue : code $code"
+
+# Chemin avec espace.
+mkdir -p "$tmp/m4/apps/mon front"
+printf '%s\n' 'composant=web|apps/mon front|zig|' "${base[@]}" >"$tmp/m4v"
+"$install" "$tmp/m4" "$tmp/m4v" >/dev/null
+sed -i "s|^.*# À ÉCRIRE.*\$|    pwd > \"$tmp/m4/vu\"|" "$tmp/m4/scripts/check.sh"
+(cd "$tmp/m4" && scripts/check.sh --host >/dev/null) || echoue "chemin avec espace : échec"
+[[ $(cat "$tmp/m4/vu") == */apps/mon\ front ]] || echoue "chemin avec espace : $(cat "$tmp/m4/vu")"
+
+# Refus avant écriture : nom de composant invalide, système inconnu.
+for ligne in 'composant=Web|.|rust|' 'systemes=linux,bsd'; do
+  mkdir "$tmp/m5"
+  printf '%s\n' 'composant=cli|.|rust|' "$ligne" "${base[@]}" >"$tmp/m5v"
+  [[ $ligne == composant=* ]] && printf '%s\n' "$ligne" "${base[@]}" >"$tmp/m5v"
+  if "$install" "$tmp/m5" "$tmp/m5v" 2>"$tmp/err"; then echoue "$ligne accepté"; fi
+  grep -q 'refusé' "$tmp/err" || echoue "$ligne : message sans refus"
+  [[ -z $(ls -A "$tmp/m5") ]] || echoue "$ligne : écriture malgré le refus"
+  rm -rf "$tmp/m5"
+done
+
+# Ni composant ni pile : pas de check.sh ni de CI.
+mkdir "$tmp/m6"
+printf '%s\n' "${base[@]}" >"$tmp/m6v"
+sortie="$("$install" "$tmp/m6" "$tmp/m6v")"
+grep -qxF 'composants : aucun' <<<"$sortie" || echoue "sans composant : $sortie"
+[[ -e $tmp/m6/scripts/check.sh || -e $tmp/m6/.github/workflows/ci.yml ]] && echoue "check.sh ou ci.yml posé sans composant"
 
 # Branche avec `,` et `#`, permis par git : la CI la garde en une seule entrée.
 mkdir "$tmp/b"

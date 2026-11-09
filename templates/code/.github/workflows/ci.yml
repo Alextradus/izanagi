@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: ["{{branche}}"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: {{ci_os}}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+{{ci_setup}}
+      - name: Vérifications
+        run: bash scripts/check.sh --host
