@@ -1,11 +1,11 @@
 {
   "name": "izanagi",
   "displayName": "Izanagi",
-  "version": "0.1.1",
-  "description": "Cadre de projet : /izanagi:init pose les conventions et les vérifications, /izanagi:jalon conduit un jalon du cadrage au tag.",
+  "version": "0.2.0",
+  "description": "Cadre de projet : /izanagi:init démarre un projet de toute pile et pose ses conventions et ses vérifications, /izanagi:jalon conduit un jalon du cadrage au tag.",
   "author": {
     "name": "Alextradus"
   },
   "repository": "https://github.com/Alextradus/izanagi",
-  "keywords": ["workflow", "jalon", "revue", "rust"]
+  "keywords": ["workflow", "jalon", "revue", "harnais"]
 }

@@ -124,7 +124,7 @@ Valable pour le test ciblé d'une tranche comme pour le test du jalon. Traite ch
 Une revue qui converge en peu de tours. La phase appelante fournit le point fixe et l'axe Spec.
 
 1. **Premier tour** : lance `mattpocock-skills:code-review` depuis le point fixe. Axe Standards : `docs/CODING_STANDARDS.md` et `CLAUDE.md`. Passe aux deux relecteurs :
-   - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/constat.md`. Sa forme et ses étiquettes remplacent le format de rapport de `code-review` ;
+   - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/finding.md`. Sa forme et ses étiquettes remplacent le format de rapport de `code-review` ;
    - les constats écartés notés au journal pour ce jalon, pour qu'ils ne les reprennent pas ;
    - les mineurs que les revues de tâche ont laissés au journal, à confirmer avec une étiquette ou à écarter.
 2. **Traite chaque constat** selon son étiquette :

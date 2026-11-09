@@ -1,15 +1,32 @@
 # Izanagi
 
-Plugin Claude Code qui pose le cadre de travail d'un projet et conduit ses jalons. Il vient du workflow de Raimei, rendu générique : toute valeur propre à un projet se lit dans ses fichiers `docs/agents/`.
+Plugin Claude Code qui pose le cadre de travail d'un projet et conduit ses jalons. Toute valeur propre à un projet se lit dans ses fichiers `docs/agents/`.
 
 ## Skills
 
-- `/izanagi:init` pose dans le projet courant `CLAUDE.md`, `docs/agents/*` (tracker, libellés de tri, domaine, réglages de jalon, vault), un squelette de `docs/CODING_STANDARDS.md`, le hook `.githooks/pre-push`, et pour une pile connue `scripts/check.sh` et la CI. Une relance pose ce qui manque, n'écrase rien et montre les écarts au gabarit.
+- `/izanagi:init` démarre un projet de toute pile et pose son cadre. Il sait traiter quatre cas :
+  - Dans un dossier vide, il mène un entretien de départ, recommande une pile, lance le créateur officiel de cette pile, puis propose `gh repo create` et ne le lance que sur ton accord.
+  - Dans un projet existant, il détecte les composants et pose le cadre sans toucher au code.
+  - Sur une relance, il pose ce qui manque, n'écrase rien et montre les écarts au gabarit.
+  - Sur un projet 0.1, il propose de reprendre `scripts/check.sh` et la CI du gabarit 0.2.
 - `/izanagi:jalon [phase]` conduit un jalon : cadrage, plan, tranches, revue de jalon, test, clôture. Chaque tranche passe une revue convergente (trois tours au plus, re-revue sur le seul diff des corrections). `/izanagi:jalon convergente` lance cette revue seule, pour une PR hors jalon.
 
-Les réglages d'un projet sont dans `docs/agents/jalon.md` : chemin de la spec, lieu des décisions, branche principale, commande de vérification, commande et lieu du test manuel, taille d'une tranche, fichier de version, chemin du vault ou `non`.
+`init` pose `CLAUDE.md`, `docs/agents/*` (tracker, libellés de tri, domaine, réglages de jalon, vault, harnais), un squelette de `docs/CODING_STANDARDS.md`, le hook `.githooks/pre-push`, `scripts/check.sh` et la CI. Un projet à plusieurs composants reçoit aussi `scripts/dev.sh`, qui les lance ensemble.
 
-Piles : le cœur sert à tout projet. Rust a son gabarit (`scripts/check.sh` lance format, clippy et tests sous Windows puis WSL ; CI Linux et Windows). Pour une autre pile, `scripts/check.sh` et la CI restent à écrire.
+Les réglages d'un projet sont dans `docs/agents/jalon.md` : chemin de la spec, lieu des décisions, branche principale, commande de vérification, commande et lieu du test manuel, taille d'une tranche, fichier de version, chemin du vault ou `non`. `docs/agents/harness.md` décrit le harnais : composants, systèmes cibles, type d'application et couches de test.
+
+## Piles
+
+Trois piles ont un gabarit complet : Rust, TypeScript avec Node (npm) et Python (uv). Pour chacune, `scripts/check.sh` lance l'installation depuis le verrou, le format, le lint et les tests, et la CI exécute `check.sh --host` sur chaque système cible.
+
+Pour une autre pile (Go, Java, C#, Swift…), `init` pose une section `# À ÉCRIRE` et la remplit en suivant `references/verification-contract.md`, qui fixe ce que `check.sh` et la CI doivent faire. Le script `check-contract.sh` du plugin contrôle ce contrat.
+
+`scripts/check.sh` accepte deux options :
+
+- `--host` vérifie le système courant seulement. Le hook pre-push l'utilise. Si le système courant n'est pas une cible, `check.sh` le saute ; sous Windows, il vérifie alors la copie WSL quand `linux` est une cible.
+- `--clean` vide le cache WSL du projet.
+
+Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de travail dans `~/.cache/<projet_dossier>-wsl` et y lance la vérification.
 
 ## Prérequis
 
@@ -18,7 +35,8 @@ Le plugin lance ces skills sans les copier. Installe-les avant le premier jalon 
 - les skills de Matt Pocock (`mattpocock-skills:*`) : `grilling`, `domain-modeling`, `prototype`, `research`, `codebase-design`, `tdd`, `diagnosing-bugs`, `resolving-merge-conflicts`, `code-review`, `wizard` ;
 - Superpowers (`superpowers:*`) : `brainstorming`, `writing-plans`, `subagent-driven-development`, `finishing-a-development-branch` ;
 - `retro`, proposé à la clôture d'un jalon ;
-- le CLI `gh`, connecté au compte qui porte le dépôt, et Git Bash sous Windows.
+- le CLI `gh`, connecté au compte qui porte le dépôt, et Git Bash sous Windows ;
+- les outils de la pile choisie (`cargo`, `node`, `uv`…). `init` donne la commande d'installation d'un outil absent et attend ton accord avant de la lancer.
 
 ## Installation
 
@@ -34,11 +52,12 @@ Depuis un clone local, remplace `Alextradus/izanagi` par le chemin du clone : Cl
 
 ## Feuille de route
 
-Hors v0.1 :
+Reste à faire :
 
 - un template de PR ;
 - des niveaux de risque, qui règlent la profondeur de revue d'une tranche ;
-- le traitement des bugs du test manuel quand le projet a des évals.
+- le traitement des bugs du test manuel quand le projet a des évals ;
+- le déploiement, hors du périmètre de la 0.2.
 
 ## Contribuer
 
@@ -46,4 +65,8 @@ Izanagi n'a pas de jalons. Chaque changement passe par une PR, relue par `/izana
 
 ```bash
 claude plugin validate .
+```
+
+```bash
+bash tests/install.sh && bash tests/check-contract.sh
 ```
