@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Pose les gabarits d'Izanagi dans un projet, sans rien écraser.
 #
-#   pose.sh <projet> <fichier-valeurs>
+#   install.sh <projet> <fichier-valeurs>
 #
 # Le fichier de valeurs porte une valeur par ligne (`clé=valeur`), dont
 # `pile` (`rust`, ou `aucune` pour le seul cœur). Les valeurs se superposent
-# dans cet ordre : templates/core/valeurs.defaut, templates/<pile>/valeurs.defaut,
+# dans cet ordre : templates/core/defaults.env, templates/<pile>/defaults.env,
 # puis le fichier passé en argument.
 #
 # Pour chaque gabarit, une ligne :
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 if [[ $# -ne 2 ]]; then
-  echo "usage : pose.sh <projet> <fichier-valeurs>" >&2
+  echo "usage : install.sh <projet> <fichier-valeurs>" >&2
   exit 2
 fi
 
@@ -37,27 +37,27 @@ lire_valeurs() {
     [[ -z $ligne || $ligne == \#* ]] && continue
     cle="${ligne%%=*}"
     if [[ ! $cle =~ ^[a-z_]+$ || $ligne != *=* ]]; then
-      echo "pose.sh : ligne illisible dans $1 : $ligne" >&2
+      echo "install.sh : ligne illisible dans $1 : $ligne" >&2
       exit 2
     fi
     valeurs[$cle]="${ligne#*=}"
   done <"$1"
 }
 
-lire_valeurs "$racine/templates/core/valeurs.defaut"
+lire_valeurs "$racine/templates/core/defaults.env"
 pile_demandee="$(grep -E '^pile=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r')"
 pile="${pile_demandee:-aucune}"
 if [[ $pile != aucune && ! -d $racine/templates/$pile ]]; then
-  echo "pose.sh : pas de gabarit pour la pile « $pile »" >&2
+  echo "install.sh : pas de gabarit pour la pile « $pile »" >&2
   exit 2
 fi
-[[ -f $racine/templates/$pile/valeurs.defaut ]] && lire_valeurs "$racine/templates/$pile/valeurs.defaut"
+[[ -f $racine/templates/$pile/defaults.env ]] && lire_valeurs "$racine/templates/$pile/defaults.env"
 lire_valeurs "$valeurs_utilisateur"
 
 # `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`
 # casserait la chaîne. Git les accepte, le gabarit non.
 if [[ ${valeurs[branche]:-} == *[\"\\]* ]]; then
-  echo "pose.sh : branche « ${valeurs[branche]} » refusée : un \" ou un \\ casserait le YAML de la CI" >&2
+  echo "install.sh : branche « ${valeurs[branche]} » refusée : un \" ou un \\ casserait le YAML de la CI" >&2
   exit 2
 fi
 
@@ -65,7 +65,7 @@ fi
 # le fichier de valeurs les donne.
 # `projet_dossier` : un nom de dossier sûr dans du shell, fait des seuls
 # `[a-z0-9._-]`. Le fichier de valeurs peut le donner ; sinon il se dérive
-# de `projet` (`Raimei` donne `raimei`).
+# de `projet` (`Mon Projet` donne `mon-projet`).
 # Le filtre travaille octet par octet en locale C : une lettre accentuée ou
 # une apostrophe devient un tiret, quelle que soit la locale de l'appelant.
 dossier_sur() {
@@ -114,10 +114,10 @@ manque=false
 for source in "${sources[@]}"; do
   while IFS= read -r -d '' f; do
     rel="${f#"$source"/}"
-    [[ $rel == valeurs.defaut ]] && continue
+    [[ $rel == defaults.env ]] && continue
     fichiers+=("$source|$rel")
     if restes="$(rendre "$f" | grep -oE '\{\{[a-z_]+\}\}' | sort -u)" && [[ -n $restes ]]; then
-      echo "pose.sh : $rel attend une valeur pour : $(echo $restes)" >&2
+      echo "install.sh : $rel attend une valeur pour : $(echo $restes)" >&2
       manque=true
     fi
   done < <(find "$source" -type f -print0 | sort -z)

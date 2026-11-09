@@ -1,6 +1,6 @@
 # Izanagi
 
-Plugin Claude Code qui pose le cadre de travail d'un projet et conduit ses jalons. Il vient du workflow de Raimei, rendu générique : toute valeur propre à un projet se lit dans ses fichiers `docs/agents/`.
+Plugin Claude Code qui pose le cadre de travail d'un projet et conduit ses jalons. Toute valeur propre à un projet se lit dans ses fichiers `docs/agents/`.
 
 ## Skills
 

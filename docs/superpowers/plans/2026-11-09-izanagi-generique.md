@@ -14,7 +14,7 @@
 
 - Noms de fichiers nouveaux ou internes en anglais ; contenu, messages et commentaires en français (D16).
 - Inchangés : `docs/agents/jalon.md`, `/izanagi:jalon`, les clés `projet`, `projet_dossier`, `spec`, `decisions`, `plans`, `branche`, `verification`, `test_manuel`, `lieu_test`, `taille_tranche`, `fichier_version`, `vault`, `hors_revue` (D17).
-- Aucune mention de « Raimei » ni d'un autre projet réel dans le dépôt (D18).
+- Aucune mention d'un autre projet réel dans le dépôt (D18).
 - `install.sh` n'écrase jamais un fichier existant et n'écrit rien si une valeur manque.
 - Les scripts posés gardent des fins de ligne LF (`.gitattributes` existant).
 - Version finale : `0.2.0` dans `.claude-plugin/plugin.json`.
@@ -66,9 +66,9 @@
 - Produces : `scripts/install.sh <projet> <fichier-valeurs>`, même sortie que `pose.sh` aujourd'hui, messages d'erreur préfixés `install.sh :`.
 
 - [ ] **Step 1 :** `git mv` des cinq fichiers. Dans `install.sh`, remplace `valeurs.defaut` par `defaults.env` et le préfixe des messages `pose.sh :` par `install.sh :`. Remplace l'exemple de la ligne 68 par « (`Mon Projet` donne `mon-projet`) ».
-- [ ] **Step 2 :** Dans `tests/install.sh`, remplace `projet=Raimei\nprojet_dossier=raimei-editeur` par `projet=Atelier\nprojet_dossier=atelier-editeur` et l'attente `cache/raimei-editeur-target"` par `cache/atelier-editeur-target"`. Mets à jour le chemin du script testé.
-- [ ] **Step 3 :** Mets à jour les renvois : `references/finding.md` dans `skills/jalon/SKILL.md`, `scripts/install.sh` et `defaults.env` dans `skills/init/SKILL.md`. Dans `README.md:3`, retire « Il vient du workflow de Raimei, rendu générique » ; la phrase devient « Toute valeur propre à un projet se lit dans ses fichiers `docs/agents/`. »
-- [ ] **Step 4 :** Vérifie : `bash tests/install.sh` affiche `install.sh : tous les cas passent`, et `git grep -i raimei` ne rend rien.
+- [ ] **Step 2 :** Dans `tests/install.sh`, remplace les valeurs `projet` et `projet_dossier` d'un projet réel par `projet=Atelier\nprojet_dossier=atelier-editeur` et l'attente du cache WSL par `cache/atelier-editeur-target"`. Mets à jour le chemin du script testé.
+- [ ] **Step 3 :** Mets à jour les renvois : `references/finding.md` dans `skills/jalon/SKILL.md`, `scripts/install.sh` et `defaults.env` dans `skills/init/SKILL.md`. Dans `README.md:3`, retire la phrase qui nomme le projet d'origine ; la phrase devient « Toute valeur propre à un projet se lit dans ses fichiers `docs/agents/`. »
+- [ ] **Step 4 :** Vérifie : `bash tests/install.sh` affiche `install.sh : tous les cas passent`, et la recherche de l'ancien nom du projet dans le dépôt ne rend rien.
 - [ ] **Step 5 :** Commit `refactor: noms anglais pour les fichiers internes, plus de projet réel cité`.
 
 ### Task 2 : Composants multiples et squelette de `check.sh` (système courant)

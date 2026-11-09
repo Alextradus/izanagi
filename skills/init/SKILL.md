@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Init
 
-Tu poses le cadre Izanagi dans le projet courant. Le script `${CLAUDE_PLUGIN_ROOT}/scripts/pose.sh` fait l'écriture : il pose chaque gabarit manquant et compare les autres au gabarit. Il n'écrase jamais un fichier. Toi, tu réunis les valeurs, tu lances le script et tu rends compte. Les gabarits sont dans `${CLAUDE_PLUGIN_ROOT}/templates/` : `core/` pour tout projet, un dossier par pile, `vault/` quand le projet a un vault.
+Tu poses le cadre Izanagi dans le projet courant. Le script `${CLAUDE_PLUGIN_ROOT}/scripts/install.sh` fait l'écriture : il pose chaque gabarit manquant et compare les autres au gabarit. Il n'écrase jamais un fichier. Toi, tu réunis les valeurs, tu lances le script et tu rends compte. Les gabarits sont dans `${CLAUDE_PLUGIN_ROOT}/templates/` : `core/` pour tout projet, un dossier par pile, `vault/` quand le projet a un vault.
 
 ## 1. Situer le projet
 
@@ -29,7 +29,7 @@ Tu poses le cadre Izanagi dans le projet courant. Le script `${CLAUDE_PLUGIN_ROO
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase (« dans WSL », « dans son terminal ») | question |
 | `vault` | chemin du vault Obsidian du projet, ou `non` | question |
 
-Les autres clés ont un défaut dans `templates/core/valeurs.defaut` et `templates/<pile>/valeurs.defaut`. Une ligne de ton fichier les remplace. `decisions` se lit après « dans » : donne-la avec son article (« le §14 de la spec »). Le script calcule lui-même `vault_cite` et `ligne_vault`.
+Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`. Une ligne de ton fichier les remplace. `decisions` se lit après « dans » : donne-la avec son article (« le §14 de la spec »). Le script calcule lui-même `vault_cite` et `ligne_vault`.
 
 - **Arguments** : une valeur donnée en argument de `/izanagi:init` (`spec=…`, `vault=non`) vaut réponse ; ne pose pas sa question.
 - **Première pose** : pose les questions restantes parmi les quatre (spec, test manuel, lieu, vault) en un seul appel à AskUserQuestion, chacune avec sa valeur proposée en premier. Pour la spec, propose `docs/superpowers/specs/<date>-<projet>-design.md` : c'est le chemin où `superpowers:brainstorming` l'écrira.
@@ -38,7 +38,7 @@ Les autres clés ont un défaut dans `templates/core/valeurs.defaut` et `templat
 ## 3. Poser
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/pose.sh" <racine du projet> <fichier de valeurs>
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" <racine du projet> <fichier de valeurs>
 ```
 
 Le script rend une ligne par gabarit (`créé`, `identique`, `différent`), la pile, et le dossier de rapport. S'il sort en erreur sur une valeur manquante, ajoute-la au fichier de valeurs et relance.
