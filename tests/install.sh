@@ -100,6 +100,20 @@ printf '%s
 "$install" "$tmp/w1" "$tmp/w1v" >/dev/null
 grep -qxF 'cibles="windows"' "$tmp/w1/scripts/check.sh" || echoue "cibles windows seul"
 bash -n "$tmp/w1/scripts/check.sh" || echoue "check.sh windows seul invalide"
+# Liste des fichiers à copier, sans WSL : le fichier supprimé non indexé disparaît.
+eval "$(sed -n '/^lister_fichiers() {/,/^}/p' "$tmp/m1/scripts/check.sh")"
+mkdir "$tmp/l"
+(
+  cd "$tmp/l"
+  git init -q
+  mkdir "d e"
+  echo 1 >"d e/f g.txt"; echo 2 >gone.txt; echo 3 >ign.txt; echo 4 >.gitignore
+  echo ign.txt >.gitignore
+  git add -A
+  echo 5 >neuf.txt
+  rm gone.txt
+  [[ $(lister_fichiers | sort -z | tr '\0' '|') == ".gitignore|d e/f g.txt|neuf.txt|" ]] || exit 1
+) || echoue "lister_fichiers : liste inattendue"
 # Test de la sélection de cibles : éléments entiers, pas sous-chaînes.
 grep -qF '",$cibles," == *,linux,*' "$tmp/m1/scripts/check.sh" || echoue "cibles : élément entier"
 

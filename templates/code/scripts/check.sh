@@ -50,21 +50,31 @@ verifier_tout() {
 # suivis non ignorés. Les dépendances installées (node_modules, .venv, target)
 # restent dans le cache d'une exécution à l'autre : seuls les fichiers de la
 # liste précédente (`.izanagi-files`) qui ont disparu du dépôt sont supprimés.
+# Liste NUL des fichiers à copier : suivis et non suivis non ignorés, sans les
+# fichiers suivis supprimés du disque mais pas encore retirés de l'index.
+lister_fichiers() {
+  local f
+  git ls-files -z --cached --others --exclude-standard |
+    while IFS= read -r -d '' f; do
+      if [[ -e $f || -L $f ]]; then printf '%s\0' "$f"; fi
+    done
+}
+
 verifier_wsl() {
   if ! command -v wsl.exe >/dev/null; then
     echo "wsl : absent, étape sautée"
     return 0
   fi
   echo "== wsl : copie vers ~/$cache_wsl"
-  local staging
   staging=$(mktemp -d)
-  git ls-files -z --cached --others --exclude-standard >"$staging/.izanagi-files.new"
+  trap 'rm -rf "$staging"' EXIT
+  lister_fichiers >"$staging/.izanagi-files.new"
   # `--exec` passe les arguments tels quels, sans le shell par défaut ;
   # `bash -l` charge le PATH de rustup, node et uv.
   tar --null --ignore-failed-read -T "$staging/.izanagi-files.new" -cf - -C "$staging" .izanagi-files.new |
     wsl.exe --exec bash -lc '
       set -euo pipefail
-      dest="$HOME/$0"
+      dest="$HOME/${0:?}"
       mkdir -p "$dest"
       cd "$dest"
       tar -xf -
@@ -75,7 +85,6 @@ verifier_wsl() {
       mv .izanagi-files.new .izanagi-files
       exec bash scripts/check.sh --host
     ' "$cache_wsl"
-  rm -rf "$staging"
 }
 
 echo "== $systeme"
