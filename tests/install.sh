@@ -124,7 +124,7 @@ printf '%s
 sortie="$("$install" "$tmp/t1" "$tmp/t1v")"
 [[ $(grep -c 'actions/setup-node' "$tmp/t1/.github/workflows/ci.yml") -eq 1 ]] || echoue "setup-node : un seul attendu"
 grep -qF 'node-version: lts/*' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : node-version"
-grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : cache npm"
+grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" && echoue "ci.yml : cache npm sans cache-dependency-path"
 [[ $(grep -c '^# --- composant' "$tmp/t1/scripts/check.sh") -eq 2 ]] || echoue "check.sh : deux sections"
 grep -qF 'npm ci' "$tmp/t1/scripts/check.sh" || echoue "check.sh : npm ci"
 grep -qF 'npm run format:check' "$tmp/t1/scripts/check.sh" || echoue "check.sh : format:check"
@@ -132,8 +132,27 @@ bash -n "$tmp/t1/scripts/check.sh" || echoue "check.sh typescript invalide"
 [[ -x $tmp/t1/scripts/dev.sh ]] || echoue "dev.sh absent ou non exécutable"
 grep -qxF '(cd "api" && npm run dev) &' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : lancement api"
 grep -qxF '(cd "web" && npm run dev) &' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : lancement web"
-grep -qF "trap 'kill 0' EXIT" "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : trap"
+grep -qF 'trap arreter EXIT' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : trap"
 bash -n "$tmp/t1/scripts/dev.sh" || echoue "dev.sh invalide"
+grep -qF 'kill 0' "$tmp/t1/scripts/dev.sh" && echoue "dev.sh : kill 0 subsiste"
+grep -qxF 'pids+=("$!")' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : PID non noté"
+grep -qF 'taskkill' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : taskkill absent"
+# Aucun lancement : dev.sh refuse de tourner à vide.
+mkdir "$tmp/t4"
+printf '%s
+' 'composant=a|a|typescript|' 'composant=b|b|typescript|' projet=essai spec=s.md lieu_test=ici >"$tmp/t4v"
+"$install" "$tmp/t4" "$tmp/t4v" >/dev/null
+set +e; "$tmp/t4/scripts/dev.sh" 2>"$tmp/err"; code=$?; set -e
+[[ $code -eq 1 ]] || echoue "dev.sh sans lancement : code $code"
+grep -qF 'aucun composant à lancer' "$tmp/err" || echoue "dev.sh sans lancement : message"
+# hors_revue : union des piles, sans doublon.
+mkdir "$tmp/t5"
+printf '%s
+' 'composant=cli|cli|rust|' 'composant=web|web|typescript|' projet=essai spec=s.md lieu_test=ici >"$tmp/t5v"
+"$install" "$tmp/t5" "$tmp/t5v" >/dev/null
+grep -qF '`Cargo.lock`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : Cargo.lock"
+grep -qF '`package-lock.json`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : package-lock.json"
+[[ $(grep -o 'docs/superpowers/plans/' "$tmp/t5/docs/CODING_STANDARDS.md" | wc -l) -eq $(grep -o 'docs/superpowers/plans/' "$tmp/t1/docs/CODING_STANDARDS.md" | wc -l) ]] || echoue "hors_revue : doublon"
 grep -qF 'avec `scripts/dev.sh`' "$tmp/t1/docs/agents/jalon.md" || echoue "jalon.md : test manuel dev.sh"
 grep -qF '`package-lock.json`' "$tmp/t1/docs/CODING_STANDARDS.md" || echoue "CODING_STANDARDS.md : package-lock.json"
 

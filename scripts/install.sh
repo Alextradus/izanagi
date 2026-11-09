@@ -114,12 +114,22 @@ valeurs[ci_os]="[$ci_os]"
 
 # Valeurs par défaut de chaque pile utilisée (pile demandée, puis composants).
 declare -A piles_lues=()
+union=""
 for p in "${composants[@]}"; do
   IFS='|' read -r _ _ p _ <<<"$p"
   [[ $p == aucune || -n ${piles_lues[$p]:-} ]] && continue
   piles_lues[$p]=1
-  [[ -f $racine/templates/$p/defaults.env ]] && lire_valeurs "$racine/templates/$p/defaults.env"
+  if [[ -f $racine/templates/$p/defaults.env ]]; then
+    lire_valeurs "$racine/templates/$p/defaults.env"
+    # `hors_revue` : union des piles, dans l'ordre des composants.
+    IFS=',' read -r -a elements <<<"${valeurs[hors_revue]}"
+    for e in "${elements[@]}"; do
+      e="${e# }"
+      [[ -n $e && ", $union, " != *", $e, "* ]] && union+="${union:+, }$e"
+    done
+  fi
 done
+[[ -n $union ]] && valeurs[hors_revue]="$union"
 # Plusieurs composants : le test manuel par défaut est dev.sh, sauf si le
 # fichier de valeurs en donne un.
 [[ ${#composants[@]} -ge 2 ]] && valeurs[test_manuel]=scripts/dev.sh
@@ -218,7 +228,7 @@ for entree in "${composants[@]}"; do
   c_id="${c_nom//-/_}"
   sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
     "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
-  [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"
+  [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"$'\n''pids+=("$!")'
   appels+="${appels:+$'\n'}  verifier_$c_id"
   if [[ -z ${setup_vus[$c_pile]:-} ]]; then
     setup_vus[$c_pile]=1
