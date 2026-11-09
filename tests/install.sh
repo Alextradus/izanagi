@@ -20,7 +20,7 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 10 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 11 ]] || echoue "première pose : $sortie"
 [[ -x $tmp/p/scripts/check.sh && -x $tmp/p/.githooks/pre-push ]] || echoue "bit exécutable"
 grep -q '{{' "$tmp/p/CLAUDE.md" && echoue "CLAUDE.md garde un {{"
 grep -qF 'Les décisions sont dans le §14 de la spec.' "$tmp/p/docs/agents/domain.md" || echoue "domain.md : décisions mal accordées"
@@ -33,7 +33,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 9 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 10 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -234,5 +234,14 @@ printf 'pile=rust\nprojet=essai\n' >"$tmp/w"
 if "$install" "$tmp/q" "$tmp/w" 2>"$tmp/err"; then echoue "valeur manquante acceptée"; fi
 grep -q 'spec' "$tmp/err" || echoue "message sans la clé manquante"
 [[ -z $(ls -A "$tmp/q") ]] || echoue "écriture malgré une valeur manquante"
+
+# --- harness.md ---
+grep -qxF -- '- composant : cli | . | rust | cargo run' "$tmp/m1/docs/agents/harness.md" || echoue "harness.md : ligne composant"
+grep -qxF -- '- **Systèmes cibles** : linux,windows.' "$tmp/m1/docs/agents/harness.md" || echoue "harness.md : systèmes"
+grep -qF '| cli | `.` | rust | `cargo run` |' "$tmp/m1/docs/agents/harness.md" || echoue "harness.md : tableau"
+grep -q '{{' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md garde un {{"
+[[ -f $tmp/m6/docs/agents/harness.md ]] || echoue "harness.md absent sans composant"
+grep -q '^- composant :' "$tmp/m6/docs/agents/harness.md" && echoue "harness.md : ligne composant sans composant"
+grep -qF 'Aucun composant' "$tmp/m6/docs/agents/harness.md" || echoue "harness.md : note de tableau vide"
 
 echo "install.sh : tous les cas passent"

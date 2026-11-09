@@ -220,6 +220,8 @@ fragment() {
 sections=""
 appels=""
 lancements=""
+tableau=""
+lignes_composants=""
 ci_setup=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
@@ -228,6 +230,8 @@ for entree in "${composants[@]}"; do
   c_id="${c_nom//-/_}"
   sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
     "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
+  tableau+="${tableau:+$'\n'}| $c_nom | \`$c_chemin\` | $c_pile | ${c_lancement:+\`$c_lancement\`} |"
+  lignes_composants+="${lignes_composants:+$'\n'}- composant : $c_nom | $c_chemin | $c_pile | $c_lancement"
   [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"$'\n''pids+=("$!")'
   appels+="${appels:+$'\n'}  verifier_$c_id"
   if [[ -z ${setup_vus[$c_pile]:-} ]]; then
@@ -237,6 +241,13 @@ for entree in "${composants[@]}"; do
   [[ -f $racine/templates/$c_pile/fragments/check-section.sh ]] || a_ecrire+=("$c_nom ($c_pile)")
   resume+=("$c_nom($c_pile)")
 done
+if [[ -n $tableau ]]; then
+  tableau=$'| Nom | Chemin | Pile | Lancement |\n| --- | --- | --- | --- |\n'"$tableau"
+else
+  tableau="Aucun composant pour l'instant : \`/izanagi:init\` en ajoute."
+fi
+valeurs[tableau_composants]="$tableau"
+valeurs[lignes_composants]="$lignes_composants"
 valeurs[sections]="$sections"
 valeurs[appels]="$appels"
 valeurs[ci_setup]="$ci_setup"
