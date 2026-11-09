@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Vérifications du dépôt, celles de la CI : une section par composant.
 #
-#   scripts/check.sh            machine courante
-#   scripts/check.sh --host     machine courante seulement (hook pre-push)
+#   scripts/check.sh            systèmes cibles atteignables (WSL sous Windows)
+#   scripts/check.sh --host     système courant s'il est une cible, sinon la
+#                               copie WSL sous Windows (hook pre-push, CI)
 #   scripts/check.sh --clean    vide les caches de vérification
 #
 # Sort en erreur au premier échec.
@@ -87,10 +88,22 @@ verifier_wsl() {
     ' "$cache_wsl"
 }
 
-echo "== $systeme"
-verifier_tout
-echo "$systeme : tout passe"
+# Le script ne vérifie le système courant que s'il est une cible. Sous Windows,
+# `linux` dans les cibles fait vérifier la copie WSL : toujours sans argument,
+# et avec `--host` quand Windows n'est pas une cible.
+hote_cible=false
+[[ ",$cibles," == *",$systeme,"* ]] && hote_cible=true
+wsl_cible=false
+[[ $systeme == windows && ",$cibles," == *,linux,* ]] && wsl_cible=true
 
-if [[ $systeme == windows && $host_only == false && ",$cibles," == *,linux,* ]]; then
+if $hote_cible; then
+  echo "== $systeme"
+  verifier_tout
+  echo "$systeme : tout passe"
+elif ! $host_only || ! $wsl_cible; then
+  echo "$systeme : hors des cibles, sauté"
+fi
+
+if $wsl_cible && { ! $host_only || ! $hote_cible; }; then
   verifier_wsl
 fi

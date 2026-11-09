@@ -231,7 +231,7 @@ for entree in "${composants[@]}"; do
   sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
     "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
   tableau+="${tableau:+$'\n'}| $c_nom | \`$c_chemin\` | $c_pile | ${c_lancement:+\`$c_lancement\`} |"
-  lignes_composants+="${lignes_composants:+$'\n'}- composant : $c_nom | $c_chemin | $c_pile | $c_lancement"
+  lignes_composants+="${lignes_composants:+$'\n'}- composant : $c_nom | $c_chemin | $c_pile |${c_lancement:+ $c_lancement}"
   [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"$'\n''pids+=("$!")'
   appels+="${appels:+$'\n'}  verifier_$c_id"
   if [[ -z ${setup_vus[$c_pile]:-} ]]; then

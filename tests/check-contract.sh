@@ -93,6 +93,20 @@ grep -q 'option inconnue doit sortir avec le code 2' <<<"$sortie" || echoue "dé
 grep -q 'ne gère pas' <<<"$sortie" && echoue "--host|-h) non reconnu : $sortie"
 rm -rf "$tmp/sl"
 
+# Cas entre guillemets : `"--host")` et `'--clean')` sont reconnus.
+cp -r "$tmp/ok" "$tmp/gu"
+sed -i -e 's/^  --host)/  "--host")/' -e "s/^  --clean)/  '--clean')/" "$tmp/gu/scripts/check.sh"
+grep -qF '"--host")' "$tmp/gu/scripts/check.sh" && grep -qF "'--clean')" "$tmp/gu/scripts/check.sh" || echoue "guillemets : sed sans effet"
+sortie="$("$contrat" "$tmp/gu")" || echoue "cas entre guillemets refusés : $sortie"
+rm -rf "$tmp/gu"
+
+# Systèmes de harness.md avec espaces : « linux, windows » vaut linux,windows.
+cp -r "$tmp/ok" "$tmp/sp"
+sed -i 's/^- \*\*Systèmes cibles\*\* : linux,windows\./- **Systèmes cibles** : linux, windows./' "$tmp/sp/docs/agents/harness.md"
+grep -qF 'linux, windows.' "$tmp/sp/docs/agents/harness.md" || echoue "espaces : sed sans effet"
+sortie="$("$contrat" "$tmp/sp")" || echoue "systèmes avec espaces refusés : $sortie"
+rm -rf "$tmp/sp"
+
 # Section CRLF avec `npm install` : signalée.
 cp -r "$tmp/ok" "$tmp/cr"
 sed -i 's/^    echo "-- cli : format"/    npm install/' "$tmp/cr/scripts/check.sh"

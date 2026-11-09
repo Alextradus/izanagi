@@ -24,4 +24,5 @@ jobs:
       - uses: actions/checkout@v4
 {{ci_setup}}
       - name: Vérifications
+        shell: bash
         run: bash scripts/check.sh --host

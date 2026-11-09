@@ -62,10 +62,11 @@ else
 fi
 
 if [[ -f $projet/$check ]]; then
-  # Règle 3 : --host et --clean, seuls ou en alternative (`--host|-h)`).
+  # Règle 3 : --host et --clean, seuls ou en alternative (`--host|-h)`), avec
+  # ou sans guillemets (`"--host")`, `'--host')`).
   gere_host=false
   for option in --host --clean; do
-    if grep -qE -- "(^|[|[:space:]])$option[|)]" "$projet/$check"; then
+    if grep -qE -- "(^|[|[:space:]])[\"']?$option[\"']?[|)]" "$projet/$check"; then
       [[ $option == --host ]] && gere_host=true
     else
       ecart "$check" "ne gère pas $option"
@@ -124,6 +125,8 @@ if [[ -f $projet/$ci ]]; then
   attendu=""
   IFS=',' read -r -a liste <<<"$systemes"
   for s in "${liste[@]}"; do
+    # « linux, windows » : les espaces autour des virgules ne comptent pas.
+    s="${s//[[:space:]]/}"
     case "$s" in
       linux) attendu+="ubuntu-latest"$'\n' ;;
       windows) attendu+="windows-latest"$'\n' ;;

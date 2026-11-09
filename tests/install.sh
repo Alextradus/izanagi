@@ -117,6 +117,39 @@ mkdir "$tmp/l"
 # Test de la sélection de cibles : éléments entiers, pas sous-chaînes.
 grep -qF '",$cibles," == *,linux,*' "$tmp/m1/scripts/check.sh" || echoue "cibles : élément entier"
 
+# Système courant hors des cibles. `uname` et `wsl.exe` factices simulent
+# Windows sans WSL réel : wsl.exe note ses arguments dans `appels` et sort 0.
+mkdir "$tmp/fx" "$tmp/hc"
+printf '#!/bin/sh\necho MINGW64_NT-10.0\n' >"$tmp/fx/uname"
+printf '#!/usr/bin/env bash\ncat >/dev/null\necho "$*" >>"%s/appels"\n' "$tmp/fx" >"$tmp/fx/wsl.exe"
+chmod +x "$tmp/fx/uname" "$tmp/fx/wsl.exe"
+# Un dépôt git avec un composant zig dont la section écrit `lance` quand elle
+# tourne. Les cas changent ensuite la seule ligne `cibles=`.
+git -C "$tmp/hc" init -q
+printf '%s\n' 'composant=outil|.|zig|' systemes=linux "${base[@]}" >"$tmp/hcv"
+"$install" "$tmp/hc" "$tmp/hcv" >/dev/null
+sed -i "s|^.*# À ÉCRIRE.*\$|    echo x >>\"$tmp/hc/lance\"|" "$tmp/hc/scripts/check.sh"
+# lancer_fx <systemes> [option] : lance check.sh sous le faux Windows.
+lancer_fx() {
+  sed -i "s/^cibles=.*/cibles=\"$1\"/" "$tmp/hc/scripts/check.sh"
+  rm -f "$tmp/fx/appels" "$tmp/hc/lance"
+  (cd "$tmp/hc" && PATH="$tmp/fx:$PATH" bash scripts/check.sh ${2:-} 2>&1)
+}
+for option in "" --host; do
+  sortie="$(lancer_fx linux "$option")" || echoue "linux seul $option : échec : $sortie"
+  [[ -e $tmp/hc/lance ]] && echoue "linux seul $option : Windows vérifié hors des cibles"
+  grep -q -- '--exec' "$tmp/fx/appels" 2>/dev/null || echoue "linux seul $option : copie WSL non vérifiée"
+  [[ -n $option ]] || grep -qxF 'windows : hors des cibles, sauté' <<<"$sortie" || echoue "linux seul : message de saut : $sortie"
+  sortie="$(lancer_fx macos "$option")" || echoue "macos seul $option : échec : $sortie"
+  grep -qxF 'windows : hors des cibles, sauté' <<<"$sortie" || echoue "macos seul $option : $sortie"
+  [[ -e $tmp/hc/lance || -e $tmp/fx/appels ]] && echoue "macos seul $option : quelque chose a tourné"
+done
+lancer_fx windows,linux --host >/dev/null || echoue "windows,linux --host : échec"
+[[ -e $tmp/hc/lance ]] || echoue "windows,linux --host : Windows non vérifié"
+[[ -e $tmp/fx/appels ]] && echoue "windows,linux --host : WSL lancé"
+lancer_fx windows,linux >/dev/null || echoue "windows,linux : échec"
+[[ -e $tmp/hc/lance && -e $tmp/fx/appels ]] || echoue "windows,linux : Windows et WSL attendus"
+
 # --- piles TypeScript et Python, dev.sh ---
 mkdir "$tmp/t1"
 printf '%s
@@ -243,5 +276,53 @@ grep -q '{{' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md garde un {{"
 [[ -f $tmp/m6/docs/agents/harness.md ]] || echoue "harness.md absent sans composant"
 grep -q '^- composant :' "$tmp/m6/docs/agents/harness.md" && echoue "harness.md : ligne composant sans composant"
 grep -qF 'Aucun composant' "$tmp/m6/docs/agents/harness.md" || echoue "harness.md : note de tableau vide"
+grep -qxF -- '- composant : a | a | typescript |' "$tmp/t4/docs/agents/harness.md" || echoue "harness.md : espace final sans lancement"
+
+# --- D19 : mise à jour d'un projet posé par la 0.1.1 ---
+# Pose avec pose.sh et les gabarits de la v0.1.1 (commit 5bb1144), puis
+# install.sh avec les valeurs que le skill reconstruit pour un projet 0.1.
+if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
+  mkdir -p "$tmp/v01" "$tmp/d19"
+  git -C "$racine" archive 5bb1144 scripts templates | tar -x -C "$tmp/v01"
+  printf 'pile=rust\nprojet=Essai\nspec=docs/spec.md\nlieu_test=dans un terminal\n' >"$tmp/d19v0"
+  bash "$tmp/v01/scripts/pose.sh" "$tmp/d19" "$tmp/d19v0" >/dev/null
+  # projet_dossier : le nom avant `-target` dans le check.sh de la 0.1.
+  dossier="$(sed -n 's|.*\.cache/\([a-z0-9._-]*\)-target.*|\1|p' "$tmp/d19/scripts/check.sh" | head -1)"
+  [[ $dossier == essai ]] || echoue "D19 : projet_dossier lu dans check.sh 0.1 : $dossier"
+  # Valeurs de jalon.md, sans les accents graves autour d'un chemin.
+  jalon="$tmp/d19/docs/agents/jalon.md"
+  champ() { sed -n "s/^- \*\*$1\*\* : \(.*\)$/\1/p" "$jalon"; }
+  cat >"$tmp/d19v" <<FIN
+composant=rust|.|rust|cargo run
+systemes=linux,windows
+type=cli
+projet=$(sed -n '1s/^# //p' "$tmp/d19/CLAUDE.md")
+projet_dossier=$dossier
+spec=$(champ Spec | sed 's/^`\([^`]*\)`\. Elle fait foi\.$/\1/')
+decisions=$(champ Décisions | sed 's/\. Chaque décision.*$//')
+plans=$(champ Plans | sed 's/^`\([^`]*\)`, un fichier par jalon\.$/\1/')
+branche=$(champ 'Branche principale' | sed 's/^`\([^`]*\)`\.$/\1/')
+verification=$(champ Vérification | sed 's/^`\([^`]*\)`\. Sa sortie.*$/\1/')
+test_manuel=$(champ 'Test manuel' | sed 's/^.*avec `\([^`]*\)`, .*$/\1/')
+lieu_test=$(champ 'Test manuel' | sed 's/^.*`, \(.*\)\.$/\1/')
+taille_tranche=$(champ "Taille d'une tranche" | sed 's/^un diff sous \(.*\) lignes, .*$/\1/')
+fichier_version=$(champ Version | sed 's/\.$//')
+vault=non
+FIN
+  attendu="$(cd "$tmp/d19" && find . -type f -not -path './.git/*' | sed 's|^\./||' | sort)"
+  sortie="$("$install" "$tmp/d19" "$tmp/d19v")"
+  for f in $attendu; do
+    case "$f" in
+      scripts/check.sh | .github/workflows/ci.yml) etat=différent ;;
+      *) etat=identique ;;
+    esac
+    grep -qxF "$etat  $f" <<<"$sortie" || echoue "D19 : $f n'est pas $etat : $sortie"
+  done
+  grep -qxF 'créé       docs/agents/harness.md' <<<"$sortie" || echoue "D19 : harness.md non créé : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 1 ]] || echoue "D19 : créations en trop : $sortie"
+  [[ $(grep -cE '^(créé|identique|différent) ' <<<"$sortie") -eq $(($(wc -l <<<"$attendu") + 1)) ]] || echoue "D19 : lignes en trop : $sortie"
+else
+  echo "D19 : commit 5bb1144 (v0.1.1) absent du dépôt, cas sauté"
+fi
 
 echo "install.sh : tous les cas passent"
