@@ -1,10 +1,10 @@
 # Contrat de vérification
 
-Lu par `init` quand il pose ou remplit `scripts/check.sh` et la CI. `scripts/check-contract.sh <projet>` contrôle ce contrat sur un projet posé. Il ne vérifie rien tant que `docs/agents/harness.md` ne déclare aucun composant.
+Lu par `init` quand il pose ou remplit `scripts/check.sh` et la CI. Le script `check-contract.sh <projet>` du plugin contrôle ce contrat sur un projet posé. Un `docs/agents/harness.md` absent est un écart (règle 8). Le script n'a rien à vérifier quand `harness.md` existe et ne déclare aucun composant.
 
 ## Ce que fait `scripts/check.sh`
 
-- **Arguments.** Sans argument, il vérifie tous les systèmes cibles atteignables depuis le poste. Avec `--host`, il vérifie le système courant seulement (c'est le mode du hook pre-push). Avec `--clean`, il vide le cache WSL du projet. Tout autre argument fait sortir le script avec le code 2, sans rien lancer.
+- **Arguments.** Sans argument, il vérifie tous les systèmes cibles atteignables depuis le poste. Avec `--host`, il vérifie le système courant seulement (c'est le mode du hook pre-push). Un système courant hors des cibles est sauté avec le message `<système> : hors des cibles, sauté`. Sous Windows, `--host` vérifie alors la copie WSL si `linux` est une cible. Avec `--clean`, il vide le cache WSL du projet. Tout autre argument fait sortir le script avec le code 2, sans rien lancer.
 - **Aucune saisie.** Le script ne pose aucune question et n'attend aucune entrée.
 - **Ordre des étapes.** Pour chaque composant : installation depuis le verrou, format en vérification (sans réécrire), lint, puis tests. Le script s'arrête au premier échec.
 - **Code de sortie.** 0 si tout passe, un autre code sinon.

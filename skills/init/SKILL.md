@@ -45,11 +45,12 @@ Cette section ne concerne que le dossier vide.
 1. Recommande une pile et justifie-la en une phrase, selon les critères de `references/interview.md`. Attends le choix de l'utilisateur.
 2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`). Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
 3. Sur l'accord de l'utilisateur, lance l'outil de création de `references/interview.md` dans le dossier de chaque composant : `.` pour un seul composant, un sous-dossier par composant sinon (`web/`, `api/`).
-4. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par composant, qui affirme un résultat du code créé. Sans ce test, `pytest` et `vitest` font échouer la première vérification.
-5. Produis le fichier de verrou : `cargo generate-lockfile`, `npm install` ou `uv lock`.
-6. Si l'utilisateur a voulu le dépôt GitHub, propose `gh repo create <nom> --private --source . --remote origin` et lance-le seulement sur son accord.
+4. Vérifie que le `.gitignore` de la racine ignore `node_modules/`, `.venv/`, `target/` et `dist/`. Ajoute les lignes qui manquent, sans en retirer aucune. Écrits sans `/` au début, ces motifs couvrent les dossiers de tous les composants. Dans un dépôt git existant, `cargo init <dossier>` et `npm init -y` n'écrivent pas de `.gitignore`. Sans ces lignes, la copie WSL de `check.sh` emporterait les dépendances de Windows et le commit du cadre les prendrait.
+5. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par composant, qui affirme un résultat du code créé. Sans ce test, `pytest` et `vitest` font échouer la première vérification.
+6. Produis le fichier de verrou : `cargo generate-lockfile`, `npm install` ou `uv lock`.
+7. Si l'utilisateur a voulu le dépôt GitHub, propose `gh repo create <nom> --private --source . --remote origin` et lance-le seulement sur son accord.
 
-Fin : chaque composant existe sur le disque avec son fichier de verrou et un test.
+Fin : chaque composant existe sur le disque avec son fichier de verrou et un test, et le `.gitignore` de la racine ignore ses dépendances.
 
 ## 4. Écrire les valeurs
 
@@ -72,7 +73,7 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 
 N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplacent. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans », donc donne-la avec son article.
 
-**Test manuel tiré de la fiche.** La section « Test manuel par défaut » de la fiche du type donne les deux valeurs. `test_manuel` est la commande entre accents graves qui correspond à la pile du composant. `lieu_test` est le lieu de la phrase, mis en complément (« dans un terminal », « dans son navigateur »). Écris-les pour un seul composant, quelle que soit sa pile. Avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`. Omets alors la clé et garde `lieu_test`.
+**Test manuel tiré de la fiche.** La section « Test manuel par défaut » de la fiche du type donne les deux valeurs. `test_manuel` est la commande entre accents graves qui correspond à la pile du composant. `lieu_test` est le lieu de la phrase, mis en complément (« dans un terminal », « dans son navigateur »). Écris-les pour un seul composant, quelle que soit sa pile. Avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`. Omets alors la clé et garde `lieu_test`. Si aucun de ces composants n'a de lancement, `dev.sh` sort avec le code 1. Écris alors `test_manuel` dans le fichier de valeurs, avec la commande de la fiche.
 
 **Version.** Avec des piles différentes, le script prend `fichier_version` dans la dernière pile lue. Écris celui du composant qui porte la version du projet. Une pile sans gabarit n'en a pas, écris-le aussi.
 
@@ -106,6 +107,12 @@ Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le 
 
 **Projet 0.1.** `scripts/check.sh` et `.github/workflows/ci.yml` en `différent` sont la mise à jour du gabarit 0.2 : vérification par composant, `--host` et `--clean`, CI en matrice de systèmes. Présente-les ainsi, et propose de les reprendre en entier. Sur son accord, remplace chaque fichier par `<rapport>/rendu/<chemin>`.
 
+La 0.1 gardait les builds Rust de WSL dans `~/.cache/<projet_dossier>-target`, que la 0.2 n'utilise plus. Sous Windows, propose de supprimer ce cache. Sur l'accord de l'utilisateur, lance la commande avec la valeur de `projet_dossier` :
+
+```bash
+wsl.exe --exec bash -c 'rm -rf "$HOME/.cache/<projet_dossier>-target"'
+```
+
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
 
 ## 8. Contrôler
@@ -114,7 +121,7 @@ Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>
 ```
 
-Chaque ligne `contrat : <fichier> : <règle>` est un écart. Si le fichier a été créé par `install.sh` ou rempli à la section 6, corrige-le et relance jusqu'à `contrat : respecté`. Si le fichier était déjà là, rapporte l'écart et propose la correction, que tu fais seulement sur l'accord de l'utilisateur. `contrat : aucun composant, rien à vérifier` signifie que `harness.md` ne déclare aucun composant. Si le projet a du code, reprends la détection de la section 2.
+Chaque ligne `contrat : <fichier> : <règle>` est un écart. Si le fichier a été créé par `install.sh` ou rempli à la section 6, corrige-le et relance jusqu'à `contrat : respecté`. Si le fichier était déjà là, rapporte l'écart et propose la correction, que tu fais seulement sur l'accord de l'utilisateur. `contrat : aucun composant, rien à vérifier` signifie que `harness.md` ne déclare aucun composant. Si le projet a du code, reprends la détection de la section 2, réécris le fichier de valeurs avec les composants trouvés et relance la section 5. `harness.md` sort alors `différent`, car `install.sh` l'a posé sans composant. Remplace-le par `<rapport>/rendu/docs/agents/harness.md`, puis reprends les sections 6 à 8.
 
 Lance ensuite `bash scripts/check.sh --host` une fois. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve.
 
@@ -131,6 +138,7 @@ Donne à l'utilisateur :
 
 - les fichiers créés, identiques et différents, avec les écarts de la section 7 et ceux du contrat restés ouverts ;
 - les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `docs/agents/jalon.md` ;
+- pour un projet 0.1, la ligne « Couches de test » de `docs/agents/harness.md`, que la 0.1 n'avait pas. Si elle vaut `à préciser`, propose de la remplir avec les couches de la fiche du type, et fais-le sur son accord ;
 - les prérequis absents de ta liste de skills : `mattpocock-skills:*` et `superpowers:*`. `retro` ne figure jamais dans cette liste, car seul l'utilisateur le lance : ne le signale pas.
 
 Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune avec sa commande exacte. Saute celles qui sont déjà faites :

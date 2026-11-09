@@ -47,7 +47,8 @@ Les piles de référence (Rust, TypeScript avec npm, Python avec uv) ont des gab
 - **Python.** `ruff` et `pytest` en dépendances de développement (`uv add --dev ruff pytest`). `uv.lock` doit être commité.
 - **Rust.** Rien. `cargo fmt`, `clippy` et `cargo test` sont déjà là. `Cargo.lock` doit être commité.
 - **Autre pile.** Les outils de format, de lint et de test choisis pour remplir la section `# À ÉCRIRE`.
-- **Toute pile.** Un premier test réel par composant, qui affirme un résultat du code créé (une fonction de l'exemple, l'import du paquet). Sans lui, la première vérification échoue : `pytest` sort avec 5 quand il ne trouve aucun test, `vitest` avec 1 quand il ne trouve aucun fichier de test.
+- **Toute pile, `.gitignore`.** Le `.gitignore` de la racine ignore `node_modules/`, `.venv/`, `target/` et `dist/`. `init` ajoute les lignes qui manquent, sans en retirer aucune. Dans un dépôt git existant, `cargo init <dossier>` et `npm init -y` n'écrivent pas de `.gitignore`, et la copie WSL de `check.sh` prend tous les fichiers non ignorés.
+- **Toute pile, premier test.** Un premier test réel par composant, qui affirme un résultat du code créé (une fonction de l'exemple, l'import du paquet). Sans lui, la première vérification échoue : `pytest` sort avec 5 quand il ne trouve aucun test, `vitest` avec 1 quand il ne trouve aucun fichier de test.
 
 ## Consigner les réponses
 

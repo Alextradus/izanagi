@@ -13,7 +13,7 @@ Charger le plugin en mode développement dans l'hôte (touche F5 de VS Code, « 
 
 ## Sections de CODING_STANDARDS.md
 
-- **Version d'hôte non prise en charge.** Le plugin s'appuie sur une API absente d'une version d'hôte qu'il déclare supporter.
+- **Version d'hôte non prise en charge.** Le plugin s'appuie sur une API absente d'une version d'hôte qu'il déclare prendre en charge.
 - **Manifeste incohérent.** Le manifeste annonce une commande, une permission ou un fichier que le code ne fournit pas, ou l'inverse.
 - **Permission excessive.** Le plugin demande plus d'accès que ses fonctions n'en utilisent.
 

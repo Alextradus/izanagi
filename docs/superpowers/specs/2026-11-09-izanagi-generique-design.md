@@ -19,7 +19,7 @@ Tout projet démarre par `/izanagi:init`. Sur un dossier vide, `init` aide à ch
 ### Contrat de vérification
 
 6. `references/verification-contract.md` fixe ce que `scripts/check.sh` doit faire :
-   - sans argument, vérifier sur tous les systèmes cibles atteignables depuis le poste ; avec `--host`, sur le système courant seulement (c'est le mode du hook pre-push) ; avec `--clean`, vider le cache WSL du projet ; tout autre argument fait sortir le script avec le code 2 ;
+   - sans argument, vérifier sur tous les systèmes cibles atteignables depuis le poste ; avec `--host`, sur le système courant seulement (c'est le mode du hook pre-push) ; un système courant hors des cibles est sauté, et sous Windows `--host` vérifie alors la copie WSL si `linux` est une cible ; avec `--clean`, vider le cache WSL du projet ; tout autre argument fait sortir le script avec le code 2 ;
    - ne poser aucune question et ne demander aucune saisie ;
    - pour chaque composant, passer le format (en vérification, sans réécrire), le lint, puis les tests, et s'arrêter au premier échec ;
    - sortir avec 0 si tout passe, avec un autre code sinon ;
