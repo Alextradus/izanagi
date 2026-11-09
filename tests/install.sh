@@ -53,12 +53,14 @@ mkdir "$tmp/r8"
 LC_ALL=C.UTF-8 "$install" "$tmp/r8" "$tmp/u" >/dev/null
 cmp -s "$tmp/r/scripts/check.sh" "$tmp/r8/scripts/check.sh" || echoue "projet_dossier dépend de la locale"
 bash -n "$tmp/r/scripts/check.sh" || echoue "check.sh n'est plus du shell valide"
+grep -qF '.cache/lan-d-t-co-x-wsl' "$tmp/r/scripts/check.sh" || echoue "cache WSL du nom hostile"
 grep -qF "# Élan d'été & Co/x" "$tmp/r/CLAUDE.md" || echoue "CLAUDE.md : le nom du projet doit rester tel quel"
 
 # projet_dossier donné par le fichier de valeurs (le name de Cargo.toml).
 mkdir "$tmp/s"
 printf 'pile=rust\nprojet=Atelier\nprojet_dossier=atelier-editeur\nspec=s.md\nlieu_test=ici\n' >"$tmp/x"
 "$install" "$tmp/s" "$tmp/x" >/dev/null
+grep -qF '.cache/atelier-editeur-wsl' "$tmp/s/scripts/check.sh" || echoue "cache WSL : projet_dossier explicite"
 
 # --- composants multiples, systèmes, squelette de check.sh ---
 base=(projet=essai spec=s.md lieu_test=ici test_manuel=x fichier_version=y)
@@ -84,6 +86,22 @@ printf '%s\n' pile=rust "${base[@]}" >"$tmp/m2v"
 sortie="$("$install" "$tmp/m2" "$tmp/m2v")"
 grep -q '^composants : rust(rust)$' <<<"$sortie" || echoue "compat pile : $sortie"
 diff <(sed -e 's/\bcli\b/rust/g' -e 's/verifier_cli/verifier_rust/' "$tmp/m1/scripts/check.sh") "$tmp/m2/scripts/check.sh" >/dev/null || echoue "compat pile : check.sh diffère"
+
+# Vérification dans WSL par copie, et --clean.
+grep -qF '.cache/essai-wsl' "$tmp/m1/scripts/check.sh" || echoue "cache WSL du projet"
+grep -qF 'CARGO_TARGET_DIR' "$tmp/m1/scripts/check.sh" && echoue "CARGO_TARGET_DIR subsiste"
+grep -qxF 'cibles="linux,windows"' "$tmp/m1/scripts/check.sh" || echoue "cibles linux,windows"
+grep -qF 'verifier_wsl' "$tmp/m1/scripts/check.sh" || echoue "verifier_wsl absent"
+grep -qF 'wsl : absent, étape sautée' "$tmp/m1/scripts/check.sh" || echoue "message wsl absent"
+grep -qF 'cache WSL vidé' "$tmp/m1/scripts/check.sh" || echoue "message --clean"
+mkdir "$tmp/w1"
+printf '%s
+' 'composant=cli|.|rust|' systemes=windows "${base[@]}" >"$tmp/w1v"
+"$install" "$tmp/w1" "$tmp/w1v" >/dev/null
+grep -qxF 'cibles="windows"' "$tmp/w1/scripts/check.sh" || echoue "cibles windows seul"
+bash -n "$tmp/w1/scripts/check.sh" || echoue "check.sh windows seul invalide"
+# Test de la sélection de cibles : éléments entiers, pas sous-chaînes.
+grep -qF '",$cibles," == *,linux,*' "$tmp/m1/scripts/check.sh" || echoue "cibles : élément entier"
 
 # Pile sans gabarit : section à écrire, et le script reste exécutable.
 mkdir "$tmp/m3"

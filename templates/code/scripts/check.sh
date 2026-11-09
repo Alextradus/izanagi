@@ -10,16 +10,33 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-case "${1:-}" in
-  --host | "") ;;
-  --clean) echo "rien à vider"; exit 0 ;;
-  *) echo "usage : scripts/check.sh [--host|--clean]" >&2; exit 2 ;;
-esac
+# Systèmes à vérifier. Sous Windows, `linux` veut dire : dans WSL.
+cibles="{{systemes}}"
+cache_wsl='.cache/{{projet_dossier}}-wsl'
 
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*) systeme=windows ;;
   Darwin*) systeme=macos ;;
   *) systeme=linux ;;
+esac
+
+host_only=false
+case "${1:-}" in
+  --host) host_only=true ;;
+  "") ;;
+  --clean)
+    if [[ $systeme != windows ]]; then
+      echo "rien à vider"
+    elif ! command -v wsl.exe >/dev/null; then
+      echo "wsl : absent, rien à vider"
+    else
+      # `--exec` ne développe pas $HOME : le shell de WSL s'en charge.
+      wsl.exe --exec bash -c 'rm -rf "$HOME/$0"' "$cache_wsl"
+      echo "cache WSL vidé"
+    fi
+    exit 0
+    ;;
+  *) echo "usage : scripts/check.sh [--host|--clean]" >&2; exit 2 ;;
 esac
 
 {{sections}}
@@ -28,6 +45,43 @@ verifier_tout() {
 {{appels}}
 }
 
+# Copie le dépôt dans WSL, hors de /mnt/c où les I/O sont lentes, et y lance
+# `check.sh --host`. La copie contient les fichiers suivis et les fichiers non
+# suivis non ignorés. Les dépendances installées (node_modules, .venv, target)
+# restent dans le cache d'une exécution à l'autre : seuls les fichiers de la
+# liste précédente (`.izanagi-files`) qui ont disparu du dépôt sont supprimés.
+verifier_wsl() {
+  if ! command -v wsl.exe >/dev/null; then
+    echo "wsl : absent, étape sautée"
+    return 0
+  fi
+  echo "== wsl : copie vers ~/$cache_wsl"
+  local staging
+  staging=$(mktemp -d)
+  git ls-files -z --cached --others --exclude-standard >"$staging/.izanagi-files.new"
+  # `--exec` passe les arguments tels quels, sans le shell par défaut ;
+  # `bash -l` charge le PATH de rustup, node et uv.
+  tar --null --ignore-failed-read -T "$staging/.izanagi-files.new" -cf - -C "$staging" .izanagi-files.new |
+    wsl.exe --exec bash -lc '
+      set -euo pipefail
+      dest="$HOME/$0"
+      mkdir -p "$dest"
+      cd "$dest"
+      tar -xf -
+      if [[ -f .izanagi-files ]]; then
+        comm -z -23 <(sort -z .izanagi-files) <(sort -z .izanagi-files.new) |
+          while IFS= read -r -d "" f; do rm -f -- "$f"; done
+      fi
+      mv .izanagi-files.new .izanagi-files
+      exec bash scripts/check.sh --host
+    ' "$cache_wsl"
+  rm -rf "$staging"
+}
+
 echo "== $systeme"
 verifier_tout
 echo "$systeme : tout passe"
+
+if [[ $systeme == windows && $host_only == false && ",$cibles," == *,linux,* ]]; then
+  verifier_wsl
+fi
