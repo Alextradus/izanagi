@@ -47,9 +47,10 @@ if [[ ${#noms[@]} -eq 0 ]]; then
 fi
 
 # Lignes d'un fichier hors commentaires (les lignes qui commencent par `#`).
-sans_commentaires() { grep -vE '^[[:space:]]*#' "$1" || true; }
+sans_commentaires() { tr -d '\r' <"$1" | grep -vE '^[[:space:]]*#' || true; }
 
 # Règle 1 : check.sh existe, est exécutable, est du shell valide.
+syntaxe_ok=false
 if [[ ! -f $projet/$check ]]; then
   ecart "$check" "fichier absent"
 elif [[ ! -x $projet/$check ]]; then
@@ -57,17 +58,32 @@ elif [[ ! -x $projet/$check ]]; then
 elif ! bash -n "$projet/$check" 2>/dev/null; then
   ecart "$check" "erreur de syntaxe (bash -n)"
 else
-  # Règle 2 : une option inconnue sort avec 2, sans rien vérifier.
-  code=0
-  (cd "$projet" && bash "$check" --inconnu >/dev/null 2>&1) || code=$?
-  [[ $code -eq 2 ]] || ecart "$check" "--inconnu doit sortir avec 2 (code $code)"
+  syntaxe_ok=true
 fi
 
 if [[ -f $projet/$check ]]; then
-  # Règle 3 : --host et --clean.
-  for option in '--host)' '--clean)'; do
-    grep -qF -- "$option" "$projet/$check" || ecart "$check" "ne gère pas ${option%)}"
+  # Règle 3 : --host et --clean, seuls ou en alternative (`--host|-h)`).
+  gere_host=false
+  for option in --host --clean; do
+    if grep -qE -- "(^|[|[:space:]])$option[|)]" "$projet/$check"; then
+      [[ $option == --host ]] && gere_host=true
+    else
+      ecart "$check" "ne gère pas $option"
+    fi
   done
+  # Règle 2 : une option inconnue sort avec 2, sans rien vérifier. Elle ne
+  # s'exécute que si check.sh lit ses arguments (un cas `--host)`) : sinon le
+  # script lancerait toute la vérification. Délai d'attente : 20 s.
+  if $syntaxe_ok && $gere_host; then
+    code=0
+    delai="${IZANAGI_CONTRAT_DELAI:-20}"
+    if command -v timeout >/dev/null; then
+      (cd "$projet" && timeout "$delai" bash "$check" --inconnu >/dev/null 2>&1) || code=$?
+    else
+      (cd "$projet" && bash "$check" --inconnu >/dev/null 2>&1) || code=$?
+    fi
+    [[ $code -eq 2 ]] || ecart "$check" "une option inconnue doit sortir avec le code 2 sans rien lancer"
+  fi
   # Règle 5 : une section par composant.
   for nom in "${noms[@]}"; do
     grep -qF -- "# --- composant $nom (" "$projet/$check" || ecart "$check" "pas de section pour le composant $nom"
@@ -94,10 +110,10 @@ for f in "$check" "$ci" "$dev"; do
       ecart "$f" "installation sans verrou : $(grep -oE "$motif" <<<"$texte" | head -1 | sed 's/^[^[:alnum:]]//') (utilise npm ci, uv sync --locked ou un fichier de verrou)"
     fi
   done
-  if grep -E '(^|[^[:alnum:]_-])uv sync' <<<"$texte" | grep -vqE -- '--locked'; then
+  if grep -E '(^|[^[:alnum:]_-])uv sync' <<<"$texte" | grep -v -- '--locked' >/dev/null; then
     ecart "$f" "uv sync sans verrou : ajoute --locked"
   fi
-  if grep -E '(^|[^[:alnum:]_-])cargo (build|test|clippy)' <<<"$texte" | grep -vqE -- '--locked'; then
+  if grep -E '(^|[^[:alnum:]_-])cargo (build|test|clippy)' <<<"$texte" | grep -v -- '--locked' >/dev/null; then
     ecart "$f" "cargo sans verrou : ajoute --locked"
   fi
 done

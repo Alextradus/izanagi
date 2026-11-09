@@ -77,6 +77,30 @@ sed -i 's/--host)/--hote)/' "$tmp/h/scripts/check.sh"
 if sortie="$("$contrat" "$tmp/h")"; then echoue "--host absent accepté"; fi
 rm -rf "$tmp/h"
 
+# check.sh qui ne lit pas ses arguments : la règle 2 est sautée, rien ne dort.
+cp -r "$tmp/ok" "$tmp/sd"
+printf '#!/usr/bin/env bash\n# --- composant cli (rust) ---\ncase "${1:-}" in --clean) ;; esac\nsleep 60\n' >"$tmp/sd/scripts/check.sh"
+sortie="$(IZANAGI_CONTRAT_DELAI=1 "$contrat" "$tmp/sd" || true)"
+grep -q 'ne gère pas --host' <<<"$sortie" || echoue "sans --host : $sortie"
+grep -q 'option inconnue' <<<"$sortie" && echoue "règle 2 lancée sans --host : $sortie"
+rm -rf "$tmp/sd"
+
+# check.sh dont la branche d'option inconnue dort : délai dépassé, écart.
+cp -r "$tmp/ok" "$tmp/sl"
+printf '#!/usr/bin/env bash\n# --- composant cli (rust) ---\ncase "${1:-}" in\n  --host|-h) ;;\n  --clean) exit 0 ;;\n  *) sleep 60 ;;\nesac\n' >"$tmp/sl/scripts/check.sh"
+if sortie="$(IZANAGI_CONTRAT_DELAI=1 "$contrat" "$tmp/sl")"; then echoue "délai dépassé accepté"; fi
+grep -q 'option inconnue doit sortir avec le code 2' <<<"$sortie" || echoue "délai : $sortie"
+grep -q 'ne gère pas' <<<"$sortie" && echoue "--host|-h) non reconnu : $sortie"
+rm -rf "$tmp/sl"
+
+# Section CRLF avec `npm install` : signalée.
+cp -r "$tmp/ok" "$tmp/cr"
+sed -i 's/^    echo "-- cli : format"/    npm install/' "$tmp/cr/scripts/check.sh"
+sed -i 's/$/\r/' "$tmp/cr/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/cr")"; then echoue "npm install en CRLF accepté"; fi
+grep -q 'verrou' <<<"$sortie" || echoue "CRLF : $sortie"
+rm -rf "$tmp/cr"
+
 # harness.md supprimé.
 rm "$tmp/ok/docs/agents/harness.md"
 if sortie="$("$contrat" "$tmp/ok")"; then echoue "harness.md absent accepté"; fi
