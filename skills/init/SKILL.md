@@ -43,7 +43,7 @@ Fin : tu as le type, les composants et les systèmes cibles.
 Cette section ne concerne que le dossier vide.
 
 1. Recommande une pile et justifie-la en une phrase, selon les critères de `references/interview.md`. Attends le choix de l'utilisateur.
-2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`). Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
+2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`). Sous Windows, quand `linux` est une cible, vérifie-les aussi dans WSL avec `wsl.exe --exec bash -lc 'command -v cargo node npm uv'`. Un chemin qui commence par `/mnt/` est un outil de Windows, que `check.sh` retire du PATH : compte-le comme absent. Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
 3. Sur l'accord de l'utilisateur, lance l'outil de création de `references/interview.md` dans le dossier de chaque composant : `.` pour un seul composant, un sous-dossier par composant sinon (`web/`, `api/`).
 4. Vérifie que le `.gitignore` de la racine ignore `node_modules/`, `.venv/`, `target/` et `dist/`. Ajoute les lignes qui manquent, sans en retirer aucune. Écrits sans `/` au début, ces motifs couvrent les dossiers de tous les composants. Dans un dépôt git existant, `cargo init <dossier>` et `npm init -y` n'écrivent pas de `.gitignore`. Sans ces lignes, la copie WSL de `check.sh` emporterait les dépendances de Windows et le commit du cadre les prendrait.
 5. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par composant, qui affirme un résultat du code créé. Sans ce test, `pytest` et `vitest` font échouer la première vérification.
@@ -75,7 +75,7 @@ N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplace
 
 **Test manuel tiré de la fiche.** La section « Test manuel par défaut » de la fiche du type donne les deux valeurs. `test_manuel` est la commande entre accents graves qui correspond à la pile du composant. `lieu_test` est le lieu de la phrase, mis en complément (« dans un terminal », « dans son navigateur »). Écris-les pour un seul composant, quelle que soit sa pile. Avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`. Omets alors la clé et garde `lieu_test`. Si aucun de ces composants n'a de lancement, `dev.sh` sort avec le code 1. Écris alors `test_manuel` dans le fichier de valeurs, avec la commande de la fiche.
 
-**Version.** Avec des piles différentes, le script prend `fichier_version` dans la dernière pile lue. Écris celui du composant qui porte la version du projet. Une pile sans gabarit n'en a pas, écris-le aussi.
+**Version.** Avec plusieurs composants, le script prend `fichier_version` dans la dernière pile lue, sans chemin. Écris celui du composant qui porte la version du projet, avec son chemin (« `version` du `api/package.json`, avec `api/package-lock.json` commité »). Une pile sans gabarit n'en a pas, écris-le aussi.
 
 **Projet 0.1 et relance 0.2.** Reprends chaque valeur dans le `docs/agents/jalon.md` et le titre du `CLAUDE.md` existants, sans les accents graves qui entourent un chemin. En relance 0.2, prends aussi dans `harness.md` chaque ligne `- composant : <nom> | <chemin> | <pile> | <lancement>`, en retirant les espaces autour des `|`, puis la ligne « Systèmes cibles », le type et les couches. Tu compares ainsi le projet au gabarit à valeurs égales, et les écarts affichés viennent du gabarit ou des ajouts du projet, jamais d'une valeur changée.
 
@@ -123,7 +123,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>
 
 Chaque ligne `contrat : <fichier> : <règle>` est un écart. Si le fichier a été créé par `install.sh` ou rempli à la section 6, corrige-le et relance jusqu'à `contrat : respecté`. Si le fichier était déjà là, rapporte l'écart et propose la correction, que tu fais seulement sur l'accord de l'utilisateur. `contrat : aucun composant, rien à vérifier` signifie que `harness.md` ne déclare aucun composant. Si le projet a du code, reprends la détection de la section 2, réécris le fichier de valeurs avec les composants trouvés et relance la section 5. `harness.md` sort alors `différent`, car `install.sh` l'a posé sans composant. Remplace-le par `<rapport>/rendu/docs/agents/harness.md`, puis reprends les sections 6 à 8.
 
-Lance ensuite `bash scripts/check.sh --host` une fois. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve.
+Lance ensuite `bash scripts/check.sh --host` une fois. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve. Un `command not found` dans la partie `linux` d'une vérification complète signale un outil absent de WSL : donne sa commande d'installation pour Linux, puis `scripts/check.sh --clean` pour repartir d'un cache propre.
 
 Fin : les écarts au contrat sont corrigés ou rapportés, et tu connais le résultat de `check.sh --host`.
 

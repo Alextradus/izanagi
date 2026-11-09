@@ -43,7 +43,7 @@ Les piles de référence (Rust, TypeScript avec npm, Python avec uv) ont des gab
 
 ## Ce qu'`init` ajoute après la création
 
-- **TypeScript.** `prettier`, `eslint` et `vitest` en dépendances de développement, et les scripts `format:check`, `lint` et `test` dans `package.json`. `package-lock.json` doit exister et être commité, car la vérification lance `npm ci`.
+- **TypeScript.** `prettier` et `vitest` en dépendances de développement, et les scripts `format:check` (`prettier --check .`), `lint` et `test` (`vitest run`) dans `package.json`. Si le modèle de création a déjà un script `lint` (Vite fournit `oxlint`), garde-le. Sinon, ajoute `eslint` avec `typescript-eslint` et un `eslint.config.js`. Écris un `.prettierrc.json` qui contient `{ "endOfLine": "auto" }` : avec `core.autocrlf`, un clone Windows reçoit des fins de ligne CRLF, que prettier refuse par défaut. `package-lock.json` doit exister et être commité, car la vérification lance `npm ci`.
 - **Python.** `ruff` et `pytest` en dépendances de développement (`uv add --dev ruff pytest`). `uv.lock` doit être commité.
 - **Rust.** Rien. `cargo fmt`, `clippy` et `cargo test` sont déjà là. `Cargo.lock` doit être commité.
 - **Autre pile.** Les outils de format, de lint et de test choisis pour remplir la section `# À ÉCRIRE`.

@@ -84,6 +84,15 @@ verifier_wsl() {
           while IFS= read -r -d "" f; do rm -f -- "$f"; done
       fi
       mv .izanagi-files.new .izanagi-files
+      # WSL ajoute au PATH les dossiers de Windows (/mnt/c/...). Un outil absent
+      # de Linux y serait pris dans Windows : npm installerait des binaires
+      # Windows dans la copie. Sans ces dossiers, il manque franchement.
+      linux_seul=""
+      IFS=: read -ra dossiers <<<"$PATH"
+      for d in "${dossiers[@]}"; do
+        [[ $d == /mnt/* ]] || linux_seul+="${linux_seul:+:}$d"
+      done
+      export PATH="$linux_seul"
       exec bash scripts/check.sh --host
     ' "$cache_wsl"
 }

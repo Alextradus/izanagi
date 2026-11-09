@@ -93,6 +93,8 @@ grep -qF 'CARGO_TARGET_DIR' "$tmp/m1/scripts/check.sh" && echoue "CARGO_TARGET_D
 grep -qxF 'cibles="linux,windows"' "$tmp/m1/scripts/check.sh" || echoue "cibles linux,windows"
 grep -qF 'verifier_wsl' "$tmp/m1/scripts/check.sh" || echoue "verifier_wsl absent"
 grep -qF 'wsl : absent, étape sautée' "$tmp/m1/scripts/check.sh" || echoue "message wsl absent"
+# Dans WSL, les dossiers Windows (/mnt/...) sortent du PATH avant la vérification.
+grep -qF '[[ $d == /mnt/* ]] || linux_seul+=' "$tmp/m1/scripts/check.sh" || echoue "PATH WSL garde les dossiers Windows"
 grep -qF 'cache WSL vidé' "$tmp/m1/scripts/check.sh" || echoue "message --clean"
 mkdir "$tmp/w1"
 printf '%s
