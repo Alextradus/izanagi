@@ -93,6 +93,13 @@ verifier_wsl() {
         [[ $d == /mnt/* ]] || linux_seul+="${linux_seul:+:}$d"
       done
       export PATH="$linux_seul"
+      # nvm se charge dans .bashrc, après la garde des shells non interactifs :
+      # `bash -l` ne le voit pas. nvm.sh supporte mal `set -eu`.
+      if [[ -s $HOME/.nvm/nvm.sh ]]; then
+        set +eu
+        . "$HOME/.nvm/nvm.sh"
+        set -eu
+      fi
       exec bash scripts/check.sh --host
     ' "$cache_wsl"
 }

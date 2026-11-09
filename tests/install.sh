@@ -95,6 +95,7 @@ grep -qF 'verifier_wsl' "$tmp/m1/scripts/check.sh" || echoue "verifier_wsl absen
 grep -qF 'wsl : absent, étape sautée' "$tmp/m1/scripts/check.sh" || echoue "message wsl absent"
 # Dans WSL, les dossiers Windows (/mnt/...) sortent du PATH avant la vérification.
 grep -qF '[[ $d == /mnt/* ]] || linux_seul+=' "$tmp/m1/scripts/check.sh" || echoue "PATH WSL garde les dossiers Windows"
+grep -qF '. "$HOME/.nvm/nvm.sh"' "$tmp/m1/scripts/check.sh" || echoue "nvm non chargé dans WSL"
 grep -qF 'cache WSL vidé' "$tmp/m1/scripts/check.sh" || echoue "message --clean"
 mkdir "$tmp/w1"
 printf '%s
