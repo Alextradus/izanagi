@@ -107,10 +107,10 @@ sed -i "s|^.*# À ÉCRIRE.*\$|    pwd > \"$tmp/m4/vu\"|" "$tmp/m4/scripts/check.
 [[ $(cat "$tmp/m4/vu") == */apps/mon\ front ]] || echoue "chemin avec espace : $(cat "$tmp/m4/vu")"
 
 # Refus avant écriture : nom de composant invalide, système inconnu.
-for ligne in 'composant=Web|.|rust|' 'systemes=linux,bsd'; do
+for ligne in 'composant=Web|.|rust|' 'systemes=linux,bsd' 'composant=a|a"b|rust|' 'composant=a|a$b|rust|' 'composant=a|a`b|rust|' 'composant=a|a\b|rust|'; do
   mkdir "$tmp/m5"
-  printf '%s\n' 'composant=cli|.|rust|' "$ligne" "${base[@]}" >"$tmp/m5v"
-  [[ $ligne == composant=* ]] && printf '%s\n' "$ligne" "${base[@]}" >"$tmp/m5v"
+  printf '%s\n' "$ligne" "${base[@]}" >"$tmp/m5v"
+  [[ $ligne == systemes=* ]] && printf '%s\n' 'composant=cli|.|rust|' "$ligne" "${base[@]}" >"$tmp/m5v"
   if "$install" "$tmp/m5" "$tmp/m5v" 2>"$tmp/err"; then echoue "$ligne accepté"; fi
   grep -q 'refusé' "$tmp/err" || echoue "$ligne : message sans refus"
   [[ -z $(ls -A "$tmp/m5") ]] || echoue "$ligne : écriture malgré le refus"

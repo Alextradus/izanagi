@@ -68,6 +68,8 @@ fi
 # Validation avant toute écriture. Les noms de pile des composants servent de
 # nom de dossier de gabarits : ni `/` ni `..`, et pas un dossier réservé.
 declare -A noms_vus=()
+# Caractères qui casseraient le `cd "chemin"` de check.sh.
+chemin_interdit='["$`\]'
 for entree in "${composants[@]}"; do
   IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
   if [[ ! $c_nom =~ ^[a-z0-9-]+$ ]]; then
@@ -79,7 +81,7 @@ for entree in "${composants[@]}"; do
     exit 2
   fi
   noms_vus[$c_nom]=1
-  if [[ -z $c_chemin || $c_chemin == /* || $c_chemin == *[\"\$\`\]* || /$c_chemin/ == */../* ]]; then
+  if [[ -z $c_chemin || $c_chemin == /* || $c_chemin =~ $chemin_interdit || /$c_chemin/ == */../* ]]; then
     echo "install.sh : chemin « $c_chemin » du composant $c_nom refusé : relatif à la racine, sans \" \$ \` \ ni .." >&2
     exit 2
   fi
@@ -112,13 +114,14 @@ valeurs[ci_os]="[$ci_os]"
 
 # Valeurs par défaut de chaque pile utilisée (pile demandée, puis composants).
 declare -A piles_lues=()
-for p in "$pile" "${composants[@]/#/}"; do
+for p in "$pile" "${composants[@]}"; do
   [[ $p == *'|'* ]] && { IFS='|' read -r _ _ p _ <<<"$p"; }
   [[ $p == aucune || -n ${piles_lues[$p]:-} ]] && continue
   piles_lues[$p]=1
   [[ -f $racine/templates/$p/defaults.env ]] && lire_valeurs "$racine/templates/$p/defaults.env"
 done
 lire_valeurs "$valeurs_utilisateur"
+# Posées de nouveau : le fichier de valeurs ne doit pas écraser les valeurs calculées.
 valeurs[systemes]="$systemes"
 valeurs[ci_os]="[$ci_os]"
 
