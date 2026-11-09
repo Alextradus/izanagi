@@ -114,12 +114,15 @@ valeurs[ci_os]="[$ci_os]"
 
 # Valeurs par défaut de chaque pile utilisée (pile demandée, puis composants).
 declare -A piles_lues=()
-for p in "$pile" "${composants[@]}"; do
-  [[ $p == *'|'* ]] && { IFS='|' read -r _ _ p _ <<<"$p"; }
+for p in "${composants[@]}"; do
+  IFS='|' read -r _ _ p _ <<<"$p"
   [[ $p == aucune || -n ${piles_lues[$p]:-} ]] && continue
   piles_lues[$p]=1
   [[ -f $racine/templates/$p/defaults.env ]] && lire_valeurs "$racine/templates/$p/defaults.env"
 done
+# Plusieurs composants : le test manuel par défaut est dev.sh, sauf si le
+# fichier de valeurs en donne un.
+[[ ${#composants[@]} -ge 2 ]] && valeurs[test_manuel]=scripts/dev.sh
 lire_valeurs "$valeurs_utilisateur"
 # Posées de nouveau : le fichier de valeurs ne doit pas écraser les valeurs calculées.
 valeurs[systemes]="$systemes"
@@ -164,6 +167,7 @@ fi
 sources=("$racine/templates/core")
 [[ $pile != aucune ]] && sources+=("$racine/templates/$pile")
 [[ ${#composants[@]} -gt 0 ]] && sources+=("$racine/templates/code")
+[[ ${#composants[@]} -ge 2 ]] && sources+=("$racine/templates/multi")
 [[ ${valeurs[vault]:-non} != non ]] && sources+=("$racine/templates/vault")
 
 # Rend un gabarit sur la sortie standard. Une ligne réduite à un `{{clé}}` de
@@ -205,6 +209,7 @@ fragment() {
 # Valeurs calculées : sections, appels et installation CI des composants.
 sections=""
 appels=""
+lancements=""
 ci_setup=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
@@ -213,6 +218,7 @@ for entree in "${composants[@]}"; do
   c_id="${c_nom//-/_}"
   sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
     "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
+  [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"
   appels+="${appels:+$'\n'}  verifier_$c_id"
   if [[ -z ${setup_vus[$c_pile]:-} ]]; then
     setup_vus[$c_pile]=1
@@ -224,6 +230,7 @@ done
 valeurs[sections]="$sections"
 valeurs[appels]="$appels"
 valeurs[ci_setup]="$ci_setup"
+valeurs[lancements]="$lancements"
 
 declare -a fichiers=()
 manque=false

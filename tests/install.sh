@@ -117,6 +117,44 @@ mkdir "$tmp/l"
 # Test de la sélection de cibles : éléments entiers, pas sous-chaînes.
 grep -qF '",$cibles," == *,linux,*' "$tmp/m1/scripts/check.sh" || echoue "cibles : élément entier"
 
+# --- piles TypeScript et Python, dev.sh ---
+mkdir "$tmp/t1"
+printf '%s
+' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|npm run dev' projet=essai spec=s.md lieu_test=ici >"$tmp/t1v"
+sortie="$("$install" "$tmp/t1" "$tmp/t1v")"
+[[ $(grep -c 'actions/setup-node' "$tmp/t1/.github/workflows/ci.yml") -eq 1 ]] || echoue "setup-node : un seul attendu"
+grep -qF 'node-version: lts/*' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : node-version"
+grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : cache npm"
+[[ $(grep -c '^# --- composant' "$tmp/t1/scripts/check.sh") -eq 2 ]] || echoue "check.sh : deux sections"
+grep -qF 'npm ci' "$tmp/t1/scripts/check.sh" || echoue "check.sh : npm ci"
+grep -qF 'npm run format:check' "$tmp/t1/scripts/check.sh" || echoue "check.sh : format:check"
+bash -n "$tmp/t1/scripts/check.sh" || echoue "check.sh typescript invalide"
+[[ -x $tmp/t1/scripts/dev.sh ]] || echoue "dev.sh absent ou non exécutable"
+grep -qxF '(cd "api" && npm run dev) &' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : lancement api"
+grep -qxF '(cd "web" && npm run dev) &' "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : lancement web"
+grep -qF "trap 'kill 0' EXIT" "$tmp/t1/scripts/dev.sh" || echoue "dev.sh : trap"
+bash -n "$tmp/t1/scripts/dev.sh" || echoue "dev.sh invalide"
+grep -qF 'avec `scripts/dev.sh`' "$tmp/t1/docs/agents/jalon.md" || echoue "jalon.md : test manuel dev.sh"
+grep -qF '`package-lock.json`' "$tmp/t1/docs/CODING_STANDARDS.md" || echoue "CODING_STANDARDS.md : package-lock.json"
+
+# Le fichier de valeurs l'emporte sur le test manuel par défaut de dev.sh.
+mkdir "$tmp/t2"
+printf '%s
+' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|' projet=essai spec=s.md lieu_test=ici 'test_manuel=npm start' >"$tmp/t2v"
+"$install" "$tmp/t2" "$tmp/t2v" >/dev/null
+grep -qF 'avec `npm start`' "$tmp/t2/docs/agents/jalon.md" || echoue "test_manuel du fichier de valeurs ignoré"
+grep -qF '"web"' "$tmp/t2/scripts/dev.sh" && echoue "dev.sh lance un composant sans lancement"
+
+mkdir "$tmp/t3"
+printf '%s
+' 'composant=outil|.|python|' projet=essai spec=s.md lieu_test=ici test_manuel=x >"$tmp/t3v"
+"$install" "$tmp/t3" "$tmp/t3v" >/dev/null
+grep -qF 'uv sync --locked' "$tmp/t3/scripts/check.sh" || echoue "check.sh : uv sync"
+grep -qF 'uv run ruff check' "$tmp/t3/scripts/check.sh" || echoue "check.sh : ruff check"
+grep -qF 'astral-sh/setup-uv' "$tmp/t3/.github/workflows/ci.yml" || echoue "ci.yml : setup-uv"
+bash -n "$tmp/t3/scripts/check.sh" || echoue "check.sh python invalide"
+[[ -e $tmp/t3/scripts/dev.sh ]] && echoue "dev.sh posé avec un seul composant"
+
 # Pile sans gabarit : section à écrire, et le script reste exécutable.
 mkdir "$tmp/m3"
 printf '%s\n' 'composant=outil|.|zig|' "${base[@]}" >"$tmp/m3v"
