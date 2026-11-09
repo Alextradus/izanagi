@@ -16,7 +16,7 @@ Reconnais le cas, le premier qui s'applique :
 
 | Constat | Cas |
 |---|---|
-| aucun fichier hors `.git` | dossier vide |
+| aucun fichier hors `.git` et `.claude/` | dossier vide |
 | `docs/agents/harness.md` existe | relance 0.2 |
 | `docs/agents/jalon.md` existe sans `harness.md` | projet 0.1 |
 | sinon | projet existant sans Izanagi |
@@ -30,11 +30,11 @@ Fin : tu annonces le cas en une ligne.
 Une valeur donnée en argument de `/izanagi:init` (`type=cli`, `vault=non`) vaut réponse : ne pose pas sa question.
 
 - **Dossier vide.** Mène l'entretien de `references/interview.md` : deux appels à AskUserQuestion au plus, sans reposer une question déjà réglée par le message de l'utilisateur.
-- **Projet existant.** Détecte les composants (voir plus bas), puis demande seulement le type d'application, parmi les fiches de `references/types/`.
-- **Projet 0.1.** Détecte les composants de la même façon. Les systèmes cibles viennent de `.github/workflows/ci.yml` : `ubuntu-latest` donne `linux`, `windows-latest` donne `windows`, `macos-latest` donne `macos`. Les autres valeurs viennent de `docs/agents/jalon.md` (section 4). Demande seulement le type.
-- **Relance 0.2.** Ne demande rien : tout est dans `harness.md` et `jalon.md` (section 4).
+- **Projet existant.** Détecte les composants (voir plus bas). Pose en un seul appel à AskUserQuestion le type d'application, la spec, le test manuel avec son lieu, et le vault. Chaque question a sa valeur proposée en premier : la fiche du type le plus probable pour le type, le test manuel et le lieu ; `docs/superpowers/specs/<date>-<projet>-design.md` pour la spec, chemin où `superpowers:brainstorming` l'écrira ; `non` pour le vault. Les systèmes cibles viennent de `.github/workflows/ci.yml` s'il existe, sinon ils valent `linux,windows`.
+- **Projet 0.1.** Détecte les composants de la même façon. Dans `.github/workflows/ci.yml`, `ubuntu-latest` donne `linux`, `windows-latest` donne `windows` et `macos-latest` donne `macos`. Les autres valeurs viennent de `docs/agents/jalon.md` (section 4). Demande seulement le type.
+- **Relance 0.2.** Ne demande rien. Tout est dans `harness.md` et `jalon.md` (section 4).
 
-**Détection des composants.** Un `Cargo.toml` donne `rust`, un `package.json` donne `typescript`, un `pyproject.toml` donne `python`. Cherche-les à la racine et un niveau en dessous, hors `node_modules`, `target` et `.venv`. Un manifeste sous un workspace racine de même pile (workspace Cargo, `workspaces` de npm) n'est pas un composant à part. Le composant de la racine a pour nom sa pile et pour chemin `.`. Un composant d'un sous-dossier a pour nom celui du dossier, réduit à `[a-z0-9-]`. Le lancement vient du manifeste : `npm run dev` si `package.json` a un script `dev`, `cargo run` pour un binaire Rust, l'entrée de `[project.scripts]` pour Python, rien sinon. Si un projet TypeScript n'a pas de `package-lock.json` (pnpm, yarn), dis à l'utilisateur que le gabarit lance `npm ci`.
+**Détection des composants.** Un `Cargo.toml` donne `rust`, un `package.json` donne `typescript`, un `pyproject.toml` donne `python`. Cherche-les à la racine et un niveau en dessous, hors `node_modules`, `target` et `.venv`. Un manifeste sous un workspace racine de même pile (workspace Cargo, `workspaces` de npm) n'est pas un composant à part. Du code sans ces manifestes (`go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `Package.swift`…) donne aussi un composant. Propose-le avec le nom de sa pile (`go`, `java`, `csharp`, `swift`), et `install.sh` lui écrira une section `# À ÉCRIRE`. Le composant de la racine a pour nom sa pile et pour chemin `.`. Un composant d'un sous-dossier a pour nom celui du dossier. Noms et piles suivent `[a-z0-9-]`, et une pile ne vaut jamais `aucune`, `core`, `code`, `vault` ni `multi`. Le lancement vient du manifeste : `npm run dev` si `package.json` a un script `dev`, `cargo run` pour un binaire Rust, l'entrée de `[project.scripts]` pour Python, rien sinon. Si un projet TypeScript n'a pas de `package-lock.json` (pnpm, yarn), dis à l'utilisateur que le gabarit lance `npm ci`.
 
 Fin : tu as le type, les composants et les systèmes cibles.
 
@@ -44,11 +44,12 @@ Cette section ne concerne que le dossier vide.
 
 1. Recommande une pile et justifie-la en une phrase, selon les critères de `references/interview.md`. Attends le choix de l'utilisateur.
 2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`). Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
-3. Lance l'outil de création de `references/interview.md` dans le dossier de chaque composant : `.` pour un seul composant, un sous-dossier par composant sinon (`web/`, `api/`).
-4. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), et produis le fichier de verrou.
-5. Si l'utilisateur a voulu le dépôt GitHub, propose `gh repo create <nom> --private --source . --remote origin` et lance-le seulement sur son accord.
+3. Sur l'accord de l'utilisateur, lance l'outil de création de `references/interview.md` dans le dossier de chaque composant : `.` pour un seul composant, un sous-dossier par composant sinon (`web/`, `api/`).
+4. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par composant, qui affirme un résultat du code créé. Sans ce test, `pytest` et `vitest` font échouer la première vérification.
+5. Produis le fichier de verrou : `cargo generate-lockfile`, `npm install` ou `uv lock`.
+6. Si l'utilisateur a voulu le dépôt GitHub, propose `gh repo create <nom> --private --source . --remote origin` et lance-le seulement sur son accord.
 
-Fin : chaque composant existe sur le disque avec son fichier de verrou.
+Fin : chaque composant existe sur le disque avec son fichier de verrou et un test.
 
 ## 4. Écrire les valeurs
 
@@ -57,27 +58,25 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou.
 | Clé | Sens | D'où elle vient |
 |---|---|---|
 | `composant` | `<nom>\|<chemin>\|<pile>\|<lancement>`, une ligne par composant | sections 2 et 3 |
-| `systemes` | sous-ensemble de `linux,windows,macos` | entretien, `ci.yml` en 0.1 |
-| `type` | identifiant d'une fiche de `references/types/` | entretien ou question |
+| `systemes` | sous-ensemble de `linux,windows,macos` | section 2 |
+| `type` | identifiant d'une fiche de `references/types/` | section 2 |
 | `couches` | couches de test retenues | fiche du type, ajustée à la pile |
 | `projet` | nom du projet, tel qu'il s'affiche | entretien, `name` du manifeste racine, sinon le nom du dossier |
 | `projet_dossier` | nom de dossier du cache WSL | `scripts/check.sh` existant (le nom avant `-wsl` ou `-target` dans `.cache/`), sinon `name` de `Cargo.toml` ; sinon omets-la |
-| `spec` | chemin de la spec, qui fait foi | la spec existante, sinon `docs/superpowers/specs/<date>-<projet>-design.md` |
+| `spec` | chemin de la spec, qui fait foi | réponse, sinon la spec existante, sinon `docs/superpowers/specs/<date>-<projet>-design.md` |
 | `branche` | branche principale | `git symbolic-ref --short HEAD`, sinon `main` |
-| `test_manuel` | commande qui lance la branche pour l'essayer | fiche du type, « Test manuel par défaut », pour la pile du composant |
-| `lieu_test` | où l'utilisateur essaie, en complément de phrase (« dans son navigateur ») | même section de la fiche |
-| `vault` | chemin du vault Obsidian du projet, ou `non` | argument, sinon `non` |
+| `test_manuel` | commande qui lance la branche pour l'essayer | réponse, sinon la fiche du type |
+| `lieu_test` | où l'utilisateur essaie, en complément de phrase | réponse, sinon la fiche du type |
+| `vault` | chemin du vault Obsidian du projet, ou `non` | réponse ou argument, sinon `non` |
 | `fichier_version` | fichier qui porte la version | seulement si les piles diffèrent ou si une pile n'a pas de gabarit |
 
-N'écris pas de ligne `pile=` : les lignes `composant=` la remplacent. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans » : donne-la avec son article.
+N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplacent. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans », donc donne-la avec son article.
 
-Trois défauts du script demandent ton attention :
+**Test manuel tiré de la fiche.** La section « Test manuel par défaut » de la fiche du type donne les deux valeurs. `test_manuel` est la commande entre accents graves qui correspond à la pile du composant. `lieu_test` est le lieu de la phrase, mis en complément (« dans un terminal », « dans son navigateur »). Écris-les pour un seul composant, quelle que soit sa pile. Avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`. Omets alors la clé et garde `lieu_test`.
 
-- avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`, et tu n'écris pas la clé ;
-- seule la pile Rust a un `test_manuel` par défaut, donc écris-le pour un seul composant TypeScript, Python ou d'une autre pile ;
-- avec des piles différentes, `fichier_version` vient de la dernière pile lue. Écris celui du composant qui porte la version du projet. Une pile sans gabarit n'en a pas, écris-le aussi.
+**Version.** Avec des piles différentes, le script prend `fichier_version` dans la dernière pile lue. Écris celui du composant qui porte la version du projet. Une pile sans gabarit n'en a pas, écris-le aussi.
 
-**Projet 0.1 et relance 0.2.** Reprends chaque valeur dans le `docs/agents/jalon.md` et le titre du `CLAUDE.md` existants, sans les accents graves qui entourent un chemin. En relance 0.2, prends aussi dans `harness.md` chaque ligne `- composant : <nom> | <chemin> | <pile> | <lancement>`, la ligne « Systèmes cibles », le type et les couches. Tu compares ainsi le projet au gabarit à valeurs égales, et les écarts affichés viennent du gabarit ou des ajouts du projet, jamais d'une valeur changée.
+**Projet 0.1 et relance 0.2.** Reprends chaque valeur dans le `docs/agents/jalon.md` et le titre du `CLAUDE.md` existants, sans les accents graves qui entourent un chemin. En relance 0.2, prends aussi dans `harness.md` chaque ligne `- composant : <nom> | <chemin> | <pile> | <lancement>`, en retirant les espaces autour des `|`, puis la ligne « Systèmes cibles », le type et les couches. Tu compares ainsi le projet au gabarit à valeurs égales, et les écarts affichés viennent du gabarit ou des ajouts du projet, jamais d'une valeur changée.
 
 Fin : le fichier de valeurs est écrit.
 
@@ -93,21 +92,9 @@ Le script rend une ligne par gabarit (`créé`, `identique`, `différent`), une 
 
 Pour chaque ligne `à écrire` dont le marqueur `# À ÉCRIRE` est encore dans `scripts/check.sh` ou `.github/workflows/ci.yml`, remplis la section du composant et l'installation de sa pile dans la CI. Suis « Remplir une section `# À ÉCRIRE` » de `references/verification-contract.md`.
 
-Fin : aucun `À ÉCRIRE` ne reste dans `check.sh`, `ci.yml` ni `dev.sh`.
+Fin : aucun `À ÉCRIRE` ne reste dans les fichiers que tu as remplis.
 
-## 7. Contrôler
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>
-```
-
-Chaque ligne `contrat : <fichier> : <règle>` est un écart. Corrige-le et relance jusqu'à `contrat : respecté`. `contrat : aucun composant, rien à vérifier` signifie que le projet n'a pas de code. Dis-le à l'utilisateur.
-
-Lance ensuite `bash scripts/check.sh --host` une fois. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve.
-
-Fin : le contrat est respecté et tu connais le résultat de `check.sh --host`.
-
-## 8. Lire les écarts
+## 7. Lire les écarts
 
 Pour chaque fichier `différent`, lis `<rapport>/diff/<chemin>.diff`. Le côté `projet/` est le fichier en place, le côté `gabarit/` le gabarit rendu. Classe chaque bloc :
 
@@ -115,22 +102,34 @@ Pour chaque fichier `différent`, lis `<rapport>/diff/<chemin>.diff`. Le côté 
 - **Manque au projet** (lignes en `+` seules) : une convention du gabarit absente du projet. Cite-la.
 - **Divergence** (les deux) : le projet et le gabarit disent la même chose autrement. Cite les deux versions.
 
-Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Le contrôle de la section 7 les couvre, donc ne classe pas ces blocs.
+Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Le contrôle de la section 8 les couvre, donc ne classe pas ces blocs.
 
 **Projet 0.1.** `scripts/check.sh` et `.github/workflows/ci.yml` en `différent` sont la mise à jour du gabarit 0.2 : vérification par composant, `--host` et `--clean`, CI en matrice de systèmes. Présente-les ainsi, et propose de les reprendre en entier. Sur son accord, remplace chaque fichier par `<rapport>/rendu/<chemin>`.
 
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
 
+## 8. Contrôler
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>
+```
+
+Chaque ligne `contrat : <fichier> : <règle>` est un écart. Si le fichier a été créé par `install.sh` ou rempli à la section 6, corrige-le et relance jusqu'à `contrat : respecté`. Si le fichier était déjà là, rapporte l'écart et propose la correction, que tu fais seulement sur l'accord de l'utilisateur. `contrat : aucun composant, rien à vérifier` signifie que `harness.md` ne déclare aucun composant. Si le projet a du code, reprends la détection de la section 2.
+
+Lance ensuite `bash scripts/check.sh --host` une fois. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve.
+
+Fin : les écarts au contrat sont corrigés ou rapportés, et tu connais le résultat de `check.sh --host`.
+
 ## 9. Activer
 
-- **Hook** : si `scripts/check.sh` existe, lance `git config core.hooksPath .githooks`.
-- **Bit exécutable** : pour chaque `scripts/*.sh` (dont `scripts/dev.sh`) et `.githooks/*` créé à la section 5, `git add --chmod=+x <fichier>`. Sous Windows, git ne voit pas le bit posé sur le disque, et un clone Linux aurait un hook qui ne se lance pas.
+- **Hook.** Si `scripts/check.sh` existe, lance `git config core.hooksPath .githooks`.
+- **Bit exécutable.** Pour chaque `scripts/*.sh` (dont `scripts/dev.sh`) et `.githooks/*` créé à la section 5, lance `git add --chmod=+x <fichier>`. Sous Windows, git ne voit pas le bit posé sur le disque, et un clone Linux aurait un hook qui ne se lance pas.
 
 ## 10. Rendre compte
 
 Donne à l'utilisateur :
 
-- les fichiers créés, identiques et différents, avec les écarts de la section 8 ;
+- les fichiers créés, identiques et différents, avec les écarts de la section 7 et ceux du contrat restés ouverts ;
 - les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `docs/agents/jalon.md` ;
 - les prérequis absents de ta liste de skills : `mattpocock-skills:*` et `superpowers:*`. `retro` ne figure jamais dans cette liste, car seul l'utilisateur le lance : ne le signale pas.
 
@@ -138,7 +137,7 @@ Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune 
 
 1. Commit du cadre : `git add <fichiers> && git commit -m "chore: cadre Izanagi"`. Sur un dossier vide, le commit prend aussi le projet créé et son fichier de verrou.
 2. Outils à installer : chaque outil refusé à la section 3 et chaque prérequis de la fiche du type (`npx playwright install`), avec sa commande.
-3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la fiche du type.
+3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type.
 4. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `superpowers:brainstorming`.
 
 Propose de lancer tout de suite la première étape que tu peux faire toi-même, en général le commit, et fais-la sur son accord.

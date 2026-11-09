@@ -60,4 +60,4 @@ Une pile sans gabarit reçoit une section vide, marquée `# À ÉCRIRE : <compos
 2. Si la pile n'a pas de formateur ou de linter officiel, prends l'outil que sa communauté tient pour standard et dis-le à l'utilisateur.
 3. Remplace la ligne `# À ÉCRIRE` de `check.sh` par les étapes, dans l'ordre installation, format, lint, tests, avec un `echo "-- <nom> : <étape>"` avant chacune. Garde le sous-shell et le `cd`.
 4. Remplace celle de `ci.yml` par l'action officielle qui installe la toolchain, épinglée à une version majeure.
-5. Lance `bash scripts/check-contract.sh .`, puis `bash scripts/check.sh --host`. Corrige jusqu'à ce que les deux passent.
+5. Lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>`, puis `bash scripts/check.sh --host`. Corrige jusqu'à ce que les deux passent.
