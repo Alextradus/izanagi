@@ -30,7 +30,7 @@ Fin : tu annonces le cas en une ligne.
 Une valeur donnée en argument de `/izanagi:init` (`type=cli`, `vault=non`) vaut réponse : ne pose pas sa question.
 
 - **Dossier vide.** Mène l'entretien de `references/interview.md` : deux appels à AskUserQuestion au plus, sans reposer une question déjà réglée par le message de l'utilisateur.
-- **Projet existant.** Détecte les composants (voir plus bas). Pose en un seul appel à AskUserQuestion le type d'application, la spec, le test manuel avec son lieu, et le vault. Chaque question a sa valeur proposée en premier : la fiche du type le plus probable pour le type, le test manuel et le lieu ; `docs/superpowers/specs/<date>-<projet>-design.md` pour la spec, chemin où `superpowers:brainstorming` l'écrira ; `non` pour le vault. Les systèmes cibles viennent de `.github/workflows/ci.yml` s'il existe, sinon ils valent `linux,windows`.
+- **Projet existant.** Détecte les composants (voir plus bas). Pose en un seul appel à AskUserQuestion le type d'application, la spec, le test manuel avec son lieu, et le vault. Chaque question a sa valeur proposée en premier : la fiche du type le plus probable pour le type, le test manuel et le lieu ; `docs/specs/<date>-<projet>-design.md` pour la spec, chemin où `izanagi:brainstorming` l'écrira ; `non` pour le vault. Les systèmes cibles viennent de `.github/workflows/ci.yml` s'il existe, sinon ils valent `linux,windows`.
 - **Projet 0.1.** Détecte les composants de la même façon. Dans `.github/workflows/ci.yml`, `ubuntu-latest` donne `linux`, `windows-latest` donne `windows` et `macos-latest` donne `macos`. Les autres valeurs viennent de `docs/agents/jalon.md` (section 4). Demande seulement le type.
 - **Relance 0.2.** Ne demande rien. Tout est dans `harness.md` et `jalon.md` (section 4).
 
@@ -64,7 +64,7 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 | `couches` | couches de test retenues | fiche du type, ajustée à la pile |
 | `projet` | nom du projet, tel qu'il s'affiche | entretien, `name` du manifeste racine, sinon le nom du dossier |
 | `projet_dossier` | nom de dossier du cache WSL | `scripts/check.sh` existant (le nom avant `-wsl` ou `-target` dans `.cache/`), sinon `name` de `Cargo.toml` ; sinon omets-la |
-| `spec` | chemin de la spec, qui fait foi | réponse, sinon la spec existante, sinon `docs/superpowers/specs/<date>-<projet>-design.md` |
+| `spec` | chemin de la spec, qui fait foi | réponse, sinon la spec existante, sinon `docs/specs/<date>-<projet>-design.md` |
 | `branche` | branche principale | `git symbolic-ref --short HEAD`, sinon `main` |
 | `test_manuel` | commande qui lance la branche pour l'essayer | réponse, sinon la fiche du type |
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase | réponse, sinon la fiche du type |
@@ -113,6 +113,8 @@ La 0.1 gardait les builds Rust de WSL dans `~/.cache/<projet_dossier>-target`, q
 wsl.exe --exec bash -c 'rm -rf "$HOME/.cache/<projet_dossier>-target"'
 ```
 
+**Projet posé avant la 0.3.** `CLAUDE.md`, `docs/agents/domain.md` et `docs/CODING_STANDARDS.md` sortent `différent`. Dans `CLAUDE.md`, la ligne qui manque dit que les skills `izanagi:*` priment sur tout autre skill de même rôle : propose de l'ajouter, et fais-le sur l'accord de l'utilisateur. Dans `domain.md`, deux renvois nomment maintenant `izanagi:domain-modeling` : propose de les reprendre. Dans `CODING_STANDARDS.md`, la liste des chemins hors revue cite `docs/plans/` et `.izanagi/journal/`. Ajoute seulement `.izanagi/journal/` à celle du projet, sur son accord, et garde le chemin de ses plans. Si le projet a un vault, `docs/agents/vault.md` sort aussi `différent` : il nomme maintenant les lignes `Décision :` du journal à la place des « rulings ». Propose de le reprendre en entier.
+
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
 
 ## 8. Contrôler
@@ -139,14 +141,14 @@ Donne à l'utilisateur :
 - les fichiers créés, identiques et différents, avec les écarts de la section 7 et ceux du contrat restés ouverts ;
 - les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `docs/agents/jalon.md` ;
 - pour un projet 0.1, la ligne « Couches de test » de `docs/agents/harness.md`, que la 0.1 n'avait pas. Si elle vaut `à préciser`, propose de la remplir avec les couches de la fiche du type, et fais-le sur son accord ;
-- les prérequis absents de ta liste de skills : `mattpocock-skills:*` et `superpowers:*`. `retro` ne figure jamais dans cette liste, car seul l'utilisateur le lance : ne le signale pas.
+- les skills optionnels absents de ta liste de skills, parmi `mattpocock-skills:codebase-design`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:wizard`. Dis en une ligne ce que chacun apporte : une aide sur la forme d'une couture, un essai exécutable pendant le cadrage, une recherche de faits sur un outil, un guide pour une étape que seul l'utilisateur peut faire. Ils viennent tous du même plugin, qui s'installe avec `claude plugin install mattpocock-skills`. Propose cette commande et lance-la seulement sur l'accord de l'utilisateur. Aucun flux d'Izanagi n'en dépend. `/retro`, que la clôture d'un jalon propose, est un skill personnel que seul l'utilisateur lance : il ne figure jamais dans ta liste, ne le signale pas.
 
 Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune avec sa commande exacte. Saute celles qui sont déjà faites :
 
 1. Commit du cadre : `git add <fichiers> && git commit -m "chore: cadre Izanagi"`. Sur un dossier vide, le commit prend aussi le projet créé et son fichier de verrou.
 2. Outils à installer : chaque outil refusé à la section 3 et chaque prérequis de la fiche du type (`npx playwright install`), avec sa commande.
 3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type.
-4. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `superpowers:brainstorming`.
+4. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
 
 Propose de lancer tout de suite la première étape que tu peux faire toi-même, en général le commit, et fais-la sur son accord.
 

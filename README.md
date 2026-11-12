@@ -10,6 +10,9 @@ Plugin Claude Code qui pose le cadre de travail d'un projet et conduit ses jalon
   - Sur une relance, il pose ce qui manque, n'écrase rien et montre les écarts au gabarit.
   - Sur un projet 0.1, il propose de reprendre `scripts/check.sh` et la CI du gabarit 0.2.
 - `/izanagi:jalon [phase]` conduit un jalon : cadrage, plan, tranches, revue de jalon, test, clôture. Chaque tranche passe une revue convergente (trois tours au plus, re-revue sur le seul diff des corrections). `/izanagi:jalon convergente` lance cette revue seule, pour une PR hors jalon.
+- `/izanagi:grilling [sujet]` t'interroge par tours sur un plan ou une décision, jusqu'à ce que chaque point soit tranché. Le cadrage d'un jalon le lance aussi.
+
+Les phases d'un jalon chargent huit autres skills du plugin, absents du menu des commandes : `brainstorming` écrit la spec, `domain-modeling` tient `CONTEXT.md`, `planning` écrit le plan en tranches, `task-loop` exécute les tâches d'une tranche, `tdd` fixe les règles de test, `review` conduit la revue convergente, `diagnosing` cherche la cause d'un bug et `merge-conflicts` résout un conflit. Quatre sous-agents font le travail délégué : `implementer`, `reviewer-standards`, `reviewer-spec` et `diagnostician`. Les deux relecteurs sont en lecture seule.
 
 `init` pose `CLAUDE.md`, `docs/agents/*` (tracker, libellés de tri, domaine, réglages de jalon, vault, harnais), un squelette de `docs/CODING_STANDARDS.md`, le hook `.githooks/pre-push`, `scripts/check.sh` et la CI. Un projet à plusieurs composants reçoit aussi `scripts/dev.sh`, qui les lance ensemble.
 
@@ -30,13 +33,29 @@ Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de t
 
 ## Prérequis
 
-Le plugin lance ces skills sans les copier. Installe-les avant le premier jalon :
+Izanagi n'a aucun prérequis de skill. Il lui faut :
 
-- les skills de Matt Pocock (`mattpocock-skills:*`) : `grilling`, `domain-modeling`, `prototype`, `research`, `codebase-design`, `tdd`, `diagnosing-bugs`, `resolving-merge-conflicts`, `code-review`, `wizard` ;
-- Superpowers (`superpowers:*`) : `brainstorming`, `writing-plans`, `subagent-driven-development`, `finishing-a-development-branch` ;
-- `retro`, proposé à la clôture d'un jalon ;
 - le CLI `gh`, connecté au compte qui porte le dépôt, et Git Bash sous Windows ;
 - les outils de la pile choisie (`cargo`, `node`, `uv`…). `init` donne la commande d'installation d'un outil absent et attend ton accord avant de la lancer.
+
+### Skills optionnels
+
+Quatre skills du plugin `mattpocock-skills` aident à certaines étapes. Un jalon les lance s'ils sont installés et fait sinon un geste de remplacement :
+
+- `codebase-design` aide à choisir la forme d'une couture pendant le plan ;
+- `prototype` répond à une question du cadrage par un essai exécutable ;
+- `research` établit un fait sur un outil ou une bibliothèque ;
+- `wizard` guide une étape que toi seul peux faire, comme créer un jeton ou un secret de CI.
+
+`init` signale ceux qui manquent et propose de les installer :
+
+```bash
+claude plugin install mattpocock-skills
+```
+
+La clôture d'un jalon propose aussi `/retro`, si tu as un skill de ce nom.
+
+Dans un projet Izanagi, les skills `izanagi:*` priment sur les skills de même rôle d'un autre plugin, Superpowers compris. Le `CLAUDE.md` posé le dit.
 
 ## Installation
 
@@ -52,12 +71,12 @@ Depuis un clone local, remplace `Alextradus/izanagi` par le chemin du clone : Cl
 
 ## Feuille de route
 
-Reste à faire :
+`docs/specs/2026-11-12-izanagi-harness-design.md` fixe les deux versions suivantes :
 
-- un template de PR ;
-- des niveaux de risque, qui règlent la profondeur de revue d'une tranche ;
-- le traitement des bugs du test manuel quand le projet a des évals ;
-- le déploiement, hors du périmètre de la 0.2.
+- la 0.4 apporte un état du flux versionné, trois hooks, `status`, `doctor`, `upgrade` et un `AGENTS.md` ;
+- la 0.5 apporte les niveaux de risque, qui règlent la profondeur de revue, et les flux `task` et `fix`.
+
+Restent sans version prévue : un template de PR, la release et le déploiement d'un projet, et des évals du plugin sur un projet témoin.
 
 ## Contribuer
 
@@ -68,5 +87,9 @@ claude plugin validate .
 ```
 
 ```bash
-bash tests/install.sh && bash tests/check-contract.sh
+bash tests/install.sh && bash tests/check-contract.sh && bash tests/skills.sh
 ```
+
+`tests/skills.sh` contrôle la structure du plugin : les onze skills, les quatre sous-agents, les outils des relecteurs et l'absence de renvoi à un skill externe obligatoire.
+
+Les skills et les sous-agents dérivent des skills de Matt Pocock et de Superpowers, tous deux sous licence MIT. `NOTICE` cite les deux sources.
