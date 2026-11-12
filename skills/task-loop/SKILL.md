@@ -72,6 +72,8 @@ Lance le sous-agent `izanagi:implementer` avec deux chemins : celui du brief («
 
 ### 2. Traiter le rapport
 
+Le statut est la première ligne du rapport, écrite `Statut : …`. Un hook du plugin a déjà relancé la vérification à l'arrêt de l'implémenteur, sauf pour un statut « bloqué » ou « question ».
+
 - **Fait** : passe à la revue.
 - **Fait avec réserves** : lis les réserves. Si elles portent sur la justesse ou le périmètre, traite-les avant la revue. Si ce sont des remarques (« ce fichier grossit »), note-les au journal et passe à la revue.
 - **Question** : réponds complètement, ajoute le contexte qui manquait et relance.

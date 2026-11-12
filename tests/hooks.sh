@@ -179,7 +179,8 @@ for essai in 1 2; do
   lancer verify-implementer.sh "$p" "$(entree_arret a1)"
   [[ $code -eq 2 ]] || echoue "vérification rouge, essai $essai : code $code"
   grep -qF 'ligne de la vérification' <<<"$erreur" || echoue "le refus ne montre pas la sortie de la vérification : $erreur"
-  grep -qF 'Statut : bloqué' <<<"$erreur" || echoue "le refus ne nomme pas le statut de sortie : $erreur"
+  grep -qF 'statut bloqué' <<<"$erreur" || echoue "le refus ne nomme pas le statut de sortie : $erreur"
+  grep -qE 'Statut : (bloqu|question)' <<<"$erreur" && echoue "le refus écrit le motif que le hook cherche dans le transcript"
 done
 lancer verify-implementer.sh "$p" "$(entree_arret a1)"
 [[ $code -eq 0 ]] || echoue "troisième échec : code $code"

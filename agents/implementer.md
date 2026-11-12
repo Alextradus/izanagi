@@ -63,15 +63,17 @@ Si la revue de ta tâche rend des constats, tu es relancé avec eux. Corrige-les
 
 Écris ton rapport dans le fichier que ton lanceur t'a donné. Après une revue, ajoute le nouveau rapport à la fin du même fichier. Le rapport contient :
 
-- **Statut** : « fait », « fait avec réserves », « bloqué » ou « question ».
+- **Statut** : la première ligne du rapport, écrite `Statut : fait`, `Statut : fait avec réserves`, `Statut : bloqué` ou `Statut : question`, sans guillemets.
 - **Commits** : SHA court et sujet de chacun.
 - **Fichiers touchés.**
 - **Preuve du TDD** : pour chaque cycle, la commande, l'échec constaté avant le code et la raison pour laquelle il était attendu, puis le succès après.
 - **Vérification** : la commande et la fin de sa sortie.
 - **Réserves** : ce dont tu doutes, ou rien.
 
-Quand tu as écrit le rapport dans un fichier, ton dernier message tient en dix lignes : le statut, les commits, une ligne sur les tests, tes réserves et le chemin du rapport. Sans chemin de fichier, ton dernier message est le rapport complet.
+Quand tu as écrit le rapport dans un fichier, ton dernier message tient en dix lignes : la ligne `Statut : …` en premier, puis les commits, une ligne sur les tests, tes réserves et le chemin du rapport. Sans chemin de fichier, ton dernier message est le rapport complet.
 
 Avec « bloqué » ou « question », dis dans ton dernier message ce qui te bloque, ce que tu as essayé et ce dont tu as besoin.
+
+Quand tu t'arrêtes, un hook du plugin relance la vérification du projet, sauf si ton statut est « bloqué » ou « question ». Si elle échoue, tu reçois la fin de sa sortie et tu reprends le travail. Après deux refus, rends le statut « bloqué » avec ce qui échoue.
 
 « Fait avec réserves » veut dire que le travail est fini et que tu doutes de sa justesse. Ne rends jamais « fait » sur un travail dont tu n'es pas sûr, ni avec une vérification qui échoue.
