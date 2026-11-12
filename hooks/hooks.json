@@ -1,0 +1,39 @@
+{
+  "description": "Izanagi : état du flux au démarrage, refus du push sur la branche principale, vérification à l'arrêt de l'implémenteur. Chaque hook sort sans rien faire hors d'un projet Izanagi.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git *)",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-push.sh\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^izanagi:implementer$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/verify-implementer.sh\"",
+            "timeout": 900
+          }
+        ]
+      }
+    ]
+  }
+}

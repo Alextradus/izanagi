@@ -58,3 +58,50 @@ version_lt() {
   ((${a2:-0} != ${b2:-0})) && { ((${a2:-0} < ${b2:-0})); return; }
   ((${a3:-0} < ${b3:-0}))
 }
+
+# json_string <texte> <clé> : affiche la valeur de la première chaîne `"clé": "…"`
+# d'un texte JSON, échappements défaits. Un saut de ligne devient une espace.
+# Rend 1 si la clé manque. Suffit pour l'entrée d'un hook, sans décodeur JSON.
+json_string() {
+  local motif brut resultat="" i=0 c bo
+  # bo : une barre oblique inverse. Le motif lit une chaîne JSON, où `bo` suivi
+  # d'un caractère forme un échappement.
+  bo=$(printf '%b' '\0134')
+  motif='"'"$2"'"[[:space:]]*:[[:space:]]*"(([^"'"$bo"']|'"$bo$bo"'.)*)"'
+  [[ $1 =~ $motif ]] || return 1
+  brut="${BASH_REMATCH[1]}"
+  while ((i < ${#brut})); do
+    c="${brut:i:1}"
+    if [[ $c == "$bo" ]]; then
+      i=$((i + 1))
+      c="${brut:i:1}"
+      case "$c" in
+        n | r | t) resultat+=" " ;;
+        u) resultat+="${bo}u" ;;
+        *) resultat+="$c" ;;
+      esac
+    else
+      resultat+="$c"
+    fi
+    i=$((i + 1))
+  done
+  printf '%s\n' "$resultat"
+}
+
+# hook_enter <entrée JSON> : se place dans le dossier `cwd` de l'entrée d'un hook,
+# s'il existe. Sinon le hook reste dans le dossier où il a été lancé.
+hook_enter() {
+  local dossier
+  if dossier="$(json_string "$1" cwd)" && [[ -d $dossier ]]; then
+    cd "$dossier" || true
+  fi
+}
+
+# izanagi_root : affiche la racine du projet si c'est un projet Izanagi, c'est-à-dire
+# un dépôt git dont la racine contient .izanagi/config.env. Rend 1 sinon.
+izanagi_root() {
+  local racine
+  racine="$(project_root)" || return 1
+  [[ -f $racine/.izanagi/config.env ]] || return 1
+  printf '%s\n' "$racine"
+}
