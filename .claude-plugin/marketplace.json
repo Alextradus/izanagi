@@ -8,7 +8,7 @@
     {
       "name": "izanagi",
       "source": "./",
-      "description": "Cadre de projet : init d'un projet de toute pile (conventions, vérifications, CI) et conduite des jalons"
+      "description": "Cadre de projet : init d'un projet de toute pile (conventions, vérifications, CI), conduite des jalons, hooks, mise à jour du cadre"
     }
   ]
 }
