@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init)
-commandes=" init jalon grilling "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor)
+commandes=" init jalon grilling upgrade status doctor "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -67,7 +67,8 @@ for a in reviewer-standards reviewer-spec; do
 done
 
 externes="$(grep -rnoE '(mattpocock-skills|superpowers):[a-z*-]+' skills agents references templates 2>/dev/null |
-  grep -vE ':(mattpocock-skills|superpowers):(codebase-design|prototype|research|wizard)$' || true)"
+  grep -vE ':(mattpocock-skills|superpowers):(codebase-design|prototype|research|wizard)$' |
+  grep -v '^skills/doctor/' || true)" # doctor nomme les skills en double pour les signaler
 [[ -z $externes ]] || echoue "renvoi à un skill externe obligatoire :
 $externes"
 
@@ -86,8 +87,7 @@ done
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do
   [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"
-done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u |
-  grep -vx 'upgrade') # `upgrade` arrive à la tâche 7 du plan 0.4 : retirer ce filtre avec elle.
+done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u)
 
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do

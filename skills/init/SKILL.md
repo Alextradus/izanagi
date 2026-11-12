@@ -1,6 +1,6 @@
 ---
 name: init
-description: Démarrer un projet avec Izanagi, d'un dossier vide (entretien, choix de la pile, création) ou d'un projet existant, et poser son harnais (conventions, réglages de jalon, vérifications, CI), ou montrer ses écarts au gabarit.
+description: Démarrer un projet avec Izanagi, d'un dossier vide (entretien, choix de la pile, création) ou d'un projet existant sans Izanagi, et poser son harnais (conventions, réglages, vérifications, CI). Un projet qui a déjà un cadre Izanagi passe par /izanagi:upgrade.
 disable-model-invocation: true
 ---
 
@@ -17,9 +17,10 @@ Reconnais le cas, le premier qui s'applique :
 | Constat | Cas |
 |---|---|
 | aucun fichier hors `.git` et `.claude/` | dossier vide |
-| `docs/agents/harness.md` existe | relance 0.2 |
-| `docs/agents/jalon.md` existe sans `harness.md` | projet 0.1 |
+| `.izanagi/config.env` ou `docs/agents/jalon.md` existe | projet Izanagi |
 | sinon | projet existant sans Izanagi |
+
+Un projet Izanagi a déjà son cadre. Dis-le en une ligne, renvoie l'utilisateur à `/izanagi:upgrade`, qui met le cadre à jour et montre ses écarts au gabarit, puis arrête-toi.
 
 Sans dépôt git à la racine, propose `git init -b main` et attends l'accord de l'utilisateur.
 
@@ -31,8 +32,6 @@ Une valeur donnée en argument de `/izanagi:init` (`type=cli`, `vault=non`) vaut
 
 - **Dossier vide.** Mène l'entretien de `references/interview.md` : deux appels à AskUserQuestion au plus, sans reposer une question déjà réglée par le message de l'utilisateur.
 - **Projet existant.** Détecte les composants (voir plus bas). Pose en un seul appel à AskUserQuestion le type d'application, la spec, le test manuel avec son lieu, et le vault. Chaque question a sa valeur proposée en premier : la fiche du type le plus probable pour le type, le test manuel et le lieu ; `docs/specs/<date>-<projet>-design.md` pour la spec, chemin où `izanagi:brainstorming` l'écrira ; `non` pour le vault. Les systèmes cibles viennent de `.github/workflows/ci.yml` s'il existe, sinon ils valent `linux,windows`.
-- **Projet 0.1.** Détecte les composants de la même façon. Dans `.github/workflows/ci.yml`, `ubuntu-latest` donne `linux`, `windows-latest` donne `windows` et `macos-latest` donne `macos`. Les autres valeurs viennent de `docs/agents/jalon.md` (section 4). Demande seulement le type.
-- **Relance 0.2.** Ne demande rien. Tout est dans `harness.md` et `jalon.md` (section 4).
 
 **Détection des composants.** Un `Cargo.toml` donne `rust`, un `package.json` donne `typescript`, un `pyproject.toml` donne `python`. Cherche-les à la racine et un niveau en dessous, hors `node_modules`, `target` et `.venv`. Un manifeste sous un workspace racine de même pile (workspace Cargo, `workspaces` de npm) n'est pas un composant à part. Du code sans ces manifestes (`go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `Package.swift`…) donne aussi un composant. Propose-le avec le nom de sa pile (`go`, `java`, `csharp`, `swift`), et `install.sh` lui écrira une section `# À ÉCRIRE`. Le composant de la racine a pour nom sa pile et pour chemin `.`. Un composant d'un sous-dossier a pour nom celui du dossier. Noms et piles suivent `[a-z0-9-]`, et une pile ne vaut jamais `aucune`, `core`, `code`, `vault` ni `multi`. Le lancement vient du manifeste : `npm run dev` si `package.json` a un script `dev`, `cargo run` pour un binaire Rust, l'entrée de `[project.scripts]` pour Python, rien sinon. Si un projet TypeScript n'a pas de `package-lock.json` (pnpm, yarn), dis à l'utilisateur que le gabarit lance `npm ci`.
 
@@ -63,7 +62,7 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 | `type` | identifiant d'une fiche de `references/types/` | section 2 |
 | `couches` | couches de test retenues | fiche du type, ajustée à la pile |
 | `projet` | nom du projet, tel qu'il s'affiche | entretien, `name` du manifeste racine, sinon le nom du dossier |
-| `projet_dossier` | nom de dossier du cache WSL | `scripts/check.sh` existant (le nom avant `-wsl` ou `-target` dans `.cache/`), sinon `name` de `Cargo.toml` ; sinon omets-la |
+| `projet_dossier` | nom de dossier du cache WSL | `scripts/check.sh` existant (le nom avant `-wsl` dans `.cache/`), sinon `name` de `Cargo.toml` ; sinon omets-la |
 | `spec` | chemin de la spec, qui fait foi | réponse, sinon la spec existante, sinon `docs/specs/<date>-<projet>-design.md` |
 | `branche` | branche principale | `git symbolic-ref --short HEAD`, sinon `main` |
 | `test_manuel` | commande qui lance la branche pour l'essayer | réponse, sinon la fiche du type |
@@ -76,8 +75,6 @@ N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplace
 **Test manuel tiré de la fiche.** La section « Test manuel par défaut » de la fiche du type donne les deux valeurs. `test_manuel` est la commande entre accents graves qui correspond à la pile du composant. `lieu_test` est le lieu de la phrase, mis en complément (« dans un terminal », « dans son navigateur »). Écris-les pour un seul composant, quelle que soit sa pile. Avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`. Omets alors la clé et garde `lieu_test`. Si aucun de ces composants n'a de lancement, `dev.sh` sort avec le code 1. Écris alors `test_manuel` dans le fichier de valeurs, avec la commande de la fiche.
 
 **Version.** Avec plusieurs composants, le script prend `fichier_version` dans la dernière pile lue, sans chemin. Écris celui du composant qui porte la version du projet, avec son chemin (« `version` du `api/package.json`, avec `api/package-lock.json` commité »). Une pile sans gabarit n'en a pas, écris-le aussi.
-
-**Projet 0.1 et relance 0.2.** Reprends chaque valeur dans le `docs/agents/jalon.md` et le titre du `CLAUDE.md` existants, sans les accents graves qui entourent un chemin. En relance 0.2, prends aussi dans `harness.md` chaque ligne `- composant : <nom> | <chemin> | <pile> | <lancement>`, en retirant les espaces autour des `|`, puis la ligne « Systèmes cibles », le type et les couches. Tu compares ainsi le projet au gabarit à valeurs égales, et les écarts affichés viennent du gabarit ou des ajouts du projet, jamais d'une valeur changée.
 
 Fin : le fichier de valeurs est écrit.
 
@@ -105,16 +102,6 @@ Pour chaque fichier `différent`, lis `<rapport>/diff/<chemin>.diff`. Le côté 
 
 Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Le contrôle de la section 8 les couvre, donc ne classe pas ces blocs.
 
-**Projet 0.1.** `scripts/check.sh` et `.github/workflows/ci.yml` en `différent` sont la mise à jour du gabarit 0.2 : vérification par composant, `--host` et `--clean`, CI en matrice de systèmes. Présente-les ainsi, et propose de les reprendre en entier. Sur son accord, remplace chaque fichier par `<rapport>/rendu/<chemin>`.
-
-La 0.1 gardait les builds Rust de WSL dans `~/.cache/<projet_dossier>-target`, que la 0.2 n'utilise plus. Sous Windows, propose de supprimer ce cache. Sur l'accord de l'utilisateur, lance la commande avec la valeur de `projet_dossier` :
-
-```bash
-wsl.exe --exec bash -c 'rm -rf "$HOME/.cache/<projet_dossier>-target"'
-```
-
-**Projet posé avant la 0.3.** `CLAUDE.md`, `docs/agents/domain.md` et `docs/CODING_STANDARDS.md` sortent `différent`. Dans `CLAUDE.md`, la ligne qui manque dit que les skills `izanagi:*` priment sur tout autre skill de même rôle : propose de l'ajouter, et fais-le sur l'accord de l'utilisateur. Dans `domain.md`, deux renvois nomment maintenant `izanagi:domain-modeling` : propose de les reprendre. Dans `CODING_STANDARDS.md`, la liste des chemins hors revue cite `docs/plans/` et `.izanagi/journal/`. Ajoute seulement `.izanagi/journal/` à celle du projet, sur son accord, et garde le chemin de ses plans. Si le projet a un vault, `docs/agents/vault.md` sort aussi `différent` : il nomme maintenant les lignes `Décision :` du journal à la place des « rulings ». Propose de le reprendre en entier.
-
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
 
 ## 8. Contrôler
@@ -139,8 +126,7 @@ Fin : les écarts au contrat sont corrigés ou rapportés, et tu connais le rés
 Donne à l'utilisateur :
 
 - les fichiers créés, identiques et différents, avec les écarts de la section 7 et ceux du contrat restés ouverts ;
-- les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `docs/agents/jalon.md` ;
-- pour un projet 0.1, la ligne « Couches de test » de `docs/agents/harness.md`, que la 0.1 n'avait pas. Si elle vaut `à préciser`, propose de la remplir avec les couches de la fiche du type, et fais-le sur son accord ;
+- les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `.izanagi/config.env` ;
 - les skills optionnels absents de ta liste de skills, parmi `mattpocock-skills:codebase-design`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:wizard`. Dis en une ligne ce que chacun apporte : une aide sur la forme d'une couture, un essai exécutable pendant le cadrage, une recherche de faits sur un outil, un guide pour une étape que seul l'utilisateur peut faire. Ils viennent tous du même plugin, qui s'installe avec `claude plugin install mattpocock-skills`. Propose cette commande et lance-la seulement sur l'accord de l'utilisateur. Aucun flux d'Izanagi n'en dépend. `/retro`, que la clôture d'un jalon propose, est un skill personnel que seul l'utilisateur lance : il ne figure jamais dans ta liste, ne le signale pas.
 
 Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune avec sa commande exacte. Saute celles qui sont déjà faites :

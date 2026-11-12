@@ -320,58 +320,7 @@ grep -q '^- composant :' "$tmp/m6/docs/agents/harness.md" && echoue "harness.md 
 grep -qF 'Aucun composant' "$tmp/m6/docs/agents/harness.md" || echoue "harness.md : note de tableau vide"
 grep -qxF -- '- composant : a | a | typescript |' "$tmp/t4/docs/agents/harness.md" || echoue "harness.md : espace final sans lancement"
 
-# --- D19 : mise à jour d'un projet posé par la 0.1.1 ---
-# Pose avec pose.sh et les gabarits de la v0.1.1 (commit 5bb1144), puis
-# install.sh avec les valeurs que le skill reconstruit pour un projet 0.1.
-if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
-  mkdir -p "$tmp/v01" "$tmp/d19"
-  git -C "$racine" archive 5bb1144 scripts templates | tar -x -C "$tmp/v01"
-  printf 'pile=rust\nprojet=Essai\nspec=docs/spec.md\nlieu_test=dans un terminal\n' >"$tmp/d19v0"
-  bash "$tmp/v01/scripts/pose.sh" "$tmp/d19" "$tmp/d19v0" >/dev/null
-  # projet_dossier : le nom avant `-target` dans le check.sh de la 0.1.
-  dossier="$(sed -n 's|.*\.cache/\([a-z0-9._-]*\)-target.*|\1|p' "$tmp/d19/scripts/check.sh" | head -1)"
-  [[ $dossier == essai ]] || echoue "D19 : projet_dossier lu dans check.sh 0.1 : $dossier"
-  # Valeurs de jalon.md, sans les accents graves autour d'un chemin.
-  jalon="$tmp/d19/docs/agents/jalon.md"
-  champ() { sed -n "s/^- \*\*$1\*\* : \(.*\)$/\1/p" "$jalon"; }
-  cat >"$tmp/d19v" <<FIN
-composant=rust|.|rust|cargo run
-systemes=linux,windows
-type=cli
-projet=$(sed -n '1s/^# //p' "$tmp/d19/CLAUDE.md")
-projet_dossier=$dossier
-spec=$(champ Spec | sed 's/^`\([^`]*\)`\. Elle fait foi\.$/\1/')
-decisions=$(champ Décisions | sed 's/\. Chaque décision.*$//')
-plans=$(champ Plans | sed 's/^`\([^`]*\)`, un fichier par jalon\.$/\1/')
-branche=$(champ 'Branche principale' | sed 's/^`\([^`]*\)`\.$/\1/')
-verification=$(champ Vérification | sed 's/^`\([^`]*\)`\. Sa sortie.*$/\1/')
-test_manuel=$(champ 'Test manuel' | sed 's/^.*avec `\([^`]*\)`, .*$/\1/')
-lieu_test=$(champ 'Test manuel' | sed 's/^.*`, \(.*\)\.$/\1/')
-taille_tranche=$(champ "Taille d'une tranche" | sed 's/^un diff sous \(.*\) lignes, .*$/\1/')
-fichier_version=$(champ Version | sed 's/\.$//')
-vault=non
-FIN
-  attendu="$(cd "$tmp/d19" && find . -type f -not -path './.git/*' | sed 's|^\./||' | sort)"
-  sortie="$("$install" "$tmp/d19" "$tmp/d19v")"
-  for f in $attendu; do
-    case "$f" in
-      scripts/check.sh | .github/workflows/ci.yml) etat=différent ;;
-      # La 0.4 ne pose plus jalon.md : la migration le reprend.
-      docs/agents/jalon.md) continue ;;
-      # Changés par la 0.3 : ligne des skills izanagi, renvois, chemins hors revue.
-      CLAUDE.md | docs/agents/domain.md | docs/CODING_STANDARDS.md) etat=différent ;;
-      *) etat=identique ;;
-    esac
-    grep -qxF "$etat  $f" <<<"$sortie" || echoue "D19 : $f n'est pas $etat : $sortie"
-  done
-  for f in docs/agents/harness.md .izanagi/config.env .izanagi/.gitignore AGENTS.md; do
-    grep -qxF "créé       $f" <<<"$sortie" || echoue "D19 : $f non créé : $sortie"
-  done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 4 ]] || echoue "D19 : créations en trop : $sortie"
-  grep -q 'docs/agents/jalon.md' <<<"$sortie" && echoue "D19 : jalon.md dans la sortie : $sortie"
-  [[ $(grep -cE '^(créé|identique|différent) ' <<<"$sortie") -eq $(($(wc -l <<<"$attendu") + 3)) ]] || echoue "D19 : lignes en trop : $sortie"
-else
-  echo "D19 : commit 5bb1144 (v0.1.1) absent du dépôt, cas sauté"
-fi
+# La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
+# avec la migration.
 
 echo "install.sh : tous les cas passent"
