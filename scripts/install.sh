@@ -9,7 +9,8 @@
 # `composant=`, `pile=<p>` (autre que `aucune`) crée le composant `<p>|.|<p>|`.
 # Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
 # templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
-# argument.
+# argument. `izanagi_version` vaut la version du plugin, sauf si le fichier de
+# valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -25,6 +26,8 @@ if [[ $# -ne 2 ]]; then
 fi
 
 racine="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib.sh
+. "$racine/scripts/lib.sh"
 cible="$(cd "$1" && pwd)"
 rapport="$(mktemp -d)"
 # Copie : le fichier est lu deux fois, et il peut être un tube.
@@ -144,6 +147,16 @@ if [[ ${valeurs[branche]:-} == *[\"\\]* ]]; then
   echo "install.sh : branche « ${valeurs[branche]} » refusée : un \" ou un \\ casserait le YAML de la CI" >&2
   exit 2
 fi
+
+# Clés des hooks : deux valeurs permises, contrôlées avant toute écriture.
+for cle_hook in hook_push hook_verification; do
+  if [[ ! ${valeurs[$cle_hook]:-} =~ ^(bloque|avertit)$ ]]; then
+    echo "install.sh : $cle_hook « ${valeurs[$cle_hook]:-} » refusé : bloque ou avertit" >&2
+    exit 2
+  fi
+done
+# Version du cadre posé : celle du plugin, sauf si le fichier de valeurs la donne.
+valeurs[izanagi_version]="${valeurs[izanagi_version]:-$(plugin_version)}"
 
 # Valeurs dérivées. Le script calcule `vault_cite` et `ligne_vault`, même si
 # le fichier de valeurs les donne.

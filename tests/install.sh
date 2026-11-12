@@ -20,12 +20,33 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 11 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 13 ]] || echoue "première pose : $sortie"
+for f in .izanagi/config.env .izanagi/.gitignore AGENTS.md; do
+  grep -qxF "créé       $f" <<<"$sortie" || echoue "$f non posé : $sortie"
+done
+[[ ! -e $tmp/p/docs/agents/jalon.md ]] || echoue "docs/agents/jalon.md encore posé"
+# shellcheck source=../scripts/lib.sh
+. "$racine/scripts/lib.sh"
+config="$tmp/p/.izanagi/config.env"
+[[ $(kv_get "$config" branche) == main ]] || echoue "config.env : branche"
+[[ $(kv_get "$config" verification) == scripts/check.sh ]] || echoue "config.env : verification"
+[[ $(kv_get "$config" izanagi_version) == "$(plugin_version)" ]] || echoue "config.env : izanagi_version"
+[[ $(kv_get "$config" hook_push) == bloque && $(kv_get "$config" hook_verification) == bloque ]] || echoue "config.env : hooks"
+[[ $(kv_get "$config" decisions) == 'le §14 de la spec' ]] || echoue "config.env : decisions"
+[[ $(kv_get "$config" spec) == docs/spec.md ]] || echoue "config.env : spec"
+[[ $(kv_get "$config" lieu_test) == 'dans WSL' ]] || echoue "config.env : lieu_test"
+grep -q '{{' "$config" && echoue "config.env garde un {{"
+[[ $(cat "$tmp/p/.izanagi/.gitignore") == 'journal/*/' ]] || echoue ".izanagi/.gitignore"
+grep -q '{{' "$tmp/p/AGENTS.md" && echoue "AGENTS.md garde un {{"
+grep -qi 'izanagi' "$tmp/p/AGENTS.md" && echoue "AGENTS.md nomme Izanagi"
+grep -qF 'docs/spec.md' "$tmp/p/AGENTS.md" || echoue "AGENTS.md : spec"
+grep -qF 'scripts/check.sh' "$tmp/p/AGENTS.md" || echoue "AGENTS.md : vérification"
+grep -qF '.izanagi/config.env' "$tmp/p/CLAUDE.md" || echoue "CLAUDE.md ne cite pas config.env"
 [[ -x $tmp/p/scripts/check.sh && -x $tmp/p/.githooks/pre-push ]] || echoue "bit exécutable"
 grep -q '{{' "$tmp/p/CLAUDE.md" && echoue "CLAUDE.md garde un {{"
 grep -qF 'Les décisions sont dans le §14 de la spec.' "$tmp/p/docs/agents/domain.md" || echoue "domain.md : décisions mal accordées"
 grep -qF 'de le §14' "$tmp/p/docs/agents/domain.md" && echoue "domain.md contient « de le »"
-grep -qxF -- '- **Vault** : non.' "$tmp/p/docs/agents/jalon.md" || echoue "jalon.md : vault absent mal affiché"
+[[ $(kv_get "$config" vault) == non ]] || echoue "config.env : vault absent"
 grep -q 'github.workflow' "$tmp/p/.github/workflows/ci.yml" || echoue "ci.yml a perdu ses expressions"
 [[ -e $tmp/p/docs/agents/vault.md ]] && echoue "vault.md posé sans vault"
 
@@ -33,7 +54,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 10 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 12 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -42,7 +63,25 @@ echo "vault=C:/Vault/essai" >>"$tmp/v"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^créé       docs/agents/vault.md' <<<"$sortie" || echoue "vault.md non posé : $sortie"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
-grep -qxF -- '- **Vault** : `C:/Vault/essai`.' "$rapport/rendu/docs/agents/jalon.md" || echoue "jalon.md : chemin du vault sans accents graves"
+[[ $(kv_get "$rapport/rendu/.izanagi/config.env" vault) == C:/Vault/essai ]] || echoue "config.env : chemin du vault"
+
+# Une version passée dans les valeurs remplace celle du plugin : la relance compare à valeurs égales.
+mkdir "$tmp/iv"
+printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nizanagi_version=0.1.0\n' >"$tmp/ivv"
+"$install" "$tmp/iv" "$tmp/ivv" >/dev/null
+[[ $(kv_get "$tmp/iv/.izanagi/config.env" izanagi_version) == 0.1.0 ]] || echoue "izanagi_version des valeurs ignorée"
+
+# Valeur de hook refusée avant toute écriture.
+mkdir "$tmp/hk"
+for cle in hook_push hook_verification; do
+  printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n%s=parfois\n' "$cle" >"$tmp/hkv"
+  if sortie="$("$install" "$tmp/hk" "$tmp/hkv" 2>&1)"; then echoue "$cle=parfois accepté"; fi
+  grep -q 'refusé' <<<"$sortie" || echoue "$cle=parfois : message : $sortie"
+  [[ -z $(ls -A "$tmp/hk") ]] || echoue "$cle=parfois : écriture avant le refus"
+done
+printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nhook_push=avertit\n' >"$tmp/hkv"
+"$install" "$tmp/hk" "$tmp/hkv" >/dev/null
+[[ $(kv_get "$tmp/hk/.izanagi/config.env" hook_push) == avertit ]] || echoue "hook_push=avertit non posé"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"
@@ -189,7 +228,7 @@ printf '%s
 grep -qF '`Cargo.lock`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : Cargo.lock"
 grep -qF '`package-lock.json`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : package-lock.json"
 [[ $(grep -o 'docs/plans/' "$tmp/t5/docs/CODING_STANDARDS.md" | wc -l) -eq $(grep -o 'docs/plans/' "$tmp/t1/docs/CODING_STANDARDS.md" | wc -l) ]] || echoue "hors_revue : doublon"
-grep -qF 'avec `scripts/dev.sh`' "$tmp/t1/docs/agents/jalon.md" || echoue "jalon.md : test manuel dev.sh"
+[[ $(kv_get "$tmp/t1/.izanagi/config.env" test_manuel) == scripts/dev.sh ]] || echoue "config.env : test manuel dev.sh"
 grep -qF '`package-lock.json`' "$tmp/t1/docs/CODING_STANDARDS.md" || echoue "CODING_STANDARDS.md : package-lock.json"
 
 # Le fichier de valeurs l'emporte sur le test manuel par défaut de dev.sh.
@@ -197,7 +236,7 @@ mkdir "$tmp/t2"
 printf '%s
 ' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|' projet=essai spec=s.md lieu_test=ici 'test_manuel=npm start' >"$tmp/t2v"
 "$install" "$tmp/t2" "$tmp/t2v" >/dev/null
-grep -qF 'avec `npm start`' "$tmp/t2/docs/agents/jalon.md" || echoue "test_manuel du fichier de valeurs ignoré"
+[[ $(kv_get "$tmp/t2/.izanagi/config.env" test_manuel) == 'npm start' ]] || echoue "test_manuel du fichier de valeurs ignoré"
 grep -qF '"web"' "$tmp/t2/scripts/dev.sh" && echoue "dev.sh lance un composant sans lancement"
 
 mkdir "$tmp/t3"
@@ -317,15 +356,20 @@ FIN
   for f in $attendu; do
     case "$f" in
       scripts/check.sh | .github/workflows/ci.yml) etat=différent ;;
+      # La 0.4 ne pose plus jalon.md : la migration le reprend.
+      docs/agents/jalon.md) continue ;;
       # Changés par la 0.3 : ligne des skills izanagi, renvois, chemins hors revue.
       CLAUDE.md | docs/agents/domain.md | docs/CODING_STANDARDS.md) etat=différent ;;
       *) etat=identique ;;
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "D19 : $f n'est pas $etat : $sortie"
   done
-  grep -qxF 'créé       docs/agents/harness.md' <<<"$sortie" || echoue "D19 : harness.md non créé : $sortie"
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 1 ]] || echoue "D19 : créations en trop : $sortie"
-  [[ $(grep -cE '^(créé|identique|différent) ' <<<"$sortie") -eq $(($(wc -l <<<"$attendu") + 1)) ]] || echoue "D19 : lignes en trop : $sortie"
+  for f in docs/agents/harness.md .izanagi/config.env .izanagi/.gitignore AGENTS.md; do
+    grep -qxF "créé       $f" <<<"$sortie" || echoue "D19 : $f non créé : $sortie"
+  done
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 4 ]] || echoue "D19 : créations en trop : $sortie"
+  grep -q 'docs/agents/jalon.md' <<<"$sortie" && echoue "D19 : jalon.md dans la sortie : $sortie"
+  [[ $(grep -cE '^(créé|identique|différent) ' <<<"$sortie") -eq $(($(wc -l <<<"$attendu") + 3)) ]] || echoue "D19 : lignes en trop : $sortie"
 else
   echo "D19 : commit 5bb1144 (v0.1.1) absent du dépôt, cas sauté"
 fi
