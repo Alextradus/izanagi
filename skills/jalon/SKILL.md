@@ -102,7 +102,7 @@ Une fois la validation reçue :
 
 1. Fusion de la PR dans la branche principale, avec l'accord de l'utilisateur.
 2. Version mineure et tag (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
-3. Fin de jalon du vault (`docs/agents/vault.md`), avant de supprimer le journal et le dossier du plan.
+3. Fin de jalon du vault (`docs/agents/vault.md`), avant de supprimer le journal et le dossier du plan. Pour un journal d'avant la 0.3, supprime aussi `.superpowers/sdd/<nom du plan>/`.
 4. Relecture de `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur.
 5. Suppression des branches de tranche.
 6. Propose à l'utilisateur de lancer `/retro` sur la session du jalon, s'il a ce skill.

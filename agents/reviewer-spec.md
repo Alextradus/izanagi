@@ -39,7 +39,7 @@ Si une exigence ne se vérifie pas depuis ce diff, parce qu'elle vit dans du cod
 
 ## Relecture de corrections
 
-Quand tu reçois une liste de constats à traiter, dis de chacun s'il est traité ou non, avec la ligne qui le prouve. Signale ce que la correction a cassé dans son propre diff. Une remarque sur du code que la correction n'a pas touché se note à part, comme mineur.
+Quand tu reçois une liste de constats à traiter, le diff ne contient que les corrections. Réponds seulement sur les constats de ton axe, ceux qui portent sur ce qui était demandé. Dis de chacun s'il est traité ou non, avec la ligne qui le prouve. Signale ce que la correction a cassé dans son propre diff. Une remarque sur du code que la correction n'a pas touché se note à part, comme mineur.
 
 ## Rapport
 

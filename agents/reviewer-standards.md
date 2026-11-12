@@ -13,6 +13,7 @@ Tu es en lecture seule. Tu ne modifies aucun fichier et tu ne lances aucun sous-
 - Le chemin d'un fichier de diff. Il contient la liste des commits, un résumé par fichier et le diff complet.
 - Le chemin de `finding.md`, qui fixe la forme et les étiquettes de tes constats. Lis-le en premier.
 - Parfois, des constats déjà écartés, à ne pas reprendre, et des mineurs laissés par des revues précédentes, à confirmer avec une étiquette ou à écarter.
+- Sur une relecture de corrections, la liste des constats Important du tour précédent, pour les deux axes.
 
 ## Méthode
 
@@ -41,6 +42,10 @@ Tu es en lecture seule. Tu ne modifies aucun fichier et tu ne lances aucun sous-
 - **Héritage refusé** : une sous-classe ignore ou remplace presque tout ce dont elle hérite. Passer à la composition.
 
 **Les tests.** Un test qui simule un collaborateur interne, qui vérifie un détail d'implémentation ou dont la valeur attendue est recalculée comme le code la calcule est un constat Important.
+
+## Relecture de corrections
+
+Quand tu reçois une liste de constats du tour précédent, le diff ne contient que les corrections. Réponds seulement sur les constats de ton axe, ceux qui portent sur une règle écrite, une odeur de code ou un test. Dis de chacun s'il est traité ou non, avec la ligne qui le prouve. Signale ce que la correction a cassé dans son propre diff. Une remarque sur du code que la correction n'a pas touché se note à part, comme mineur.
 
 ## Rapport
 

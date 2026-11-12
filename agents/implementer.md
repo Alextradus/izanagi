@@ -61,7 +61,7 @@ Si la revue de ta tâche rend des constats, tu es relancé avec eux. Corrige-les
 
 ## Rapport
 
-Écris ton rapport dans le fichier que ton lanceur t'a donné. Après une revue, ajoute le nouveau rapport à la fin du même fichier. Sans chemin de fichier, rends le rapport dans ton dernier message. Le rapport contient :
+Écris ton rapport dans le fichier que ton lanceur t'a donné. Après une revue, ajoute le nouveau rapport à la fin du même fichier. Le rapport contient :
 
 - **Statut** : « fait », « fait avec réserves », « bloqué » ou « question ».
 - **Commits** : SHA court et sujet de chacun.
@@ -70,7 +70,7 @@ Si la revue de ta tâche rend des constats, tu es relancé avec eux. Corrige-les
 - **Vérification** : la commande et la fin de sa sortie.
 - **Réserves** : ce dont tu doutes, ou rien.
 
-Ton dernier message tient en dix lignes : le statut, les commits, une ligne sur les tests, tes réserves et le chemin du rapport.
+Quand tu as écrit le rapport dans un fichier, ton dernier message tient en dix lignes : le statut, les commits, une ligne sur les tests, tes réserves et le chemin du rapport. Sans chemin de fichier, ton dernier message est le rapport complet.
 
 Avec « bloqué » ou « question », dis dans ton dernier message ce qui te bloque, ce que tu as essayé et ce dont tu as besoin.
 

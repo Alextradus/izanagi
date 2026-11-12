@@ -71,7 +71,7 @@ Lance la vérification, puis commite les corrections.
 
 ## 5. Tours suivants
 
-Relance les deux relecteurs avec les mêmes pièces qu'au premier tour, plus la liste des constats Important du tour précédent, mot pour mot. Chaque relecteur dit de chacun des siens s'il est traité. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
+Relance les deux relecteurs avec les mêmes pièces qu'au premier tour, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va aux deux relecteurs, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
 
 La revue a convergé quand un tour ne rend aucun Important.
 
@@ -85,6 +85,6 @@ Si une règle ou une classe de bug a déjà été signalée dans une tranche pr�
 
 ## Fin
 
-La revue est finie sur un tour sans Important, ou sur la décision de l'utilisateur au plafond. Note le nombre de tours au journal, ou dans la description de la PR hors jalon.
+La revue est finie sur un tour sans Important, ou sur la décision de l'utilisateur au plafond. Note le nombre de tours au journal, ou dans la description de la PR hors jalon. Hors jalon, supprime ensuite `.izanagi/journal/hors-jalon/`.
 
 Rends à la phase qui t'a appelé un compte rendu court : le compte des constats par axe et par étiquette, le nombre de tours, les constats écartés et les issues ouvertes.

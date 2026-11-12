@@ -34,7 +34,7 @@ La mémoire de la conversation ne survit pas à une compaction. Le journal dit o
 - Le dossier `.izanagi/journal/` n'est pas suivi par git. À sa création, écris-y un fichier `.gitignore` qui contient la seule ligne `*`.
 - La première ligne du journal l'identifie : `# Journal, plan : <chemin du plan>`.
 - **Reprise.** Si le journal existe et que sa première ligne nomme ton plan, une tâche qui a une ligne `Tâche N : terminée` est finie : ne la relance pas, et reprends à la première tâche sans cette ligne. Une tâche dont la dernière ligne est un tour de correction reprend au tour suivant.
-- **Journal d'avant la 0.3.** Si `.superpowers/sdd/<nom du plan>/progress.md` existe pour ce plan, continue ce fichier au lieu d'en créer un. Il est à toi même si sa première ligne a une autre forme, et ses lignes `Task N: complete` valent `Tâche N : terminée`. Le dossier du plan reste sous `.izanagi/journal/`.
+- **Journal d'avant la 0.3.** Si `.superpowers/sdd/<nom du plan>/progress.md` existe pour ce plan, continue ce fichier au lieu d'en créer un. Reprends-le même si sa première ligne n'a pas la forme ci-dessus. Ses lignes `Task N: complete` valent `Tâche N : terminée`. Le dossier du plan reste sous `.izanagi/journal/`.
 
 ## Avant la première tâche
 
