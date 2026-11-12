@@ -61,7 +61,7 @@ Si la revue de ta tâche rend des constats, tu es relancé avec eux. Corrige-les
 
 ## Rapport
 
-Rends un rapport de moins de trente lignes :
+Écris ton rapport dans le fichier que ton lanceur t'a donné. Après une revue, ajoute le nouveau rapport à la fin du même fichier. Sans chemin de fichier, rends le rapport dans ton dernier message. Le rapport contient :
 
 - **Statut** : « fait », « fait avec réserves », « bloqué » ou « question ».
 - **Commits** : SHA court et sujet de chacun.
@@ -70,6 +70,8 @@ Rends un rapport de moins de trente lignes :
 - **Vérification** : la commande et la fin de sa sortie.
 - **Réserves** : ce dont tu doutes, ou rien.
 
-Avec « bloqué » ou « question », dis précisément ce qui te bloque, ce que tu as essayé et ce dont tu as besoin.
+Ton dernier message tient en dix lignes : le statut, les commits, une ligne sur les tests, tes réserves et le chemin du rapport.
+
+Avec « bloqué » ou « question », dis dans ton dernier message ce qui te bloque, ce que tu as essayé et ce dont tu as besoin.
 
 « Fait avec réserves » veut dire que le travail est fini et que tu doutes de sa justesse. Ne rends jamais « fait » sur un travail dont tu n'es pas sûr, ni avec une vérification qui échoue.

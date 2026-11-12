@@ -19,7 +19,7 @@ Un jalon se livre par **tranches** : chacune a sa branche, sa revue, sa PR vers 
 
 **Skills optionnels.** Quatre skills d'un autre plugin aident à certaines étapes : `mattpocock-skills:wizard`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:codebase-design`. Lance-les s'ils figurent dans ta liste de skills. Sinon, fais le geste de remplacement que l'étape donne, sans signaler leur absence.
 
-**Journal.** `izanagi:task-loop` tient le journal du jalon dans `.izanagi/journal/<nom du plan>.md`. Un jalon commencé avant la 0.3 garde le sien dans `.superpowers/sdd/<nom du plan>/progress.md`. « Le journal » désigne celui des deux qui existe.
+**Journal.** `izanagi:task-loop` tient le journal du jalon dans `.izanagi/journal/<nom du plan>.md`. Un jalon commencé avant la 0.3 garde le sien dans `.superpowers/sdd/<nom du plan>/progress.md`. « Le journal » désigne celui des deux qui existe. Dans les deux cas, les briefs, les rapports et les diffs du jalon sont dans le dossier du plan, `.izanagi/journal/<nom du plan>/`.
 
 ## 1. Situer le jalon
 
@@ -102,7 +102,7 @@ Une fois la validation reçue :
 
 1. Fusion de la PR dans la branche principale, avec l'accord de l'utilisateur.
 2. Version mineure et tag (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
-3. Fin de jalon du vault (`docs/agents/vault.md`), avant de supprimer le journal et son dossier.
+3. Fin de jalon du vault (`docs/agents/vault.md`), avant de supprimer le journal et le dossier du plan.
 4. Relecture de `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur.
 5. Suppression des branches de tranche.
 6. Propose à l'utilisateur de lancer `/retro` sur la session du jalon, s'il a ce skill.
@@ -113,8 +113,8 @@ Fin de phase : tag poussé, vault clos, journal supprimé, `/retro` proposé.
 
 Valable pour le test ciblé d'une tranche comme pour le test du jalon. Traite chaque retour selon sa nature :
 
-- **Comportement cassé** : lance le sous-agent `diagnostician` (`izanagi:diagnosing`), qui rend la cause et un test de régression rouge. Confie ensuite le correctif à un sous-agent `implementer` sur la branche testée.
-- **Attente non cadrée** : une courte ronde de `izanagi:grilling`, la décision au lieu des décisions, puis le correctif par un sous-agent `implementer`.
+- **Comportement cassé** : lance le sous-agent `izanagi:diagnostician`, qui rend la cause et un test de régression rouge. Confie ensuite le correctif à un sous-agent `izanagi:implementer` sur la branche testée.
+- **Attente non cadrée** : une courte ronde de `izanagi:grilling`, la décision au lieu des décisions, puis le correctif par un sous-agent `izanagi:implementer`.
 - **Tout retour** : la section Test manuel de la note du jalon dans le vault.
 
 ## Hors phases

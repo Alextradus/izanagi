@@ -15,15 +15,15 @@ Tu avances par tours. La **frontière** est l'ensemble des décisions dont les p
 Un tour a cette forme :
 
 ```
-❓ **Q1** - **<titre de la question>** : <corps de la question, sur plusieurs paragraphes au besoin, avec ses choix>
+**Q1** - **<titre de la question>** : <corps de la question, sur plusieurs paragraphes au besoin, avec ses choix>
 
-➡️ <la réponse que tu recommandes, et pourquoi>
+Recommandation : <la réponse que tu recommandes, et pourquoi>
 
 ---
 
-❓ **Q2** - **<titre de la question>** : <corps de la question>
+**Q2** - **<titre de la question>** : <corps de la question>
 
-➡️ <la réponse que tu recommandes, et pourquoi>
+Recommandation : <la réponse que tu recommandes, et pourquoi>
 ```
 
 Les numéros continuent d'un tour à l'autre, pour que l'utilisateur réponde « Q7 : oui ».

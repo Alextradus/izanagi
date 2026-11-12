@@ -113,7 +113,7 @@ La 0.1 gardait les builds Rust de WSL dans `~/.cache/<projet_dossier>-target`, q
 wsl.exe --exec bash -c 'rm -rf "$HOME/.cache/<projet_dossier>-target"'
 ```
 
-**Projet posé avant la 0.3.** `CLAUDE.md`, `docs/agents/domain.md` et `docs/CODING_STANDARDS.md` sortent `différent`. Dans `CLAUDE.md`, la ligne qui manque dit que les skills `izanagi:*` priment sur tout autre skill de même rôle : propose de l'ajouter, et fais-le sur l'accord de l'utilisateur. Dans `domain.md`, deux renvois nomment maintenant `izanagi:domain-modeling` : propose de les reprendre. Dans `CODING_STANDARDS.md`, la liste des chemins hors revue cite `docs/plans/` et `.izanagi/journal/`. Ajoute seulement `.izanagi/journal/` à celle du projet, sur son accord, et garde le chemin de ses plans.
+**Projet posé avant la 0.3.** `CLAUDE.md`, `docs/agents/domain.md` et `docs/CODING_STANDARDS.md` sortent `différent`. Dans `CLAUDE.md`, la ligne qui manque dit que les skills `izanagi:*` priment sur tout autre skill de même rôle : propose de l'ajouter, et fais-le sur l'accord de l'utilisateur. Dans `domain.md`, deux renvois nomment maintenant `izanagi:domain-modeling` : propose de les reprendre. Dans `CODING_STANDARDS.md`, la liste des chemins hors revue cite `docs/plans/` et `.izanagi/journal/`. Ajoute seulement `.izanagi/journal/` à celle du projet, sur son accord, et garde le chemin de ses plans. Si le projet a un vault, `docs/agents/vault.md` sort aussi `différent` : il nomme maintenant les lignes `Décision :` du journal à la place des « rulings ». Propose de le reprendre en entier.
 
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
 

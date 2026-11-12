@@ -21,9 +21,9 @@ Crée `CONTEXT.md` quand le premier terme est tranché, pas avant.
 
 ## Pendant l'entretien
 
-**Confronte au glossaire.** Quand l'utilisateur emploie un terme dans un sens que `CONTEXT.md` contredit, dis-le tout de suite : « Le glossaire définit "annulation" comme X, et tu sembles vouloir dire Y. Lequel des deux ? »
+**Confronte au glossaire.** Quand l'utilisateur emploie un terme dans un sens que `CONTEXT.md` contredit, dis-le tout de suite : « Le glossaire définit l'annulation comme X, et tu sembles vouloir dire Y. Lequel des deux ? »
 
-**Précise un terme flou.** Quand un terme est vague ou porte deux sens, propose un terme canonique : « Par "compte", tu entends le Client ou l'Utilisateur ? Ce sont deux notions. »
+**Précise un terme flou.** Quand un terme est vague ou porte deux sens, propose un terme canonique : « Quand tu dis compte, tu parles du Client ou de l'Utilisateur ? Ce sont deux notions. »
 
 **Éprouve par des scénarios.** Quand vous discutez des relations entre deux notions, invente des scénarios précis qui visent les cas limites et obligent à dire où passe la frontière entre elles.
 

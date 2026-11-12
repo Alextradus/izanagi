@@ -11,7 +11,7 @@ Tu conduis la revue d'un diff sur deux axes :
 - **Standards** : le code suit-il les règles écrites du projet ?
 - **Spec** : le code fait-il ce que la spec demandait, ni moins ni plus ?
 
-Un changement peut réussir un axe et échouer l'autre : un code qui suit chaque règle et construit la mauvaise chose, ou un code qui fait ce qui était demandé et enfreint les conventions du projet. Les deux axes ont chacun leur relecteur, pour que l'un ne masque pas l'autre.
+Un changement peut réussir un axe et échouer l'autre. Un code peut suivre chaque règle et construire la mauvaise chose, ou faire ce qui était demandé et enfreindre les conventions du projet. Les deux axes ont chacun leur relecteur, pour que l'un ne masque pas l'autre.
 
 La revue converge en peu de tours : le premier tour relit tout le diff, les suivants ne relisent que les corrections.
 
@@ -25,7 +25,7 @@ La phase qui t'appelle fournit :
 
 Lis `docs/agents/jalon.md` pour la vérification.
 
-**Hors jalon.** Pour une PR hors jalon, le point fixe est la branche principale et l'axe Spec est l'issue ou la description de la PR. Sans `docs/agents/jalon.md`, prends la branche par défaut du dépôt et la vérification que nomme `CLAUDE.md` ou `README.md`, sinon demande-la à l'utilisateur. Sans axe Spec, seul le relecteur Standards passe, et tu le dis dans ton compte rendu.
+**Hors jalon.** Pour une PR hors jalon, le point fixe est la branche principale et l'axe Spec est l'issue ou la description de la PR. Sans `docs/agents/jalon.md`, prends la branche par défaut du dépôt et la vérification que nomme `CLAUDE.md` ou `README.md`, sinon demande-la à l'utilisateur.
 
 ## 1. Préparer le diff
 
@@ -37,11 +37,11 @@ Les relecteurs n'ont pas d'outil pour lancer git. Écris-leur le diff dans un fi
 { git log --oneline <point fixe>..HEAD; git diff --stat <point fixe>...HEAD; git diff <point fixe>...HEAD; } > <fichier>
 ```
 
-Les trois points comparent à l'ancêtre commun. Le fichier va dans le dossier du plan sous `.izanagi/journal/` quand un journal existe, sinon dans un dossier temporaire hors du dépôt.
+Les trois points comparent à l'ancêtre commun. Pour un jalon, le fichier va dans le dossier du plan, `.izanagi/journal/<nom du plan sans extension>/`, que le journal soit là ou sous `.superpowers/`. Hors jalon, il va dans `.izanagi/journal/hors-jalon/`. Si `.izanagi/journal/` n'existe pas, crée-le avec un fichier `.gitignore` qui contient la seule ligne `*`. Les relecteurs lisent ainsi le diff dans le dépôt.
 
 ## 2. Premier tour
 
-Lance les sous-agents `reviewer-standards` et `reviewer-spec` du plugin en parallèle. Passe à chacun :
+Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en parallèle. Passe à chacun :
 
 - le chemin du fichier de diff ;
 - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/finding.md`, qui fixe la forme et les étiquettes de ses constats ;
@@ -54,9 +54,11 @@ Ne fusionne pas les deux rapports et ne les reclasse pas l'un contre l'autre.
 
 ## 3. Traiter chaque constat
 
+Si le relecteur Spec liste des exigences « non vérifiables depuis le diff », contrôle chacune toi-même avant de continuer, dans le code inchangé ou dans les autres tranches. Une exigence qui manque devient un constat Important.
+
 Traite chaque constat selon son étiquette :
 
-- **Important** : fais-le corriger par un sous-agent `implementer`, comme une tâche. Une classe de bug se corrige sur toutes ses occurrences, cherchées dans tout le dépôt, pas seulement celles que le relecteur cite. Si tu penses que le constat est faux ou voulu, présente-le à l'utilisateur avec ta raison et applique sa réponse.
+- **Important** : fais-le corriger par un sous-agent `izanagi:implementer`, comme une tâche. Une classe de bug se corrige sur toutes ses occurrences, cherchées dans tout le dépôt, pas seulement celles que le relecteur cite. Si tu penses que le constat est faux ou voulu, présente-le à l'utilisateur avec ta raison et applique sa réponse.
 - **Nit** : corrige-le s'il tient en une ligne, sinon laisse-le.
 - **Préexistant** : ouvre une issue (`docs/agents/issue-tracker.md`) et laisse le code tel quel dans cette branche.
 - **Jugement** : présente-le à l'utilisateur et applique sa réponse.
@@ -69,7 +71,7 @@ Lance la vérification, puis commite les corrections.
 
 ## 5. Tours suivants
 
-Relance les deux relecteurs avec les mêmes pièces qu'au premier tour. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
+Relance les deux relecteurs avec les mêmes pièces qu'au premier tour, plus la liste des constats Important du tour précédent, mot pour mot. Chaque relecteur dit de chacun des siens s'il est traité. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
 
 La revue a convergé quand un tour ne rend aucun Important.
 

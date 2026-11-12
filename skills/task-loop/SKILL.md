@@ -14,7 +14,7 @@ Un sous-agent ne reçoit jamais l'historique de ta session. Tu lui construis ce 
 
 ## Sans pause
 
-Exécute toutes les tâches de la tranche sans demander à l'utilisateur s'il faut continuer. Entre deux appels d'outil, écris une ligne au plus : le journal garde la trace.
+Exécute toutes les tâches de la tranche sans demander à l'utilisateur s'il faut continuer. Entre deux appels d'outil, écris une ligne au plus. Le journal garde la trace.
 
 Un conflit, une ambiguïté ou un défaut du plan ne t'arrête pas. Tranche-le : la spec fait foi, le plan en découle, et ton jugement règle ce que ni l'un ni l'autre ne dit. Note chaque décision au journal sous la forme `Décision : <ce que tu as décidé>, parce que <raison>. Si c'est faux : <ce que ça coûte>.`
 
@@ -29,11 +29,12 @@ Quatre cas t'arrêtent, et eux seuls. Pose alors la question à l'utilisateur :
 
 La mémoire de la conversation ne survit pas à une compaction. Le journal dit où tu en es, et les commits qu'il cite existent dans git même quand tu ne te souviens plus de les avoir créés. Après une compaction, crois le journal et `git log` plutôt que ton souvenir.
 
-- Le journal est `.izanagi/journal/<nom du plan sans extension>.md`. Les briefs et les diffs de ce plan vont dans le dossier du même nom, `.izanagi/journal/<nom du plan sans extension>/`.
+- Le journal est `.izanagi/journal/<nom du plan sans extension>.md`.
+- Le **dossier du plan** est `.izanagi/journal/<nom du plan sans extension>/`. Il reçoit les briefs, les rapports et les diffs de ce plan, quel que soit l'emplacement du journal.
 - Le dossier `.izanagi/journal/` n'est pas suivi par git. À sa création, écris-y un fichier `.gitignore` qui contient la seule ligne `*`.
 - La première ligne du journal l'identifie : `# Journal, plan : <chemin du plan>`.
 - **Reprise.** Si le journal existe et que sa première ligne nomme ton plan, une tâche qui a une ligne `Tâche N : terminée` est finie : ne la relance pas, et reprends à la première tâche sans cette ligne. Une tâche dont la dernière ligne est un tour de correction reprend au tour suivant.
-- **Journal d'avant la 0.3.** Si `.superpowers/sdd/<nom du plan>/progress.md` existe pour ce plan, continue ce fichier au lieu d'en créer un. Ses lignes `Task N: complete` valent `Tâche N : terminée`.
+- **Journal d'avant la 0.3.** Si `.superpowers/sdd/<nom du plan>/progress.md` existe pour ce plan, continue ce fichier au lieu d'en créer un. Il est à toi même si sa première ligne a une autre forme, et ses lignes `Task N: complete` valent `Tâche N : terminée`. Le dossier du plan reste sous `.izanagi/journal/`.
 
 ## Avant la première tâche
 
@@ -48,7 +49,7 @@ Tranche chaque conflit trouvé, note la décision à côté de sa ligne, puis la
 
 ## La boucle
 
-Une seule tâche à la fois : deux implémenteurs en parallèle se marchent dessus.
+Lance une seule tâche à la fois, parce que deux implémenteurs en parallèle modifient les mêmes fichiers.
 
 Quand le plan aligne plusieurs tâches qui sont chacune une petite modification du même genre (la même correction d'une ligne répétée dans plusieurs fichiers), confie-les à un seul implémenteur dans un seul brief, et fais relire leur diff en une fois.
 
@@ -67,16 +68,18 @@ Note `BASE` (`git rev-parse HEAD`) avant de lancer : le diff de la revue en part
 
 Les valeurs exactes (nombres, chaînes, signatures, cas de test) viennent du plan et de la spec, recopiées sans reformulation. Le brief ne contient pas le récit des tâches précédentes.
 
-Lance le sous-agent `implementer` du plugin avec le chemin du brief : « Lis ce fichier d'abord, il contient tes exigences. » Garde son identifiant, les tours de correction le relancent.
+Lance le sous-agent `izanagi:implementer` avec deux chemins : celui du brief (« Lis ce fichier d'abord, il contient tes exigences. ») et celui où il écrit son rapport, `<dossier du plan>/tache-N.rapport.md`. Garde son identifiant, les tours de correction le relancent.
 
 ### 2. Traiter le rapport
 
 - **Fait** : passe à la revue.
 - **Fait avec réserves** : lis les réserves. Si elles portent sur la justesse ou le périmètre, traite-les avant la revue. Si ce sont des remarques (« ce fichier grossit »), note-les au journal et passe à la revue.
 - **Question** : réponds complètement, ajoute le contexte qui manquait et relance.
-- **Bloqué** : trouve ce qui doit changer avant de relancer. S'il manque du contexte, donne-le. Si la tâche est trop grosse, coupe-la. Si le plan est faux, tranche la correction, note-la au journal et porte-la dans le brief. Si un test casse sans cause évidente, lance le sous-agent `diagnostician` (`izanagi:diagnosing`), puis relance l'implémenteur avec la cause trouvée.
+- **Bloqué** : trouve ce qui doit changer avant de relancer. S'il manque du contexte, donne-le. Si la tâche est trop grosse, coupe-la. Si le plan est faux, tranche la correction, note-la au journal et porte-la dans le brief. Si un test casse sans cause évidente, lance le sous-agent `izanagi:diagnostician`, puis relance l'implémenteur avec la cause trouvée.
 
 Ne relance jamais un implémenteur bloqué sans rien changer.
+
+Une régression ou une lenteur que tu constates pendant la tranche, même sans rapport « bloqué », passe aussi par `izanagi:diagnostician`.
 
 Un rebase ou une fusion en conflit pendant la tranche passe par `izanagi:merge-conflicts`.
 
@@ -86,15 +89,16 @@ Chaque tâche est relue, sans exception. La relecture que l'implémenteur fait d
 
 Écris le diff dans un fichier : `git diff BASE..HEAD > <dossier du plan>/tache-N.diff`. Prends toujours `BASE`, jamais `HEAD~1`, qui perd tous les commits d'une tâche sauf le dernier.
 
-Lance le sous-agent `reviewer-spec` avec :
+Lance le sous-agent `izanagi:reviewer-spec` avec :
 
 - le chemin du diff ;
 - le chemin du brief, qui est son axe Spec ;
+- le chemin du rapport de l'implémenteur, qui porte la preuve des tests ;
 - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/finding.md`.
 
 Le relecteur Standards ne passe pas ici. Il relit la tranche entière, dans `izanagi:review`.
 
-Ne juge pas d'avance à la place du relecteur. N'écris jamais dans son brief qu'il doit ignorer un point ou le tenir pour mineur. Si tu penses qu'un constat sera faux, laisse-le le lever et traite-le ensuite. Ne lui demande pas de relancer les tests : le rapport de l'implémenteur en porte la preuve.
+Ne juge pas d'avance à la place du relecteur. N'écris jamais dans son brief qu'il doit ignorer un point ou le tenir pour mineur. Si tu penses qu'un constat sera faux, laisse-le le lever et traite-le ensuite. Ne lui demande pas de relancer les tests, puisqu'il lit leur sortie dans le rapport de l'implémenteur.
 
 Si le relecteur dit qu'il ne peut pas vérifier une exigence depuis le diff, parce qu'elle vit dans du code inchangé ou dans une autre tâche, vérifie-la toi-même avant de clore la tâche. Si elle manque, c'est un constat Important.
 
@@ -111,7 +115,7 @@ Un tour de correction est une correction suivie d'une relecture du seul diff de 
 
 1. Relance l'implémenteur de la tâche avec les constats ouverts, mot pour mot. Si tu ne peux plus lui écrire, lance un implémenteur neuf avec le brief et les constats.
 2. Contrôle que son rapport cite les tests qui couvrent le code corrigé, la commande et sa sortie.
-3. Écris le diff depuis le dernier commit relu, et relance `reviewer-spec` sur ce diff avec la liste des constats. Il dit de chacun s'il est traité, et signale ce que la correction a cassé. Un Important nouveau dans ce diff rejoint les constats ouverts. Une remarque sur du code que la correction n'a pas touché va au journal comme mineur.
+3. Écris le diff depuis le dernier commit relu, et relance `izanagi:reviewer-spec` sur ce diff avec la liste des constats et le rapport mis à jour. Il dit de chacun s'il est traité, et signale ce que la correction a cassé. Un Important nouveau dans ce diff rejoint les constats ouverts. Une remarque sur du code que la correction n'a pas touché va au journal comme mineur.
 4. Ajoute au journal : `Tâche N : tour de correction R/3 (<x> traités, <y> ouverts : <une ligne par constat>, commits <a>..<b>)`.
 
 **Au plafond.** Si le troisième tour laisse un Important ouvert, arrête les tours et tranche chaque constat restant :

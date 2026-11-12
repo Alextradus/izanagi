@@ -157,4 +157,4 @@ Corrige sur place, sans seconde relecture.
 
 ## Fin
 
-Donne à l'utilisateur le chemin du plan et demande-lui de le lire. Le skill est fini quand il a validé les coutures, les tranches et le plan. Rends la main à `/izanagi:jalon`, qui commite le plan et crée la branche du jalon.
+Donne à l'utilisateur le chemin du plan. Le skill est fini quand il a validé les coutures et les tranches. Rends la main à `/izanagi:jalon`, qui commite le plan et crée la branche du jalon.

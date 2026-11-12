@@ -43,6 +43,12 @@ for s in "${skills[@]}"; do
   fi
 done
 
+# Un dossier de skills/ hors de la liste n'est contrôlé nulle part.
+for d in skills/*/; do
+  s="$(basename "$d")"
+  [[ " ${skills[*]} " == *" $s "* ]] || echoue "skills/$s absent de la liste de ce test"
+done
+
 for a in implementer reviewer-standards reviewer-spec diagnostician; do
   f="agents/$a.md"
   [[ -f $f ]] || echoue "$f absent"
@@ -54,7 +60,7 @@ for a in reviewer-standards reviewer-spec; do
   f="agents/$a.md"
   outils="$(champ "$f" tools)"
   [[ -n $outils ]] || echoue "$f : champ tools absent ou hors de la forme sur une ligne"
-  for interdit in Edit Write NotebookEdit Bash; do
+  for interdit in Edit MultiEdit Write NotebookEdit Bash Agent Task; do
     grep -qw "$interdit" <<<"$outils" && echoue "$f : le relecteur a l'outil $interdit"
   done
 done
@@ -63,6 +69,11 @@ externes="$(grep -rnoE '(mattpocock-skills|superpowers):[a-z*-]+' skills agents 
   grep -vE ':(mattpocock-skills|superpowers):(codebase-design|prototype|research|wizard)$' || true)"
 [[ -z $externes ]] || echoue "renvoi à un skill externe obligatoire :
 $externes"
+
+# Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
+while IFS= read -r nom; do
+  [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"
+done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u)
 
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
