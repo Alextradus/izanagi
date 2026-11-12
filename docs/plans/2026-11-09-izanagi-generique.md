@@ -8,7 +8,7 @@
 
 **Tech Stack :** Bash (Git Bash sous Windows, bash sous Linux), GitHub Actions, skills Claude Code en Markdown.
 
-**Spec :** `docs/superpowers/specs/2026-11-09-izanagi-generique-design.md` (les numéros « D1 » à « D19 » renvoient à ses décisions).
+**Spec :** `docs/specs/2026-11-09-izanagi-generique-design.md` (les numéros « D1 » à « D19 » renvoient à ses décisions).
 
 ## Global Constraints
 
