@@ -71,10 +71,23 @@ externes="$(grep -rnoE '(mattpocock-skills|superpowers):[a-z*-]+' skills agents 
 [[ -z $externes ]] || echoue "renvoi à un skill externe obligatoire :
 $externes"
 
+# Depuis la 0.4, les réglages sont dans .izanagi/config.env. Seuls `jalon`, `init` et
+# `upgrade` nomment encore docs/agents/jalon.md, pour renvoyer à la migration.
+anciens="$(grep -rnF 'docs/agents/jalon.md' skills agents references templates 2>/dev/null |
+  grep -vE '^skills/(jalon|init|upgrade)/' || true)"
+[[ -z $anciens ]] || echoue "renvoi à docs/agents/jalon.md, remplacé par .izanagi/config.env :
+$anciens"
+
+# Seul scripts/state.sh écrit l'état : aucun skill ne nomme state.env comme fichier à écrire.
+for s in jalon review; do
+  grep -qF 'scripts/state.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas par scripts/state.sh"
+done
+
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do
   [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"
-done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u)
+done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u |
+  grep -vx 'upgrade') # `upgrade` arrive à la tâche 7 du plan 0.4 : retirer ce filtre avec elle.
 
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do

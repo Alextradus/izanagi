@@ -105,6 +105,7 @@ Ces décisions précisent ou corrigent des décisions précédentes, qui restent
 34. Les clés de `config.env` et de `state.env` sont en minuscules, comme celles du fichier de valeurs d'`install.sh` (`branche`, `verification`). La clé de version s'écrit `izanagi_version` (corrige la décision 12). `config.env` reprend les clés que `docs/agents/jalon.md` portait, plus `izanagi_version` et une clé par hook.
 35. Le hook `SubagentStop` laisse passer un implémenteur qui rend le statut « bloqué » ou « question », parce qu'il n'a pas de vérification verte à montrer. Il cesse de bloquer après deux refus pour le même sous-agent et avertit l'utilisateur à la place (précise la décision 17).
 36. La clôture d'un jalon ne pousse plus de commit sur la branche principale, que le hook `PreToolUse` refuse. La version mineure monte sur la branche du jalon avant la fusion, et le tag est posé sur le commit de fusion.
+37. Pour la même raison, le cadrage et le plan d'un jalon s'écrivent sur une branche `jalon/<nom court>-cadrage`, fusionnée dans la branche principale par une PR avant la création de la branche du jalon. Les tranches d'un jalon ne touchent pas à la version : seule la clôture la monte.
 
 ## Hors périmètre
 

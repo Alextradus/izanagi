@@ -23,9 +23,9 @@ La phase qui t'appelle fournit :
 - l'**axe Spec** : un texte ou un chemin (une tranche du plan, des sections de la spec, une issue, la description d'une PR) ;
 - le **journal** du jalon, s'il existe.
 
-Lis `docs/agents/jalon.md` pour la vérification.
+Lis `.izanagi/config.env` : la clé `verification` donne la vérification, la clé `branche` la branche principale.
 
-**Hors jalon.** Pour une PR hors jalon, le point fixe est la branche principale et l'axe Spec est l'issue ou la description de la PR. Sans `docs/agents/jalon.md`, prends la branche par défaut du dépôt et la vérification que nomme `CLAUDE.md` ou `README.md`, sinon demande-la à l'utilisateur.
+**Hors jalon.** Pour une PR hors jalon, le point fixe est la branche principale et l'axe Spec est l'issue ou la description de la PR. Dans un dépôt sans `.izanagi/config.env`, prends la branche par défaut du dépôt et la vérification que nomme `CLAUDE.md` ou `README.md`, sinon demande-la à l'utilisateur.
 
 ## 1. Préparer le diff
 
@@ -37,7 +37,7 @@ Les relecteurs n'ont pas d'outil pour lancer git. Écris-leur le diff dans un fi
 { git log --oneline <point fixe>..HEAD; git diff --stat <point fixe>...HEAD; git diff <point fixe>...HEAD; } > <fichier>
 ```
 
-Les trois points comparent à l'ancêtre commun. Pour un jalon, le fichier va dans le dossier du plan, `.izanagi/journal/<nom du plan sans extension>/`, que le journal soit là ou sous `.superpowers/`. Hors jalon, il va dans `.izanagi/journal/hors-jalon/`. Si `.izanagi/journal/` n'existe pas, crée-le avec un fichier `.gitignore` qui contient la seule ligne `*`. Les relecteurs lisent ainsi le diff dans le dépôt.
+Les trois points comparent à l'ancêtre commun. Pour un jalon, le fichier va dans le dossier du plan, `.izanagi/journal/<nom du plan sans extension>/`. Hors jalon, il va dans `.izanagi/journal/hors-jalon/`. Git ignore ces deux dossiers (`.izanagi/.gitignore`). Dans un dépôt sans `.izanagi/`, écris le fichier dans `.git/izanagi-review/`, que git ne suit jamais. Les relecteurs lisent ainsi le diff dans le dépôt.
 
 ## 2. Premier tour
 
@@ -67,7 +67,7 @@ Note au journal chaque constat écarté, avec sa raison. Hors jalon, sans journa
 
 ## 4. Vérifier
 
-Lance la vérification, puis commite les corrections.
+Lance la vérification, puis commite les corrections. Dans un jalon, lance avant le commit `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour>`, sans `--commit` : le commit des corrections emporte `state.env` et les lignes ajoutées au journal.
 
 ## 5. Tours suivants
 
@@ -85,6 +85,6 @@ Si une règle ou une classe de bug a déjà été signalée dans une tranche pr�
 
 ## Fin
 
-La revue est finie sur un tour sans Important, ou sur la décision de l'utilisateur au plafond. Note le nombre de tours au journal, ou dans la description de la PR hors jalon. Hors jalon, supprime ensuite `.izanagi/journal/hors-jalon/`.
+La revue est finie sur un tour sans Important, ou sur la décision de l'utilisateur au plafond. Note le nombre de tours au journal, ou dans la description de la PR hors jalon. Hors jalon, supprime ensuite `.izanagi/journal/hors-jalon/` ou `.git/izanagi-review/`.
 
 Rends à la phase qui t'a appelé un compte rendu court : le compte des constats par axe et par étiquette, le nombre de tours, les constats écartés et les issues ouvertes.

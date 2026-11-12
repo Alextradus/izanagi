@@ -13,7 +13,7 @@ Tu construis le modèle du domaine pendant que l'utilisateur et toi cadrez un tr
 Le projet a un seul contexte et deux fichiers :
 
 - `CONTEXT.md` à la racine est le glossaire.
-- La spec, au chemin de la ligne Spec de `docs/agents/jalon.md`, reçoit les décisions.
+- La spec, au chemin de la clé `spec` de `.izanagi/config.env`, reçoit les décisions.
 
 Le projet n'a pas de `docs/adr/`. `docs/agents/domain.md` décrit cette disposition pour les autres skills.
 
@@ -61,6 +61,6 @@ Ses règles :
 
 ## Écrire une décision
 
-Une décision tranchée va au lieu des décisions de `docs/agents/jalon.md`, avec sa date, puis dans la section de la spec qu'elle touche. Écris la décision elle-même et sa raison en une phrase quand elle n'est pas évidente.
+Une décision tranchée va au lieu que nomme la clé `decisions` de `.izanagi/config.env`, avec sa date, puis dans la section de la spec qu'elle touche. Écris la décision elle-même et sa raison en une phrase quand elle n'est pas évidente.
 
 Quand une décision est à la fois difficile à défaire, surprenante pour un lecteur futur et issue d'un vrai arbitrage entre plusieurs options, écris aussi les options écartées et pourquoi. Si le projet a un vault, cette décision y reçoit sa note (`docs/agents/vault.md`).

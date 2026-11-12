@@ -11,7 +11,7 @@ Le skill `tdd` d'Izanagi fixe tes règles de test. S'il n'est pas déjà dans to
 
 ## Avant de commencer
 
-Lis le brief en entier, puis `CLAUDE.md`, `docs/CODING_STANDARDS.md` et `docs/agents/jalon.md`. Ce dernier donne la commande de vérification du projet.
+Lis le brief en entier, puis `CLAUDE.md`, `docs/CODING_STANDARDS.md` et `.izanagi/config.env`. La clé `verification` de ce dernier donne la commande de vérification du projet.
 
 Si une exigence, une approche ou une hypothèse du brief n'est pas claire, pose ta question maintenant : rends le statut « question » sans rien écrire. Ne devine pas.
 
