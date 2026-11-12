@@ -7,7 +7,7 @@ Comment les skills d'ingénierie lisent la documentation du domaine de ce dépô
 - **`CONTEXT.md`** à la racine : le glossaire.
 - **`{{spec}}`** : la spec fait foi. Lire les sections qui touchent la zone de travail, et les décisions datées qui la concernent. Les décisions sont dans {{decisions}}.
 
-Si `CONTEXT.md` n'existe pas, **continuer sans le dire**. Ne pas signaler son absence et ne pas proposer de le créer d'avance. Le skill `izanagi:domain-modeling` le crée quand un terme est tranché.
+Si `CONTEXT.md` n'existe pas, **continuer sans le dire**. Ne pas signaler son absence et ne pas proposer de le créer d'avance. Le skill `/domain-modeling` le crée quand un terme est tranché.
 
 ## Disposition
 
@@ -23,7 +23,7 @@ Ce dépôt a un seul contexte et pas de `docs/adr/`. Les décisions tiennent lie
 
 Quand une sortie nomme une notion du domaine (titre d'issue, proposition de refactorisation, hypothèse, nom de test), elle emploie le terme défini dans `CONTEXT.md`. Pas de synonyme que le glossaire écarte.
 
-Si la notion manque au glossaire, c'est un signal : soit tu inventes un langage que le projet n'emploie pas (à reconsidérer), soit il y a un vrai manque (à noter pour `izanagi:domain-modeling`).
+Si la notion manque au glossaire, c'est un signal : soit tu inventes un langage que le projet n'emploie pas (à reconsidérer), soit il y a un vrai manque (à noter pour `/domain-modeling`).
 
 ## Signaler les contradictions avec la spec
 
