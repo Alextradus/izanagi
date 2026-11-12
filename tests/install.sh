@@ -188,7 +188,7 @@ printf '%s
 "$install" "$tmp/t5" "$tmp/t5v" >/dev/null
 grep -qF '`Cargo.lock`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : Cargo.lock"
 grep -qF '`package-lock.json`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : package-lock.json"
-[[ $(grep -o 'docs/superpowers/plans/' "$tmp/t5/docs/CODING_STANDARDS.md" | wc -l) -eq $(grep -o 'docs/superpowers/plans/' "$tmp/t1/docs/CODING_STANDARDS.md" | wc -l) ]] || echoue "hors_revue : doublon"
+[[ $(grep -o 'docs/plans/' "$tmp/t5/docs/CODING_STANDARDS.md" | wc -l) -eq $(grep -o 'docs/plans/' "$tmp/t1/docs/CODING_STANDARDS.md" | wc -l) ]] || echoue "hors_revue : doublon"
 grep -qF 'avec `scripts/dev.sh`' "$tmp/t1/docs/agents/jalon.md" || echoue "jalon.md : test manuel dev.sh"
 grep -qF '`package-lock.json`' "$tmp/t1/docs/CODING_STANDARDS.md" || echoue "CODING_STANDARDS.md : package-lock.json"
 
@@ -317,6 +317,8 @@ FIN
   for f in $attendu; do
     case "$f" in
       scripts/check.sh | .github/workflows/ci.yml) etat=différent ;;
+      # Changés par la 0.3 : ligne des skills izanagi, renvois, chemins hors revue.
+      CLAUDE.md | docs/agents/domain.md | docs/CODING_STANDARDS.md) etat=différent ;;
       *) etat=identique ;;
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "D19 : $f n'est pas $etat : $sortie"
