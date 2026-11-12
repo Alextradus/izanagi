@@ -46,7 +46,12 @@ while IFS= read -r nom; do
   [[ $nom == "$courante" ]] && marque="* "
   retrait=""
   if [[ $nom =~ $re_tranche && -n ${refs[${BASH_REMATCH[1]}]:-} ]]; then retrait="  "; fi
-  if git -C "$racine" show "${refs[$nom]}:.izanagi/state.env" >"$tmp" 2>/dev/null && flux="$(kv_get "$tmp" flux)"; then
+  # Le nom `<référence>:<chemin>` passe par l'entrée standard : en argument, Git Bash
+  # sous Windows le prend pour une liste de chemins et le réécrit.
+  contenu="$(printf '%s:.izanagi/state.env\n' "${refs[$nom]}" | git -C "$racine" cat-file --batch 2>/dev/null || true)"
+  : >"$tmp"
+  if [[ ${contenu%%$'\n'*} == *" blob "* ]]; then printf '%s\n' "${contenu#*$'\n'}" >"$tmp"; fi
+  if flux="$(kv_get "$tmp" flux)"; then
     ligne="$flux « $(kv_get "$tmp" nom || true) », phase $(kv_get "$tmp" phase || true)"
     if tranche="$(kv_get "$tmp" tranche)"; then ligne+=", tranche $tranche"; fi
     if tour="$(kv_get "$tmp" tour)"; then ligne+=", tour $tour"; fi
