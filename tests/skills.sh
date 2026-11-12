@@ -5,9 +5,10 @@
 # - `user-invocable: false` retire un skill du menu des commandes ; le modèle peut
 #   toujours le charger. Vaut pour les skills d'un plugin.
 #   https://code.claude.com/docs/en/skills.md
-# - `skills` (liste YAML de noms) précharge des skills dans un sous-agent. La page ne
-#   dit pas si un skill de plugin s'écrit `tdd` ou `izanagi:tdd` : à essayer.
+# - `skills` (liste YAML de noms) précharge des skills dans un sous-agent.
 #   https://code.claude.com/docs/en/sub-agents.md
+#   Essayé le 2026-11-12 avec Claude Code 2.1.321 et `--plugin-dir` : le nom nu (`tdd`)
+#   charge le skill du plugin, et les sous-agents s'appellent `izanagi:<nom>`.
 # - `tools` (liste séparée par des virgules, ou liste YAML) limite les outils d'un
 #   sous-agent. Ce test attend la forme sur une ligne.
 #   https://code.claude.com/docs/en/sub-agents.md
