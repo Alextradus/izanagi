@@ -125,6 +125,23 @@ bash "$state" set --commit tour=2
 [[ -z $(git status --porcelain -- .izanagi/state.env) ]] || echoue "state.env reste modifié après set --commit"
 tete="$(git rev-parse HEAD)"
 
+# Clés de la 0.5 : risque, issue, correctif, et les phases diagnostic et travail.
+bash "$state" set risque=eleve issue=42 correctif=bouton-mort phase=travail
+[[ $(bash "$state" get risque) == eleve && $(bash "$state" get issue) == 42 ]] || echoue "set : risque et issue"
+[[ $(bash "$state" get correctif) == bouton-mort && $(bash "$state" get phase) == travail ]] || echoue "set : correctif et phase travail"
+[[ $(grep -v '^maj=' .izanagi/state.env | cut -d= -f1 | tr '\n' ' ') == 'flux nom phase tranche tour plan risque issue correctif ' ]] || echoue "ordre des clés : $(cut -d= -f1 .izanagi/state.env | tr '\n' ' ')"
+code 2 bash "$state" set risque=élevé
+code 2 bash "$state" set risque=moyen
+code 2 bash "$state" set issue=douze
+code 2 bash "$state" set correctif='Bouton Mort'
+bash "$state" set correctif=
+code 1 bash "$state" get correctif
+grep -q '^correctif' .izanagi/state.env && echoue "set correctif= n'a pas retiré la clé"
+[[ $(bash "$state" get risque) == eleve ]] || echoue "set correctif= a perdu une autre clé"
+bash "$state" set phase=diagnostic
+git add .izanagi/state.env && git commit -q -m "clés de la 0.5" -- .izanagi/state.env
+tete="$(git rev-parse HEAD)"
+
 # clear.
 bash "$state" clear --commit
 [[ ! -e .izanagi/state.env ]] || echoue "clear n'a pas supprimé le fichier"
@@ -147,6 +164,16 @@ code 0 bash "$state" set --commit tour=1
 [[ -z $(git status --porcelain -- .izanagi/state.env) ]] || echoue "set --commit sur un état incomplet n'a pas commité"
 git switch -q -
 git branch -q -D task/main-seule
+
+# Un correctif commence par le diagnostic.
+git switch -q -c fix/essai
+bash "$state" clear --commit
+bash "$state" start fix essai
+[[ $(bash "$state" get phase) == diagnostic ]] || echoue "start fix : phase $(bash "$state" get phase)"
+bash "$state" clear
+git checkout -q -- .izanagi/state.env 2>/dev/null || true
+git switch -q -
+git branch -q -D fix/essai
 
 # Depuis un sous-dossier du projet.
 mkdir -p sous/dossier && cd sous/dossier

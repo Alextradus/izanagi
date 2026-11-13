@@ -3,7 +3,8 @@
 # Ce script est le seul à écrire ce fichier.
 #
 #   state.sh start <flux> <nom> [--commit]    flux : jalon, task ou fix
-#   state.sh set <clé>=<valeur>… [--commit]   clés : phase, tranche, tour, plan
+#   state.sh set <clé>=<valeur>… [--commit]   clés : phase, tranche, tour, plan,
+#                                             risque, issue, correctif
 #   state.sh get [clé]
 #   state.sh clear [--commit]
 #
@@ -30,7 +31,7 @@ racine="$(project_root)" || refuse "pas un projet Izanagi"
 [[ -f $racine/.izanagi/config.env ]] || refuse "pas un projet Izanagi"
 fichier="$racine/.izanagi/state.env"
 
-cles=(flux nom phase tranche tour plan maj)
+cles=(flux nom phase tranche tour plan risque issue correctif maj)
 declare -A etat=()
 
 charger() {
@@ -75,7 +76,11 @@ case "$commande" in
     [[ ! -e $fichier ]] || refuse "un flux est déjà en cours sur cette branche"
     etat[flux]="$flux"
     etat[nom]="$nom"
-    if [[ $flux == jalon ]]; then etat[phase]=cadrage; else etat[phase]=debut; fi
+    case "$flux" in
+      jalon) etat[phase]=cadrage ;;
+      fix) etat[phase]=diagnostic ;;
+      *) etat[phase]=debut ;;
+    esac
     ecrire
     commiter "$flux $nom, ${etat[phase]}"
     ;;
@@ -89,10 +94,17 @@ case "$commande" in
       valeur="${paire#*=}"
       case "$cle" in
         phase)
-          [[ $valeur =~ ^(cadrage|plan|tranches|revue|test|cloture|debut)$ ]] || refuse "phase refusée : $valeur"
+          [[ $valeur =~ ^(cadrage|plan|tranches|revue|test|cloture|debut|diagnostic|travail)$ ]] || refuse "phase refusée : $valeur"
           ;;
-        tranche | tour)
+        tranche | tour | issue)
           [[ $valeur =~ ^[0-9]+$ ]] || refuse "$cle refusé : $valeur"
+          ;;
+        risque)
+          [[ $valeur =~ ^(faible|normal|eleve)$ ]] || refuse "risque refusé : $valeur"
+          ;;
+        correctif)
+          # Une valeur vide retire la clé : le correctif d'un jalon est fini.
+          [[ -z $valeur || $valeur =~ ^[a-z0-9][a-z0-9-]*$ ]] || refuse "correctif refusé : $valeur"
           ;;
         plan)
           [[ -n $valeur && $valeur != *$'\n'* ]] || refuse "plan refusé"

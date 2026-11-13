@@ -80,6 +80,40 @@ sortie="$(bash "$migration" "$tmp/p03")"
 [[ $sortie == 'déjà migré' ]] || echoue "seconde migration : $sortie"
 [[ -z $(git -C "$tmp/p03" status --porcelain) ]] || echoue "seconde migration : fichiers changés"
 
+# ============ Migration 0.5.0 ============
+migration05="$racine/scripts/migrations/0.5.0.sh"
+[[ -f $migration05 ]] || echoue "scripts/migrations/0.5.0.sh absent"
+
+# Enchaînée après la 0.4.0 sur le projet posé en 0.3.0 : la clé est déjà là, la version monte.
+grep -qxF 'chemins_sensibles=' "$config" || echoue "migration 0.4.0 : chemins_sensibles absent ou non vide"
+sortie="$(bash "$migration05" "$tmp/p03")"
+[[ $sortie == 'écrit      .izanagi/config.env' ]] || echoue "migration 0.5.0 après 0.4.0 : $sortie"
+[[ $(kv_get "$config" izanagi_version) == 0.5.0 ]] || echoue "migration 0.5.0 : izanagi_version"
+[[ $(kv_get "$config" projet) == 'Essai Rapide' ]] || echoue "migration 0.5.0 a perdu une valeur"
+[[ $(bash "$migration05" "$tmp/p03") == 'déjà migré' ]] || echoue "migration 0.5.0 relancée"
+git -C "$tmp/p03" checkout -q -- .izanagi/config.env
+
+# --- Projet posé par la 0.4.1 ---
+git -C "$racine" cat-file -e 'v0.4.1^{commit}' 2>/dev/null || echoue "tag v0.4.1 absent du dépôt : lance git fetch --tags"
+mkdir -p "$tmp/v04" "$tmp/p04"
+git -C "$racine" archive v0.4.1 scripts templates .claude-plugin | tar -x -C "$tmp/v04"
+bash "$tmp/v04/scripts/install.sh" "$tmp/p04" "$tmp/p03v" >/dev/null
+grep -q '^chemins_sensibles=' "$tmp/p04/.izanagi/config.env" && echoue "la pose 0.4.1 a déjà chemins_sensibles"
+depot "$tmp/p04"
+sortie="$(bash "$migration05" "$tmp/p04")"
+[[ $sortie == 'écrit      .izanagi/config.env' ]] || echoue "migration 0.5.0 : $sortie"
+[[ $(kv_get "$tmp/p04/.izanagi/config.env" izanagi_version) == 0.5.0 ]] || echoue "migration 0.5.0 sur 0.4.1 : izanagi_version"
+[[ $(grep -A1 '^taille_tranche=' "$tmp/p04/.izanagi/config.env" | tail -1) == 'chemins_sensibles=' ]] || echoue "migration 0.5.0 : chemins_sensibles mal placé"
+# La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
+{ echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v"
+sortie="$("$install" "$tmp/p04" "$tmp/p04v")"
+grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "config.env migré en 0.5 différent du gabarit : $sortie"
+[[ $(bash "$migration05" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.5.0 relancée sur 0.4.1"
+# Sans config.env, la migration refuse.
+mkdir "$tmp/nu"
+code=0; bash "$migration05" "$tmp/nu" >/dev/null 2>&1 || code=$?
+[[ $code -eq 2 ]] || echoue "migration 0.5.0 sans config.env : code $code"
+
 # --- Vault absent ---
 mkdir "$tmp/sv"
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n' >"$tmp/svv"
