@@ -40,11 +40,11 @@ while [[ -n $valeur ]]; do
   if [[ -n $motif ]]; then motifs+=("$motif"); fi
 done
 
+git -C "$racine" merge-base "$point" HEAD >/dev/null 2>&1 ||
+  refuse "risk.sh : pas d'ancêtre commun entre $point et HEAD"
 # Le diff va dans un fichier : un échec de git doit arrêter le script, et une
 # substitution de processus le cacherait. `--no-renames` liste l'ancien chemin d'un
 # fichier déplacé, pour qu'un fichier sorti d'un dossier sensible compte encore.
-git -C "$racine" merge-base "$point" HEAD >/dev/null 2>&1 ||
-  refuse "risk.sh : pas d'ancêtre commun entre $point et HEAD"
 liste="$(mktemp)" || refuse "risk.sh : fichier temporaire impossible"
 trap 'rm -f "$liste"' EXIT
 # L'erreur de git reste sur la sortie d'erreur : elle dit pourquoi le diff échoue.

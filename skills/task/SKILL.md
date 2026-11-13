@@ -88,7 +88,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 
 Traite un retour de test selon sa nature :
 
-- **Comportement cassé** : un sous-agent `izanagi:implementer` écrit un test de régression rouge, puis le correctif, sur la même branche. Si la cause n'est pas évidente, lance d'abord le sous-agent `izanagi:diagnostician`. Refais ensuite la revue de la section 5 sur le seul diff ajouté, puis pousse.
+- **Comportement cassé** : lance `state.sh set phase=travail --commit`, puis un sous-agent `izanagi:implementer` écrit un test de régression rouge, puis le correctif, sur la même branche. Si la cause n'est pas évidente, lance d'abord le sous-agent `izanagi:diagnostician`. Refais ensuite la revue de la section 5 sur le seul diff ajouté, relance `state.sh set phase=test --commit`, puis pousse.
 - **Attente nouvelle** : si elle tient dans le changement, reprends à la section 4, puis refais la revue de la section 5 sur le seul diff ajouté. Sinon, propose une autre issue.
 
 Note chaque retour au journal et commite-le.
@@ -98,7 +98,7 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 ## 7. Clôture
 
 1. Lance `state.sh set phase=cloture --commit`.
-2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f`, qui passe même si une ligne du journal n'est pas commitée. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
+2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
 3. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
 4. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 5. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
