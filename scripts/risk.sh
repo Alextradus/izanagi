@@ -40,6 +40,14 @@ while [[ -n $valeur ]]; do
   if [[ -n $motif ]]; then motifs+=("$motif"); fi
 done
 
+# Le diff va dans un fichier : un échec de git doit arrêter le script, et une
+# substitution de processus le cacherait. `--no-renames` liste l'ancien chemin d'un
+# fichier déplacé, pour qu'un fichier sorti d'un dossier sensible compte encore.
+liste="$(mktemp)"
+trap 'rm -f "$liste"' EXIT
+git -C "$racine" diff --name-only -z --no-renames "$point...HEAD" >"$liste" 2>/dev/null ||
+  refuse "risk.sh : pas de diff entre $point et HEAD : les deux n'ont pas d'ancêtre commun"
+
 if [[ ${#motifs[@]} -gt 0 ]]; then
   while IFS= read -r -d '' chemin; do
     for motif in "${motifs[@]}"; do
@@ -51,7 +59,7 @@ if [[ ${#motifs[@]} -gt 0 ]]; then
         break
       fi
     done
-  done < <(git -C "$racine" diff --name-only -z "$point...HEAD")
+  done <"$liste"
 fi
 
 echo "$niveau"

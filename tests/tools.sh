@@ -294,6 +294,11 @@ retablir() { cp "$tmp/dr-config" "$config"; }
 sed -i 's/^hook_push=.*/hook_push=avertit/' "$config"
 ecart hook_push 'en avertissement'
 retablir
+# `chemins_sensibles` peut être vide, pas absent.
+grep -qxF 'chemins_sensibles=' "$config" || echoue "doctor : le projet sain n'a pas chemins_sensibles vide"
+sed -i '/^chemins_sensibles=/d' "$config"
+ecart config.env 'chemins_sensibles'
+retablir
 sed -i 's/^izanagi_version=.*/izanagi_version=0.0.1/' "$config"
 ecart 'version du cadre' '0.0.1'
 retablir

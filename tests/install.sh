@@ -320,6 +320,17 @@ grep -q '^- composant :' "$tmp/m6/docs/agents/harness.md" && echoue "harness.md 
 grep -qF 'Aucun composant' "$tmp/m6/docs/agents/harness.md" || echoue "harness.md : note de tableau vide"
 grep -qxF -- '- composant : a | a | typescript |' "$tmp/t4/docs/agents/harness.md" || echoue "harness.md : espace final sans lancement"
 
+# Une valeur vide garde sa ligne `clé=` : la ligne suivante ne s'y colle pas.
+mkdir "$tmp/cle-vide"
+printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n' >"$tmp/cle-vide-v"
+"$install" "$tmp/cle-vide" "$tmp/cle-vide-v" >/dev/null
+grep -qxF 'chemins_sensibles=' "$tmp/cle-vide/.izanagi/config.env" || echoue "valeur vide : la ligne chemins_sensibles= manque ou porte une valeur"
+[[ $(grep -A1 '^chemins_sensibles=' "$tmp/cle-vide/.izanagi/config.env" | tail -1) == fichier_version=* ]] || echoue "valeur vide : la ligne suivante est collée ou perdue"
+printf 'chemins_sensibles=db/*, src/auth/*\n' >>"$tmp/cle-vide-v"
+mkdir "$tmp/cle-pleine"
+"$install" "$tmp/cle-pleine" "$tmp/cle-vide-v" >/dev/null
+grep -qxF 'chemins_sensibles=db/*, src/auth/*' "$tmp/cle-pleine/.izanagi/config.env" || echoue "chemins_sensibles donné n'est pas rendu"
+
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.
 

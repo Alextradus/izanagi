@@ -33,7 +33,7 @@ Si la forme d'une couture est en question (profondeur du module, place de l'inte
 
 Regroupe les tâches en tranches. Une tranche livre un comportement que l'utilisateur peut essayer avec le test manuel (clé `test_manuel`), et son diff reste sous la taille d'une tranche (clé `taille_tranche`). Chaque tranche dit en une phrase ce que l'utilisateur pourra essayer à la fin.
 
-Donne à chaque tranche un niveau de risque, d'après `${CLAUDE_PLUGIN_ROOT}/references/risk.md` : faible, normal ou élevé. Une tranche qui touche un chemin de la clé `chemins_sensibles` est de niveau élevé. Dans le doute entre deux niveaux, prends le plus haut.
+Donne à chaque tranche un niveau de risque, d'après `${CLAUDE_PLUGIN_ROOT}/references/risk.md` : faible, normal ou élevé. Propose le niveau élevé pour une tranche qui touchera sans doute un chemin de la clé `chemins_sensibles` : à la revue, `risk.sh` le vérifie sur le diff et monte le niveau de lui-même. Dans le doute entre deux niveaux, prends le plus haut.
 
 Fais valider le découpage en tranches et les niveaux de risque en même temps que les coutures.
 

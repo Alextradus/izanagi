@@ -49,7 +49,7 @@ Lance `izanagi:grilling` sur le changement, pour cinq questions au plus. Tu cher
 - **le critère de fin** : ce que l'utilisateur pourra faire ou voir une fois le changement fusionné ;
 - **le niveau de risque**, que tu proposes d'après `references/risk.md` et que l'utilisateur confirme.
 
-**Garde-fou.** Arrête le cadrage si le changement prévu dépasse la taille d'une tranche, s'il touche plusieurs coutures, ou s'il demande une décision que la spec n'a pas prise. Dis pourquoi, puis :
+**Garde-fou.** Arrête le cadrage si le changement prévu dépasse la taille d'une tranche ou s'il touche plusieurs coutures. Dis pourquoi, puis :
 
 1. lance `state.sh clear --commit` ;
 2. reviens sur la branche principale et supprime la branche `task/<nom court>` ;
@@ -64,7 +64,7 @@ Fin : l'utilisateur a confirmé les quatre réponses, et le journal les porte.
 1. Lance `state.sh set phase=travail risque=<niveau> --commit`.
 2. Écris le brief de l'implémenteur : le titre et le numéro de l'issue, les quatre réponses du cadrage, la couture, et la consigne de ne rien faire d'autre.
 3. Lance un sous-agent `izanagi:implementer` avec ce brief. Un hook du plugin relance la vérification à son arrêt et le renvoie au travail si elle échoue.
-4. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse. Au statut « fait avec réserves », note les réserves au journal.
+4. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse. Au statut « fait avec réserves », note les réserves au journal et commite-le.
 
 **Sans code.** Un changement de niveau faible qui ne touche que de la documentation ou de la configuration se fait sans sous-agent : fais-le toi-même, lance la vérification, commite.
 
@@ -81,15 +81,17 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 
 ## 6. PR et test
 
-1. **Version.** Monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) : lis la version sur la branche principale à jour juste avant, et commite (`chore: <version>`).
-2. **PR.** Pousse la branche, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification, et finit par `Closes #<n>`.
+1. **Version.** Monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) : lis la version sur la branche principale à jour juste avant, et commite (`chore: <version>`). Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas.
+2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification, et finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
 3. Lance `state.sh set phase=test --commit` et pousse.
-4. **Test manuel.** L'utilisateur essaie le changement avec le test manuel, depuis la branche. Au niveau faible, il n'y a pas de test manuel : passe à la clôture.
+4. **Test manuel.** L'utilisateur essaie le changement avec le test manuel, depuis la branche. Si la revue a retenu le niveau faible (`state.sh get risque`), il n'y a pas de test manuel : passe à la clôture.
 
 Traite un retour de test selon sa nature :
 
 - **Comportement cassé** : un sous-agent `izanagi:implementer` écrit un test de régression rouge, puis le correctif, sur la même branche. Si la cause n'est pas évidente, lance d'abord le sous-agent `izanagi:diagnostician`.
-- **Attente nouvelle** : si elle tient dans le changement, reprends à la section 4. Sinon, propose une autre issue.
+- **Attente nouvelle** : si elle tient dans le changement, reprends à la section 4, puis refais la revue de la section 5 sur le seul diff ajouté. Sinon, propose une autre issue.
+
+Note chaque retour au journal et commite-le.
 
 Fin : la PR est ouverte et l'utilisateur valide le changement.
 
@@ -97,8 +99,9 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 
 1. Lance `state.sh set phase=cloture --commit`.
 2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm`. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
-3. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
-4. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
+3. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
+4. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+5. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
 
 Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni journal, la branche du changement supprimée.
 
@@ -106,4 +109,5 @@ Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni
 
 - **Conflit.** Un rebase ou une fusion en conflit passe par `izanagi:merge-conflicts`.
 - **Push refusé.** Un hook du plugin refuse un `git push` qui vise la branche principale. Ne le contourne pas.
+- **Abandon.** Si l'utilisateur renonce au changement, ne laisse ni état ni branche : lance `state.sh clear --commit`, ferme la PR si elle existe (`gh pr close`), reviens sur la branche principale et supprime la branche `task/<nom court>`, en local et sur le dépôt distant. Laisse l'issue ouverte, sauf s'il demande de la fermer.
 - **Bug trouvé en route**, sans lien avec le changement : ne le corrige pas ici. Propose `/izanagi:fix` après la clôture, ou ouvre une issue avec l'accord de l'utilisateur.

@@ -22,7 +22,7 @@ La phase qui t'appelle fournit :
 - le **point fixe** : la branche ou le commit d'où part le diff ;
 - l'**axe Spec** : un texte ou un chemin (une tranche du plan, des sections de la spec, une issue, la description d'une PR) ;
 - le **journal** du jalon, s'il existe ;
-- le **niveau de risque** déclaré : `faible`, `normal` ou `eleve`. Sans niveau donné, prends `normal`.
+- le **niveau de risque** déclaré : `faible`, `normal` ou `eleve`. Sans niveau donné, prends `normal`. Un plan écrit « élevé » : passe `eleve` aux scripts, qui refusent l'accent.
 
 Lis `.izanagi/config.env` : la clé `verification` donne la vérification, la clé `branche` la branche principale.
 
@@ -88,9 +88,9 @@ Note au journal chaque constat écarté, avec sa raison. Hors jalon, sans journa
 
 ## 5. Vérifier
 
-Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commité leurs corrections. Dans un jalon, c'est toi qui commites ensuite le tour : lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour> risque=<niveau retenu> --commit`, puis commite les lignes ajoutées au journal (`chore(izanagi): journal, tour <numéro du tour>`). `/izanagi:status` lit l'état commité : un tour non commité n'y apparaît pas.
+Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commité leurs corrections. Dans un flux, c'est-à-dire sur une branche qui porte un état (jalon, `task` ou `fix`), c'est toi qui commites ensuite le tour : lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour> risque=<niveau retenu> --commit`, puis commite les lignes ajoutées au journal (`chore(izanagi): journal, tour <numéro du tour>`). `/izanagi:status` lit l'état commité : un tour non commité n'y apparaît pas. La clôture d'un flux supprime son journal avec `git rm`, qui refuse un fichier modifié : ne laisse aucune ligne de journal hors d'un commit.
 
-**Correctif de jalon.** Si l'état porte une clé `correctif`, il est celui du jalon, pas celui du correctif en revue. N'y écris ni le tour ni le niveau : commite seulement les lignes du journal.
+**Correctif de jalon.** Si l'état porte une clé `correctif`, il est celui du jalon, pas celui du correctif en revue. N'y écris ni le tour ni le niveau : commite seulement les lignes du journal, où tu notes aussi le niveau retenu.
 
 ## 6. Tours suivants
 
@@ -112,6 +112,8 @@ Si une règle ou une classe de bug a déjà été signalée dans une tranche pr�
 
 La revue est finie sur un tour sans Important, sur le tour unique du niveau `faible`, ou sur la décision de l'utilisateur au plafond.
 
-**Niveau `eleve` : relecture par l'utilisateur.** Une fois la revue finie, donne à l'utilisateur de quoi lire le diff entier : le lien de la PR si elle existe, sinon la commande `git diff <point fixe>...HEAD`. Dis-lui quels chemins sensibles le diff touche. Attends qu'il dise avoir relu, et traite ses remarques comme des constats Jugement. La phase qui t'a appelé ne fusionne rien avant. Note le nombre de tours au journal, ou dans la description de la PR hors jalon. Hors jalon, supprime ensuite `.izanagi/journal/hors-jalon/` ou `.git/izanagi-review/`.
+**Niveau `eleve` : relecture par l'utilisateur.** Une fois la revue finie, donne à l'utilisateur de quoi lire le diff entier : le lien de la PR si elle existe, sinon la commande `git diff <point fixe>...HEAD`. Dis-lui quels chemins sensibles le diff touche. Attends qu'il dise avoir relu, et traite ses remarques comme des constats Jugement. La phase qui t'a appelé ne fusionne rien avant.
+
+À tout niveau, note le nombre de tours et le niveau retenu au journal, et commite la ligne. Sans journal, note-les dans la description de la PR. Hors flux, supprime ensuite `.izanagi/journal/hors-jalon/` ou `.git/izanagi-review/`.
 
 Rends à la phase qui t'a appelé un compte rendu court : le niveau de risque retenu, le compte des constats par axe et par étiquette, le nombre de tours, les constats écartés et les issues ouvertes.

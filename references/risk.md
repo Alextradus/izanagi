@@ -15,6 +15,7 @@ La valeur écrite est celle des fichiers et des scripts : `state.sh set risque=e
 - **Dans un jalon**, le plan donne le niveau de chaque tranche, sur sa ligne `**Risque :**`. Une tranche sans cette ligne, dans un plan d'avant la 0.5, est de niveau normal.
 - **Dans `task` et `fix`**, le flux propose un niveau au départ, d'après les exemples de la table, et l'utilisateur le confirme.
 - **L'utilisateur** peut changer le niveau à tout moment. Applique sa réponse et écris-la avec `state.sh set risque=<valeur>`.
+- **Un correctif né d'un jalon** n'écrit pas son niveau dans l'état, qui est celui du jalon. Son niveau se note au journal du jalon.
 
 Dans le doute entre deux niveaux, propose le plus haut.
 

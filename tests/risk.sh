@@ -85,6 +85,24 @@ git switch -q main
 attend faible main faible
 git switch -q task/x
 
+# Un fichier déplacé hors d'un dossier sensible compte par son ancien chemin.
+git switch -q -c task/deplace main
+mkdir -p db/migrations docs
+echo "create table t (id integer primary key, nom text not null, cree timestamp);" >db/migrations/000.sql
+git add db && git commit -q -m "migration"
+git tag avant-deplacement
+git mv db/migrations/000.sql docs/000.sql
+git commit -q -m "déplacement"
+regler 'db/migrations/*'
+attend eleve avant-deplacement faible
+grep -qxF 'risk.sh : chemin sensible : db/migrations/000.sql' <<<"$erreur" || echoue "fichier déplacé hors d'un dossier sensible : $erreur"
+
+# Sans ancêtre commun, le script refuse au lieu de rendre le niveau déclaré.
+orphelin="$(git commit-tree "$(git hash-object -t tree /dev/null)" -m racine)"
+lancer "$orphelin" faible
+[[ $code -eq 2 && -z $sortie && $erreur == "risk.sh : pas de diff entre $orphelin et HEAD"* ]] || echoue "sans ancêtre commun : code $code, sortie « $sortie », $erreur"
+git switch -q task/x
+
 # Refus.
 lancer main moyen
 [[ $code -eq 2 && $erreur == 'risk.sh : niveau refusé : moyen' ]] || echoue "niveau inconnu : code $code, $erreur"

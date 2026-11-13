@@ -104,6 +104,12 @@ grep -qF 'git add -u -- .izanagi' skills/task/SKILL.md || echoue "la clôture de
 # Claude Code bloque l'appel du skill par le modèle.
 [[ -z $(champ skills/fix/SKILL.md disable-model-invocation) ]] || echoue "skills/fix porte disable-model-invocation : jalon ne pourrait pas le lancer"
 grep -qF 'izanagi:fix' skills/jalon/SKILL.md || echoue "les retours de test de jalon ne passent pas par izanagi:fix"
+grep -qF '**Hors jalon.**' skills/fix/SKILL.md && grep -qF '**Dans un jalon.**' skills/fix/SKILL.md || echoue "skills/fix ne nomme pas ses deux cas à la clôture"
+for s in task fix; do
+  grep -qF '**Abandon.**' "skills/$s/SKILL.md" || echoue "skills/$s ne dit pas quoi faire d'un flux abandonné"
+  grep -qF 'ne la remonte pas' "skills/$s/SKILL.md" || echoue "skills/$s peut monter le patch deux fois"
+done
+grep -qF 'Dans un flux' skills/review/SKILL.md || echoue "skills/review n'écrit le tour que dans un jalon"
 grep -qF 'izanagi:diagnostician' skills/fix/SKILL.md || echoue "skills/fix ne lance pas le diagnostiqueur"
 grep -qF 'set correctif=<nom court> --commit' skills/fix/SKILL.md || echoue "skills/fix ne pose pas la clé correctif dans un jalon"
 grep -qF 'set correctif= --commit' skills/fix/SKILL.md || echoue "skills/fix ne retire pas la clé correctif"
