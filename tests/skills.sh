@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor)
-commandes=" init jalon grilling upgrade status doctor "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task)
+commandes=" init jalon grilling upgrade status doctor task "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -80,7 +80,7 @@ anciens="$(grep -rnF 'docs/agents/jalon.md' skills agents references templates 2
 $anciens"
 
 # Seul scripts/state.sh écrit l'état : `jalon` et `review` doivent le nommer.
-for s in jalon review; do
+for s in jalon review task; do
   grep -qF 'scripts/state.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas par scripts/state.sh"
 done
 # Niveaux de risque : la table est dans references/risk.md, et seul risk.sh dit
@@ -95,6 +95,10 @@ grep -qF '**Risque :**' skills/planning/SKILL.md || echoue "le gabarit de plan n
 
 # La clôture met en index la suppression de l'état, que `state.sh clear` ne fait pas.
 grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture de jalon ne retire pas state.env de l'index"
+# `task` s'arrête au cadrage quand le changement est trop gros, et clôt comme `jalon`.
+grep -qF '**Garde-fou.**' skills/task/SKILL.md || echoue "skills/task n'a pas de garde-fou"
+grep -qF '/izanagi:jalon' skills/task/SKILL.md || echoue "le garde-fou de task ne propose pas /izanagi:jalon"
+grep -qF 'git add -u -- .izanagi' skills/task/SKILL.md || echoue "la clôture de task ne retire pas state.env de l'index"
 # `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.
 awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { exit !vu }' skills/upgrade/SKILL.md ||
   echoue "upgrade ne crée pas sa branche avant la section Migrer"
