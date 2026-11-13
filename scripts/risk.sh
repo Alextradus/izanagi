@@ -43,10 +43,13 @@ done
 # Le diff va dans un fichier : un échec de git doit arrêter le script, et une
 # substitution de processus le cacherait. `--no-renames` liste l'ancien chemin d'un
 # fichier déplacé, pour qu'un fichier sorti d'un dossier sensible compte encore.
-liste="$(mktemp)"
+git -C "$racine" merge-base "$point" HEAD >/dev/null 2>&1 ||
+  refuse "risk.sh : pas d'ancêtre commun entre $point et HEAD"
+liste="$(mktemp)" || refuse "risk.sh : fichier temporaire impossible"
 trap 'rm -f "$liste"' EXIT
-git -C "$racine" diff --name-only -z --no-renames "$point...HEAD" >"$liste" 2>/dev/null ||
-  refuse "risk.sh : pas de diff entre $point et HEAD : les deux n'ont pas d'ancêtre commun"
+# L'erreur de git reste sur la sortie d'erreur : elle dit pourquoi le diff échoue.
+git -C "$racine" diff --name-only -z --no-renames "$point...HEAD" >"$liste" ||
+  refuse "risk.sh : git diff a échoué entre $point et HEAD"
 
 if [[ ${#motifs[@]} -gt 0 ]]; then
   while IFS= read -r -d '' chemin; do

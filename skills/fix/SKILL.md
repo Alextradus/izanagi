@@ -66,14 +66,14 @@ Lis son rapport :
 - **Pas de cause.** Présente à l'utilisateur ce que le diagnostic a écarté, et demande-lui ce qui manque pour reproduire le bug.
 - **Le comportement n'a jamais été cadré.** Ce n'est pas un bug. Arrête le correctif :
   1. retire l'état : `state.sh clear --commit` hors jalon, `state.sh set correctif= --commit` dans un jalon ;
-  2. reviens sur la base et supprime la branche `fix/<nom court>` ;
+  2. reviens sur la base et supprime la branche `fix/<nom court>` avec `git branch -D`, puisqu'elle n'est pas fusionnée ;
   3. hors jalon, propose `/izanagi:task`. Dans un jalon, rends la main à `izanagi:jalon`, qui mène une courte ronde de `izanagi:grilling` et écrit la décision.
 
 Fin : la cause est prouvée par un test rouge commité.
 
 ## 4. Correctif
 
-1. Propose le niveau de risque d'après `references/risk.md`, normal par défaut, et fais-le confirmer par l'utilisateur. Hors jalon, lance `state.sh set phase=travail risque=<niveau> --commit`. Dans un jalon, n'écris rien dans l'état, qui est celui du jalon : ajoute au journal du jalon la ligne `Correctif <nom court> : niveau <niveau>` et commite-la.
+1. Propose le niveau de risque d'après `references/risk.md`, normal par défaut, et fais-le confirmer par l'utilisateur. Si tu reviens ici après un test qui montre encore le bug, garde le niveau déjà confirmé, sans le redemander ni le réécrire. Hors jalon, lance `state.sh set phase=travail risque=<niveau> --commit`. Dans un jalon, n'écris rien dans l'état, qui est celui du jalon : ajoute au journal du jalon la ligne `Correctif <nom court> : niveau <niveau>` et commite-la.
 2. Lance un sous-agent `izanagi:implementer`. Son brief : le rapport du diagnostic, le test de régression à faire passer, et la consigne de ne corriger que cette cause. Un hook du plugin relance la vérification à son arrêt.
 3. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse.
 
@@ -105,7 +105,7 @@ Fin : la PR est ouverte et l'utilisateur confirme que le bug a disparu.
 **Hors jalon.**
 
 1. Lance `state.sh set phase=cloture --commit`.
-2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm`. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
+2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f`, qui passe même si une ligne du journal n'est pas commitée. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
 3. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
 4. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 5. Reviens sur la branche principale à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
@@ -124,5 +124,5 @@ Fin : la PR est fusionnée, la branche du correctif supprimée, et la base ne po
 
 - **Conflit.** Un rebase ou une fusion en conflit passe par `izanagi:merge-conflicts`.
 - **Push refusé.** Un hook du plugin refuse un `git push` qui vise la branche principale. Ne le contourne pas.
-- **Abandon.** Si l'utilisateur renonce au correctif, ne laisse ni état ni branche. Hors jalon : `state.sh clear --commit`. Dans un jalon : `state.sh set correctif= --commit`. Ferme ensuite la PR si elle existe (`gh pr close`), reviens sur la base et supprime la branche `fix/<nom court>`, en local et sur le dépôt distant. Dans un jalon, note l'abandon au journal du jalon.
+- **Abandon.** Si l'utilisateur renonce au correctif, ne laisse ni état ni branche. Hors jalon : `state.sh clear --commit`. Dans un jalon : `state.sh set correctif= --commit`. Ferme ensuite la PR si elle existe (`gh pr close`), reviens sur la base et supprime la branche `fix/<nom court>`, en local avec `git branch -D`, puisqu'elle n'est pas fusionnée, et sur le dépôt distant. Dans un jalon, note l'abandon au journal du jalon.
 - **Second bug trouvé en route.** Ne le corrige pas dans cette branche. Ouvre une issue avec l'accord de l'utilisateur, ou note-le au journal du jalon.

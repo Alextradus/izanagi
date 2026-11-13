@@ -52,7 +52,7 @@ Lance `izanagi:grilling` sur le changement, pour cinq questions au plus. Tu cher
 **Garde-fou.** Arrête le cadrage si le changement prévu dépasse la taille d'une tranche ou s'il touche plusieurs coutures. Dis pourquoi, puis :
 
 1. lance `state.sh clear --commit` ;
-2. reviens sur la branche principale et supprime la branche `task/<nom court>` ;
+2. reviens sur la branche principale et supprime la branche `task/<nom court>` avec `git branch -D`, puisqu'elle n'est pas fusionnée ;
 3. propose `/izanagi:jalon`, et laisse l'issue ouverte.
 
 Sinon, écris les quatre réponses dans `.izanagi/journal/task-<nom court>.md`, sous le titre de l'issue, et commite (`chore(izanagi): journal, cadrage`).
@@ -61,7 +61,7 @@ Fin : l'utilisateur a confirmé les quatre réponses, et le journal les porte.
 
 ## 4. Travail
 
-1. Lance `state.sh set phase=travail risque=<niveau> --commit`.
+1. Lance `state.sh set phase=travail risque=<niveau> --commit`. Si tu reviens ici après un retour de test, garde le niveau que l'état porte déjà (`state.sh get risque`) : la revue a pu le monter.
 2. Écris le brief de l'implémenteur : le titre et le numéro de l'issue, les quatre réponses du cadrage, la couture, et la consigne de ne rien faire d'autre.
 3. Lance un sous-agent `izanagi:implementer` avec ce brief. Un hook du plugin relance la vérification à son arrêt et le renvoie au travail si elle échoue.
 4. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse. Au statut « fait avec réserves », note les réserves au journal et commite-le.
@@ -88,7 +88,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 
 Traite un retour de test selon sa nature :
 
-- **Comportement cassé** : un sous-agent `izanagi:implementer` écrit un test de régression rouge, puis le correctif, sur la même branche. Si la cause n'est pas évidente, lance d'abord le sous-agent `izanagi:diagnostician`.
+- **Comportement cassé** : un sous-agent `izanagi:implementer` écrit un test de régression rouge, puis le correctif, sur la même branche. Si la cause n'est pas évidente, lance d'abord le sous-agent `izanagi:diagnostician`. Refais ensuite la revue de la section 5 sur le seul diff ajouté, puis pousse.
 - **Attente nouvelle** : si elle tient dans le changement, reprends à la section 4, puis refais la revue de la section 5 sur le seul diff ajouté. Sinon, propose une autre issue.
 
 Note chaque retour au journal et commite-le.
@@ -98,7 +98,7 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 ## 7. Clôture
 
 1. Lance `state.sh set phase=cloture --commit`.
-2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm`. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
+2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f`, qui passe même si une ligne du journal n'est pas commitée. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
 3. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
 4. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 5. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
@@ -109,5 +109,5 @@ Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni
 
 - **Conflit.** Un rebase ou une fusion en conflit passe par `izanagi:merge-conflicts`.
 - **Push refusé.** Un hook du plugin refuse un `git push` qui vise la branche principale. Ne le contourne pas.
-- **Abandon.** Si l'utilisateur renonce au changement, ne laisse ni état ni branche : lance `state.sh clear --commit`, ferme la PR si elle existe (`gh pr close`), reviens sur la branche principale et supprime la branche `task/<nom court>`, en local et sur le dépôt distant. Laisse l'issue ouverte, sauf s'il demande de la fermer.
+- **Abandon.** Si l'utilisateur renonce au changement, ne laisse ni état ni branche : lance `state.sh clear --commit`, ferme la PR si elle existe (`gh pr close`), reviens sur la branche principale et supprime la branche `task/<nom court>`, en local avec `git branch -D`, puisqu'elle n'est pas fusionnée, et sur le dépôt distant. Laisse l'issue ouverte, sauf s'il demande de la fermer.
 - **Bug trouvé en route**, sans lien avec le changement : ne le corrige pas ici. Propose `/izanagi:fix` après la clôture, ou ouvre une issue avec l'accord de l'utilisateur.

@@ -60,10 +60,10 @@ Déduis la phase de git, la première ligne qui s'applique :
 
 Compare ensuite à l'état :
 
+- **L'état porte une clé `correctif`.** Tu es sur la branche `fix/<nom>` d'un correctif né de ce jalon. Ne touche pas à l'état : lance `izanagi:fix`, qui reprend le correctif, puis reviens au jalon.
 - **L'état et git concordent.** Reprends à la phase, à la tranche et au tour que l'état donne.
 - **Ils se contredisent.** Git l'emporte. Dis l'écart en une ligne, puis corrige l'état avec `state.sh set … --commit`. `set` ne change ni le flux ni le nom : s'ils sont faux, lance `state.sh clear --commit`, puis `state.sh start` comme pour une branche sans état.
 - **Une branche de jalon n'a pas d'état**, parce que le jalon a commencé avant la 0.4. Crée-le d'après git : `state.sh start jalon <nom court>`, puis `state.sh set plan=<chemin du plan> phase=<phase> tranche=<N> --commit`.
-- **L'état porte une clé `correctif`.** Tu es sur la branche `fix/<nom>` d'un correctif né de ce jalon. Ne touche pas à l'état : lance `izanagi:fix`, qui reprend le correctif, puis reviens au jalon.
 - **Pas d'état sur la branche principale.** C'est attendu : le cadrage et le plan se font avant la branche du jalon.
 
 Annonce la phase et le constat en une ligne, puis enchaîne.
@@ -116,7 +116,7 @@ Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vér
 Les tranches ont déjà passé leur revue. Celle-ci cherche ce qu'elles ne voyaient pas une à une : les écarts à la spec sur l'ensemble du jalon et les défauts entre tranches.
 
 1. Sur la branche du jalon, lance `state.sh set phase=revue tour=0 --commit`.
-2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut parmi ceux des lignes `Tranche N : fusionnée` du journal. Si une de ces lignes n'a pas de niveau, prends le plus haut des lignes `**Risque :**` du plan.
+2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut parmi ceux des lignes `Tranche N : fusionnée` et `Correctif <nom> : niveau` du journal. Si une de ces lignes n'a pas de niveau, prends le plus haut des lignes `**Risque :**` du plan.
 3. Lance la vérification sur la branche du jalon. Elle doit passer avant la PR.
 4. Pousse la branche du jalon, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps résume le jalon tranche par tranche, dit comment l'essayer et colle la sortie de la vérification.
 5. Lance `state.sh set phase=test --commit` et pousse.
@@ -137,7 +137,7 @@ Une fois la validation reçue, tout ce qui modifie un fichier se fait sur la bra
 2. Monte la version mineure et commite (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
 3. Relis `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur. Commite s'il change.
 4. Fais la fin de jalon du vault (`docs/agents/vault.md`), qui lit le journal.
-5. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm`. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
+5. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f`, qui passe même si une ligne du journal n'est pas commitée. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
 6. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 7. Reviens sur la branche principale à jour. Pose le tag sur le commit de fusion et pousse-le.
 8. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.

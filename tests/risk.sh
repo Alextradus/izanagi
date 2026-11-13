@@ -100,7 +100,7 @@ grep -qxF 'risk.sh : chemin sensible : db/migrations/000.sql' <<<"$erreur" || ec
 # Sans ancêtre commun, le script refuse au lieu de rendre le niveau déclaré.
 orphelin="$(git commit-tree "$(git hash-object -t tree /dev/null)" -m racine)"
 lancer "$orphelin" faible
-[[ $code -eq 2 && -z $sortie && $erreur == "risk.sh : pas de diff entre $orphelin et HEAD"* ]] || echoue "sans ancêtre commun : code $code, sortie « $sortie », $erreur"
+[[ $code -eq 2 && -z $sortie && $erreur == "risk.sh : pas d'ancêtre commun entre $orphelin et HEAD" ]] || echoue "sans ancêtre commun : code $code, sortie « $sortie », $erreur"
 git switch -q task/x
 
 # Refus.
