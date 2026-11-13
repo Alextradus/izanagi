@@ -106,4 +106,4 @@ Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni
 
 - **Conflit.** Un rebase ou une fusion en conflit passe par `izanagi:merge-conflicts`.
 - **Push refusé.** Un hook du plugin refuse un `git push` qui vise la branche principale. Ne le contourne pas.
-- **Bug trouvé en route**, sans lien avec le changement : ne le corrige pas ici. Ouvre une issue, avec l'accord de l'utilisateur.
+- **Bug trouvé en route**, sans lien avec le changement : ne le corrige pas ici. Propose `/izanagi:fix` après la clôture, ou ouvre une issue avec l'accord de l'utilisateur.

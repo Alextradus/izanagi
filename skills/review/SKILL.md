@@ -90,6 +90,8 @@ Note au journal chaque constat écarté, avec sa raison. Hors jalon, sans journa
 
 Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commité leurs corrections. Dans un jalon, c'est toi qui commites ensuite le tour : lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour> risque=<niveau retenu> --commit`, puis commite les lignes ajoutées au journal (`chore(izanagi): journal, tour <numéro du tour>`). `/izanagi:status` lit l'état commité : un tour non commité n'y apparaît pas.
 
+**Correctif de jalon.** Si l'état porte une clé `correctif`, il est celui du jalon, pas celui du correctif en revue. N'y écris ni le tour ni le niveau : commite seulement les lignes du journal.
+
 ## 6. Tours suivants
 
 **Niveau `faible` : pas de tour suivant.** Les constats Important du tour unique se corrigent, la vérification passe, et la revue s'arrête là. Dis à l'utilisateur que les corrections n'ont pas été relues, et qu'il peut monter le niveau à `normal` pour qu'elles le soient.

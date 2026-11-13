@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task)
-commandes=" init jalon grilling upgrade status doctor task "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix)
+commandes=" init jalon grilling upgrade status doctor task fix "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -80,7 +80,7 @@ anciens="$(grep -rnF 'docs/agents/jalon.md' skills agents references templates 2
 $anciens"
 
 # Seul scripts/state.sh écrit l'état : `jalon` et `review` doivent le nommer.
-for s in jalon review task; do
+for s in jalon review task fix; do
   grep -qF 'scripts/state.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas par scripts/state.sh"
 done
 # Niveaux de risque : la table est dans references/risk.md, et seul risk.sh dit
@@ -99,6 +99,15 @@ grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture d
 grep -qF '**Garde-fou.**' skills/task/SKILL.md || echoue "skills/task n'a pas de garde-fou"
 grep -qF '/izanagi:jalon' skills/task/SKILL.md || echoue "le garde-fou de task ne propose pas /izanagi:jalon"
 grep -qF 'git add -u -- .izanagi' skills/task/SKILL.md || echoue "la clôture de task ne retire pas state.env de l'index"
+# `fix` : `jalon` le lance par l'outil Skill, ce que `disable-model-invocation` interdit.
+# Lu le 2026-11-13 dans https://code.claude.com/docs/en/skills.md : avec ce champ,
+# Claude Code bloque l'appel du skill par le modèle.
+[[ -z $(champ skills/fix/SKILL.md disable-model-invocation) ]] || echoue "skills/fix porte disable-model-invocation : jalon ne pourrait pas le lancer"
+grep -qF 'izanagi:fix' skills/jalon/SKILL.md || echoue "les retours de test de jalon ne passent pas par izanagi:fix"
+grep -qF 'izanagi:diagnostician' skills/fix/SKILL.md || echoue "skills/fix ne lance pas le diagnostiqueur"
+grep -qF 'set correctif=<nom court> --commit' skills/fix/SKILL.md || echoue "skills/fix ne pose pas la clé correctif dans un jalon"
+grep -qF 'set correctif= --commit' skills/fix/SKILL.md || echoue "skills/fix ne retire pas la clé correctif"
+grep -qF 'git add -u -- .izanagi' skills/fix/SKILL.md || echoue "la clôture de fix ne retire pas state.env de l'index"
 # `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.
 awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { exit !vu }' skills/upgrade/SKILL.md ||
   echoue "upgrade ne crée pas sa branche avant la section Migrer"

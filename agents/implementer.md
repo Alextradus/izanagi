@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Implémente une tâche d'un plan Izanagi en TDD, aux coutures que la tâche nomme, et rend un rapport avec la sortie de la vérification. Lancé par izanagi:task-loop, une tâche à la fois, et par izanagi:task pour un petit changement.
+description: Implémente une tâche d'un plan Izanagi en TDD, aux coutures que la tâche nomme, et rend un rapport avec la sortie de la vérification. Lancé par izanagi:task-loop, une tâche à la fois, par izanagi:task pour un petit changement et par izanagi:fix pour un correctif.
 skills:
   - tdd
 ---

@@ -148,8 +148,8 @@ Fin de phase : tag poussé, vault clos, la branche principale sans état ni jour
 
 Valable pour le test ciblé d'une tranche comme pour le test du jalon. Traite chaque retour selon sa nature :
 
-- **Comportement cassé** : lance le sous-agent `izanagi:diagnostician`, qui rend la cause et un test de régression rouge. Confie ensuite le correctif à un sous-agent `izanagi:implementer` sur la branche testée.
-- **Attente non cadrée** : une courte ronde de `izanagi:grilling`, la décision au lieu des décisions, puis le correctif par un sous-agent `izanagi:implementer`.
+- **Comportement cassé** : lance `izanagi:fix` depuis la branche testée, avec le geste, l'attendu et le constaté. Il crée une branche `fix/<nom>` depuis cette branche, y ajoute la clé `correctif` à l'état du jalon, prouve la cause par un test rouge, corrige, fait relire et ouvre une PR vers la branche testée. Il te rend la main une fois la PR fusionnée, ou s'il conclut que le comportement n'a jamais été cadré.
+- **Attente non cadrée** : une courte ronde de `izanagi:grilling`, la décision au lieu des décisions, puis le changement par un sous-agent `izanagi:implementer` sur la branche testée.
 - **Tout retour** : la section Test manuel de la note du jalon dans le vault.
 
 ## Hors phases
