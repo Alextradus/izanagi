@@ -17,6 +17,8 @@ Le script rend une ligne par contrôle, `ok      <contrôle>` ou `écart   <cont
 
 ## 2. Ajouter ce que le script ne voit pas
 
+**Hooks du plugin.** Le script contrôle le réglage des clés `hook_push` et `hook_verification`, pas le chargement des hooks par Claude Code. Dis à l'utilisateur que `/hooks` liste les hooks chargés, et qu'il doit y voir `session-start.sh`, `guard-push.sh` et `verify-implementer.sh`.
+
 **Skills en double.** Regarde ta liste de skills. Un skill d'un autre plugin qui a le rôle d'un skill d'Izanagi est un doublon : `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`, `superpowers:test-driven-development`, `superpowers:systematic-debugging`, `mattpocock-skills:grilling`, `mattpocock-skills:tdd`, `mattpocock-skills:code-review`, `mattpocock-skills:diagnosing-bugs`, `mattpocock-skills:domain-modeling`. Signale ceux que tu vois, en une ligne chacun. Le `CLAUDE.md` du projet dit déjà que les skills `izanagi:*` priment, donc un doublon n'est pas une panne. Si Superpowers est actif, dis que son hook de démarrage pousse ses propres skills à chaque session, et que l'utilisateur peut le désactiver pour ce projet.
 
 **Ligne de priorité.** Vérifie que `CLAUDE.md` contient la ligne qui dit que les skills `izanagi:*` priment. Si elle manque, c'est un écart.
