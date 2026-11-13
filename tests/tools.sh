@@ -221,6 +221,27 @@ attendu="  jalon/essai  jalon « essai », phase tranches  ($jour)
 [[ $sortie == "$attendu" ]] || echoue "status : sortie inattendue :
 $sortie"
 
+# Un correctif né du jalon s'affiche sous son jalon, avant les tranches.
+git switch -q jalon/essai
+git switch -q -c fix/bouton
+bash "$racine/scripts/state.sh" set correctif=bouton --commit
+git switch -q jalon/essai-t1
+sortie="$(bash "$status")"
+attendu="  jalon/essai  jalon « essai », phase tranches  ($jour)
+    fix/bouton  correctif « bouton »  ($jour)
+*   jalon/essai-t1  jalon « essai », phase tranches, tranche 1, tour 2, risque eleve  ($jour)
+  task/x  sans état"
+[[ $sortie == "$attendu" ]] || echoue "status : correctif de jalon mal rangé :
+$sortie"
+# Un flux fix hors jalon garde sa propre ligne.
+git switch -q main
+git switch -q -c fix/seul
+bash "$racine/scripts/state.sh" start fix seul --commit
+sortie="$(bash "$status")"
+grep -qF "* fix/seul  fix « seul », phase diagnostic" <<<"$sortie" || echoue "status : flux fix hors jalon : $sortie"
+git switch -q jalon/essai-t1
+git branch -q -D fix/seul
+
 # Une branche qui n'existe que sur le dépôt distant apparaît une fois.
 git init -q --bare "$tmp/st-distant.git"
 git remote add origin "$tmp/st-distant.git"
@@ -293,6 +314,12 @@ diagnostic
 grep -qxF 'ok      état' <<<"$sortie" || echoue "doctor : état cohérent refusé : $sortie"
 printf 'flux=jalon\nnom=essai\nphase=tranches\nplan=docs/plans/absent.md\n' >.izanagi/state.env
 ecart état 'docs/plans/absent.md'
+# Un correctif né du jalon : cohérent sur sa branche fix/<nom>, en écart ailleurs.
+printf 'flux=jalon\nnom=essai\nphase=test\ncorrectif=bouton\n' >.izanagi/state.env
+ecart état 'correctif « bouton » resté'
+git switch -q -c fix/bouton
+diagnostic
+grep -qxF 'ok      état' <<<"$sortie" || echoue "doctor : correctif de jalon refusé sur sa branche : $sortie"
 rm .izanagi/state.env
 git switch -q main
 

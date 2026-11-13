@@ -96,6 +96,9 @@ lancer session-start.sh "$p" '{}'
 printf 'flux=fix\nnom=bouton\nphase=revue\ntour=1\nrisque=eleve\n' >"$p/.izanagi/state.env"
 lancer session-start.sh "$p" '{}'
 [[ $sortie == 'Izanagi : flux fix « bouton », phase revue, tour de revue 1, risque eleve. Reprends avec /izanagi:fix.' ]] || echoue "démarrage d'un flux fix : « $sortie »"
+printf 'flux=jalon\nnom=essai\nphase=test\ncorrectif=bouton-mort\n' >"$p/.izanagi/state.env"
+lancer session-start.sh "$p" '{}'
+[[ $sortie == 'Izanagi : flux jalon « essai », phase test, correctif « bouton-mort ». Reprends avec /izanagi:fix.' ]] || echoue "démarrage d'un correctif de jalon : « $sortie »"
 printf 'flux=task\nnom=petit\nphase=debut\n' >"$p/.izanagi/state.env"
 
 # Le dossier vient de l'entrée JSON quand elle le donne.

@@ -130,9 +130,15 @@ if [[ -f $etat ]]; then
   flux="$(kv_get "$etat" flux || true)"
   nom="$(kv_get "$etat" nom || true)"
   plan="$(kv_get "$etat" plan || true)"
+  correctif="$(kv_get "$etat" correctif || true)"
   re_tranche="^$flux/$nom(-t[0-9]+)?\$"
   if [[ $branche == "$principale" ]]; then
     ecart "état" "state.env sur la branche principale, qui n'en porte jamais"
+  elif [[ -n $correctif && $branche != "fix/$correctif" ]]; then
+    ecart "état" "correctif « $correctif » resté dans l'état, la branche courante est $branche"
+  elif [[ -n $correctif ]]; then
+    # Un correctif né d'un jalon garde l'état du jalon sur sa branche fix/<nom>.
+    ok "état"
   elif [[ ! $branche =~ $re_tranche ]]; then
     ecart "état" "state.env décrit le flux $flux « $nom », la branche courante est $branche"
   elif [[ -n $plan && ! -f $cible/$plan ]]; then
