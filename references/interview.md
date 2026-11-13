@@ -61,4 +61,6 @@ Les piles de référence (Rust, TypeScript avec npm, Python avec uv) ont des gab
 - `test_manuel=<commande>` : avec un seul composant, la commande que donne l'utilisateur, sinon celle de la section « Test manuel par défaut » de la fiche du type, prise entre accents graves pour la pile du composant. Avec au moins deux composants, la valeur est `scripts/dev.sh` et la ligne s'omet.
 - `lieu_test=<complément>` : où l'utilisateur essaie, en complément de phrase (« dans un terminal », « dans son navigateur »), tiré de la section « Test manuel par défaut » de la fiche du type. Aucun défaut ne le fournit.
 
+- `chemins_sensibles=<motifs>` : les chemins dont tout changement demande la revue la plus profonde, séparés par des virgules (`db/migrations/*, src/auth/*`). Demande à l'utilisateur où sont les données, la sécurité, les migrations et l'API publique du projet. Dans un dossier vide, la clé reste vide : rappelle à l'utilisateur de la remplir quand ces dossiers existeront.
+
 Les autres clés (`projet`, `branche`, `spec`) gardent leur nom de la 0.1.

@@ -103,9 +103,9 @@ Traite les tranches dans l'ordre du plan. Pour chacune :
 
 1. **Branche** : `<branche du jalon>-tN`, créée depuis la branche du jalon à jour. Lance `state.sh set tranche=<N> tour=0 --commit`.
 2. **Tâches** : lance `izanagi:task-loop` sur les tâches de la tranche. Il rend la main après la dernière tâche, la vérification verte sur la branche de la tranche.
-3. **Revue** : lance `izanagi:review`, avec la branche du jalon pour point fixe, la tranche du plan pour axe Spec, et le journal.
+3. **Revue** : lance `izanagi:review`, avec la branche du jalon pour point fixe, la tranche du plan pour axe Spec, le journal, et le niveau de risque de la tranche. Le plan donne ce niveau sur la ligne `**Risque :**` de la tranche (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`). Une tranche sans cette ligne, dans un plan d'avant la 0.5, est de niveau normal.
 4. **PR de tranche** : `gh pr create --base <branche du jalon>`, corps passé par `--body-file` (`docs/agents/issue-tracker.md`). Le corps dit ce que la tranche fait, comment l'essayer (commandes et gestes) et colle la sortie de la vérification.
-5. **Test ciblé** : l'utilisateur essaie la tranche avec le test manuel, depuis la branche de la tranche. Traite ses retours selon la section 8.
+5. **Test ciblé** : l'utilisateur essaie la tranche avec le test manuel, depuis la branche de la tranche. Traite ses retours selon la section 8. Une tranche dont la revue a retenu le niveau faible n'a pas de test ciblé : passe à la fusion.
 6. **Fusion** : avec l'accord de l'utilisateur, fusionne la PR dans la branche du jalon. Reviens sur la branche du jalon à jour, ajoute au journal la ligne `Tranche N : fusionnée, <k> tours de revue`, commite-la (`chore(izanagi): journal, tranche N`) et pousse. Ajoute la tranche à la note du jalon dans le vault.
 
 Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vérification verte sur cette branche.
@@ -115,7 +115,7 @@ Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vér
 Les tranches ont déjà passé leur revue. Celle-ci cherche ce qu'elles ne voyaient pas une à une : les écarts à la spec sur l'ensemble du jalon et les défauts entre tranches.
 
 1. Sur la branche du jalon, lance `state.sh set phase=revue tour=0 --commit`.
-2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, et le journal.
+2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut que les tranches ont retenu.
 3. Lance la vérification sur la branche du jalon. Elle doit passer avant la PR.
 4. Pousse la branche du jalon, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps résume le jalon tranche par tranche, dit comment l'essayer et colle la sortie de la vérification.
 5. Lance `state.sh set phase=test --commit` et pousse.

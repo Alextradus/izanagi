@@ -68,6 +68,7 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 | `test_manuel` | commande qui lance la branche pour l'essayer | réponse, sinon la fiche du type |
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase | réponse, sinon la fiche du type |
 | `vault` | chemin du vault Obsidian du projet, ou `non` | réponse ou argument, sinon `non` |
+| `chemins_sensibles` | motifs des chemins dont tout changement est de niveau de risque élevé, séparés par des virgules | réponse, sinon vide |
 | `fichier_version` | fichier qui porte la version | seulement si les piles diffèrent ou si une pile n'a pas de gabarit |
 
 N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplacent. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans », donc donne-la avec son article.

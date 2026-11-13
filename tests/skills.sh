@@ -83,6 +83,16 @@ $anciens"
 for s in jalon review; do
   grep -qF 'scripts/state.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas par scripts/state.sh"
 done
+# Niveaux de risque : la table est dans references/risk.md, et seul risk.sh dit
+# qu'un chemin est sensible.
+[[ -f references/risk.md ]] || echoue "references/risk.md absent"
+for s in review planning jalon task fix; do
+  [[ -f skills/$s/SKILL.md ]] || continue
+  grep -qF 'references/risk.md' "skills/$s/SKILL.md" || echoue "skills/$s ne renvoie pas à references/risk.md"
+done
+grep -qF 'scripts/risk.sh' skills/review/SKILL.md || echoue "skills/review ne lance pas scripts/risk.sh"
+grep -qF '**Risque :**' skills/planning/SKILL.md || echoue "le gabarit de plan n'a pas de ligne Risque"
+
 # La clôture met en index la suppression de l'état, que `state.sh clear` ne fait pas.
 grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture de jalon ne retire pas state.env de l'index"
 # `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.

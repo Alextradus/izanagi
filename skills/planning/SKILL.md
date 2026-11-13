@@ -33,7 +33,9 @@ Si la forme d'une couture est en question (profondeur du module, place de l'inte
 
 Regroupe les tâches en tranches. Une tranche livre un comportement que l'utilisateur peut essayer avec le test manuel (clé `test_manuel`), et son diff reste sous la taille d'une tranche (clé `taille_tranche`). Chaque tranche dit en une phrase ce que l'utilisateur pourra essayer à la fin.
 
-Fais valider le découpage en tranches en même temps que les coutures.
+Donne à chaque tranche un niveau de risque, d'après `${CLAUDE_PLUGIN_ROOT}/references/risk.md` : faible, normal ou élevé. Une tranche qui touche un chemin de la clé `chemins_sensibles` est de niveau élevé. Dans le doute entre deux niveaux, prends le plus haut.
+
+Fais valider le découpage en tranches et les niveaux de risque en même temps que les coutures.
 
 ## Taille d'une tâche
 
@@ -91,6 +93,8 @@ Les titres ont cette forme, et les tâches se numérotent en continu sur tout le
 ## Tranche 1 : <comportement livré>
 
 **À essayer :** <ce que l'utilisateur pourra faire à la fin de la tranche>
+
+**Risque :** <faible, normal ou élevé>.
 
 ### Tâche 1 : <composant>
 
@@ -150,7 +154,7 @@ Une fois le plan écrit, relis la spec et contrôle le plan contre elle. Tu fais
 2. **Étapes.** Chaque étape permet d'écrire une seule chose raisonnable, et rien de plus. Corrige les trous et les corps de fonction superflus.
 3. **Cohérence des noms.** Les types, signatures et noms employés dans les tâches tardives sont ceux que les tâches précédentes ont définis. Une fonction `vider_couches()` à la tâche 3 et `vider_toutes_couches()` à la tâche 7 est un bug.
 4. **Points de revue.** Chaque ligne de la section a son test dans la tâche qui possède le code. Une section vide veut dire que tu as cherché et rien trouvé.
-5. **Coutures et tranches.** Chaque tâche nomme ses coutures, toutes validées. Chaque tranche se teste à la main et tient sous la taille d'une tranche.
+5. **Coutures et tranches.** Chaque tâche nomme ses coutures, toutes validées. Chaque tranche se teste à la main, tient sous la taille d'une tranche et porte sa ligne `**Risque :**`.
 6. **Proportion.** Si le plan fait plusieurs fois la longueur de la spec, ou si les blocs de code en forment la plus grande part, remplace les corps par des signatures, des noms de tests et des assertions.
 
 Corrige sur place, sans seconde relecture.
