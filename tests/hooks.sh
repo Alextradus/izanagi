@@ -131,7 +131,7 @@ for c in 'git push origin main' 'git push origin HEAD:main' 'git push -f origin 
   $'git status\ngit push origin main' $'git add .\ngit commit -m x\ngit push origin main' \
   'git -C "mon dossier" push origin main' "git -C 'mon dossier' push origin main" \
   'git push origin main --tags' 'git push --all' 'git push --mirror origin' \
-  'git push -o ci.skip origin main' '(git push origin main)' $'git push origin \\\n  main'; do
+  'git push -o ci.skip origin main' '(git push origin main)' 'git push --repo=origin main' 'git commit -m "é; à" && git push origin main' $'git push origin \\\n  main'; do
   refuse "$p" "$c"
 done
 grep -qF 'hook_push=avertit' <<<"$erreur" || echoue "le refus ne dit pas comment l'autoriser : $erreur"

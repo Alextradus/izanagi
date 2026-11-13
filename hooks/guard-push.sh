@@ -36,6 +36,8 @@ vise_principale() {
       # Toutes les branches partent, la principale avec.
       --all | --mirror | --branches) return 0 ;;
       --tags) tags=1 ;;
+      # Le dépôt distant est donné par l'option : tout mot sans tiret est une référence.
+      --repo=*) positionnels=(depot "${positionnels[@]}") ;;
       -o | --push-option | --receive-pack | --exec) saute=1 ;;
       -*) ;;
       *) positionnels+=("$mot") ;;
@@ -98,6 +100,8 @@ fin_commande() {
 # et un séparateur du shell finit une commande simple. Entre guillemets, tout
 # caractère appartient au mot : le `;` d'un message de commit ne coupe rien.
 bo=$(printf '%b' '\0134')
+# Le temps de cette boucle croît avec le carré de la longueur de la commande :
+# environ deux secondes pour 20 Ko sous Git Bash, mesurées le 2026-11-13.
 n=${#commande}
 k=0
 while ((k < n)); do

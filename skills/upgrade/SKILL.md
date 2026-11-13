@@ -24,7 +24,7 @@ Lis la version du plugin dans `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`
 
 Arrête-toi, en disant pourquoi, si :
 
-- l'arbre de travail a des changements non commités (`git status --porcelain`) ;
+- l'arbre de travail a des changements non commités (`git status --porcelain`), hors des journaux non suivis de `.izanagi/journal/` ;
 - la branche courante porte un flux en cours (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" get` affiche un état) ;
 - le dépôt n'a pas de dépôt distant, puisque la mise à jour finit par une PR.
 
@@ -43,7 +43,7 @@ Si la version du cadre vaut celle du plugin, il n'y a pas de migration à lancer
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/migrations/<version>.sh" <racine du projet>
    ```
 
-   Lis sa sortie. Une ligne `non reconnu : …` cite une ligne de l'ancien `docs/agents/jalon.md` que le script n'a pas su lire, et une ligne `à compléter : <clé>` une clé restée vide dans `.izanagi/config.env`. Montre-les à l'utilisateur, remplis la clé avec sa réponse, puis supprime `docs/agents/jalon.md` avec son accord. Commite ensuite (`chore(izanagi): migration <version>`), en nommant à `git add` les fichiers des lignes `écrit` et `supprimé`, jamais avec `git add -A`.
+   Lis sa sortie. Une ligne `non reconnu : …` cite une ligne de l'ancien `docs/agents/jalon.md` que le script n'a pas su lire, et une ligne `à compléter : <clé>` une clé restée vide dans `.izanagi/config.env`. Montre-les à l'utilisateur, remplis la clé avec sa réponse, puis supprime `docs/agents/jalon.md` avec son accord. Commite ensuite (`chore(izanagi): migration <version>`), en nommant à `git add` les fichiers des lignes `écrit`, jamais avec `git add -A`. Les fichiers des lignes `supprimé` sont déjà en index, et les nommer à `git add` ferait échouer la commande. Contrôle avec `git status --short` que l'index ne contient aucun journal avant de commiter.
 3. Si `izanagi_version` de `.izanagi/config.env` est encore en retard sur le plugin après la dernière migration, écris-y la version du plugin et commite.
 
 **Journaux.** La migration 0.4.0 cesse de faire ignorer `.izanagi/journal/*.md` par git, et peut y déplacer un journal d'avant la 0.3 (ligne `déplacé`). Ces journaux apparaissent alors comme fichiers non suivis. Ne les commite pas sur `task/izanagi-upgrade` : la branche principale ne porte jamais de journal. Chacun appartient à la branche de son jalon, où il se commite après la mise à jour.
@@ -91,7 +91,7 @@ Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le 
 
 Si `docs/agents/harness.md` vient d'être créé avec la valeur `à préciser` pour les couches de test, propose de la remplir avec les couches de la fiche du type.
 
-Commite les reprises acceptées (`chore(izanagi): cadre <version du plugin>`), en nommant les fichiers à `git add`.
+Commite les reprises acceptées (`chore(izanagi): cadre <version du plugin>`), en nommant à `git add` les fichiers créés ou repris.
 
 Fin : chaque écart est repris ou laissé sur décision de l'utilisateur.
 

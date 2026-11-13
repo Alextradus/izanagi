@@ -84,7 +84,7 @@ for s in jalon review; do
   grep -qF 'scripts/state.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas par scripts/state.sh"
 done
 # La clôture met en index la suppression de l'état, que `state.sh clear` ne fait pas.
-grep -qF 'git add -A -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture de jalon ne retire pas state.env de l'index"
+grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture de jalon ne retire pas state.env de l'index"
 # `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.
 awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { exit !vu }' skills/upgrade/SKILL.md ||
   echoue "upgrade ne crée pas sa branche avant la section Migrer"
