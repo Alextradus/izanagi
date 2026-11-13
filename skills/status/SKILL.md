@@ -15,6 +15,6 @@ Tu montres les flux ouverts du projet courant. Un flux est une branche `jalon/*`
    ```
 
 3. Rends sa sortie telle quelle, dans un bloc de code. Une ligne a cette forme : `<branche>  <flux> « <nom> », phase <phase>, tranche <n>, tour <n>  (<date de mise à jour>)`. Une branche de tranche est en retrait sous son jalon, et `*` marque la branche courante. `sans état` désigne une branche de flux sans `state.env`, par exemple un jalon commencé avant la 0.4.
-4. Si la branche courante porte un flux, propose en une ligne la commande qui le reprend : `/izanagi:jalon` pour un jalon.
+4. Si la branche courante porte un jalon, propose en une ligne `/izanagi:jalon`, qui le reprend. Pour un flux `task` ou `fix`, ne propose aucune commande : ces flux n'ont pas encore la leur.
 
 Si le script sort avec `status.sh : pas un projet Izanagi`, dis-le et renvoie à `/izanagi:init`, ou à `/izanagi:upgrade` si le projet a un cadre d'avant la 0.4.
