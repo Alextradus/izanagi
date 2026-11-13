@@ -157,6 +157,8 @@ for cle_hook in hook_push hook_verification; do
 done
 # Version du cadre posé : celle du plugin, sauf si le fichier de valeurs la donne.
 valeurs[izanagi_version]="${valeurs[izanagi_version]:-$(plugin_version)}"
+# Chemins sensibles : vide si le fichier de valeurs ne les donne pas.
+valeurs[chemins_sensibles]="${valeurs[chemins_sensibles]:-}"
 
 # Valeurs dérivées. Le script calcule `vault_cite` et `ligne_vault`, même si
 # le fichier de valeurs les donne.
@@ -201,7 +203,9 @@ rendre() {
   texte="${texte%x}"
   for cle in "${!valeurs[@]}"; do
     if [[ -z ${valeurs[$cle]} ]]; then
-      texte="${texte//"{{$cle}}"$'\n'/}"
+      # La ligne entière seulement : `clé={{clé}}` garde son saut de ligne.
+      texte="${texte//$'\n'"{{$cle}}"$'\n'/$'\n'}"
+      if [[ $texte == "{{$cle}}"$'\n'* ]]; then texte="${texte#"{{$cle}}"$'\n'}"; fi
     fi
     texte="${texte//"{{$cle}}"/"${valeurs[$cle]}"}"
   done

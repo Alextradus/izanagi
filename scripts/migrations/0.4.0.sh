@@ -100,6 +100,8 @@ if [[ ! -f $config && -f $jalon ]]; then
   v[izanagi_version]=0.4.0
   v[hook_push]=bloque
   v[hook_verification]=bloque
+  # Clé de la 0.5, que le gabarit porte : vide, et pas « à compléter ».
+  v[chemins_sensibles]=""
 
   # Le fichier suit le gabarit ligne à ligne, pour que la pose le trouve identique.
   mkdir -p "$cible/.izanagi"

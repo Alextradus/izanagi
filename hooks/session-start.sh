@@ -22,8 +22,16 @@ if flux="$(kv_get "$etat" flux)"; then
   ligne="Izanagi : flux $flux « $(kv_get "$etat" nom || true) », phase $(kv_get "$etat" phase || true)"
   if tranche="$(kv_get "$etat" tranche)"; then ligne+=", tranche $tranche"; fi
   if tour="$(kv_get "$etat" tour)"; then ligne+=", tour de revue $tour"; fi
-  ligne+="."
-  [[ $flux == jalon ]] && ligne+=" Reprends avec /izanagi:jalon."
+  if risque="$(kv_get "$etat" risque)"; then ligne+=", risque $risque"; fi
+  if correctif="$(kv_get "$etat" correctif)"; then
+    # Un correctif né d'un jalon se reprend par fix, pas par jalon.
+    ligne+=", correctif « $correctif ». Reprends avec /izanagi:fix."
+  else
+    ligne+="."
+    case "$flux" in
+      jalon | task | fix) ligne+=" Reprends avec /izanagi:$flux." ;;
+    esac
+  fi
   echo "$ligne"
 else
   echo "Izanagi : aucun flux en cours sur cette branche."

@@ -87,6 +87,8 @@ Ce que chaque version a changé dans les gabarits, à présenter ainsi :
 - **Depuis la 0.3.** `CLAUDE.md` dit que les skills `izanagi:*` priment sur tout autre skill de même rôle. `docs/agents/domain.md` nomme `izanagi:domain-modeling`. Si le projet a un vault, `docs/agents/vault.md` nomme les lignes `Décision :` du journal.
 - **Depuis la 0.4.** `CLAUDE.md` renvoie à `.izanagi/config.env`. `AGENTS.md` est nouveau. Dans `docs/CODING_STANDARDS.md`, la liste des chemins hors revue cite `.izanagi/` : ajoute ce chemin à celle du projet et garde le chemin de ses plans.
 
+- **Depuis la 0.5.** `.izanagi/config.env` porte la clé `chemins_sensibles`, que la migration ajoute vide. Demande à l'utilisateur où sont les données, la sécurité, les migrations et l'API publique du projet, et écris les motifs qu'il donne, séparés par des virgules (`db/migrations/*, src/auth/*`). Un diff qui touche un de ces chemins passe la revue du niveau de risque élevé (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`). La clé peut rester vide.
+
 Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Ne classe pas ces blocs : le contrôle de la section 4 les couvre.
 
 Si `docs/agents/harness.md` vient d'être créé avec la valeur `à préciser` pour les couches de test, propose de la remplir avec les couches de la fiche du type.

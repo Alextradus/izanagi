@@ -1,6 +1,6 @@
 ---
 name: review
-description: Revue convergente d'un diff dans un projet Izanagi. Deux relecteurs en parallèle, l'un sur les règles du projet, l'autre sur la spec, puis des tours de correction jusqu'à un tour sans constat Important, trois tours au plus. Lancée pour une tranche, un jalon ou une PR hors jalon.
+description: Revue convergente d'un diff dans un projet Izanagi. Deux relecteurs en parallèle, l'un sur les règles du projet, l'autre sur la spec, puis des tours de correction jusqu'à un tour sans constat Important, trois tours au plus. Le niveau de risque du diff règle le nombre de relecteurs et de tours. Lancée pour une tranche, un jalon, une tâche, un correctif ou une PR hors jalon.
 user-invocable: false
 ---
 
@@ -21,7 +21,8 @@ La phase qui t'appelle fournit :
 
 - le **point fixe** : la branche ou le commit d'où part le diff ;
 - l'**axe Spec** : un texte ou un chemin (une tranche du plan, des sections de la spec, une issue, la description d'une PR) ;
-- le **journal** du jalon, s'il existe.
+- le **journal** du jalon, s'il existe ;
+- le **niveau de risque** déclaré : `faible`, `normal` ou `eleve`. Sans niveau donné, prends `normal`. Un plan écrit « élevé » : passe `eleve` aux scripts, qui refusent l'accent.
 
 Lis `.izanagi/config.env` : la clé `verification` donne la vérification, la clé `branche` la branche principale.
 
@@ -39,9 +40,29 @@ Les relecteurs n'ont pas d'outil pour lancer git. Écris-leur le diff dans un fi
 
 Les trois points comparent à l'ancêtre commun. Pour un jalon, le fichier va dans le dossier du plan, `.izanagi/journal/<nom du plan sans extension>/`. Hors jalon, il va dans `.izanagi/journal/hors-jalon/`. Git ignore ces deux dossiers (`.izanagi/.gitignore`). Dans un dépôt sans `.izanagi/`, écris le fichier dans `.git/izanagi-review/`, que git ne suit jamais. Les relecteurs lisent ainsi le diff dans le dépôt.
 
-## 2. Premier tour
+## 2. Niveau de risque
 
-Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en parallèle. Passe à chacun :
+`${CLAUDE_PLUGIN_ROOT}/references/risk.md` décrit les niveaux. Dans un projet Izanagi, calcule le niveau retenu :
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/risk.sh" <point fixe> <niveau déclaré>
+```
+
+Le script rend le niveau déclaré, ou `eleve` si le diff touche un chemin sensible du projet, qu'il nomme alors sur sa sortie d'erreur. Annonce en une ligne le niveau retenu et les chemins qui l'ont fait monter. Dans un dépôt sans `.izanagi/config.env`, garde le niveau déclaré.
+
+Le niveau retenu règle la suite :
+
+| Niveau | Relecteurs | Tours | Après la revue |
+|---|---|---|---|
+| `faible` | `izanagi:reviewer-standards` seul | un | rien |
+| `normal` | les deux | trois au plus | rien |
+| `eleve` | les deux | trois au plus | l'utilisateur relit le diff |
+
+Si l'utilisateur change le niveau pendant la revue, applique le nouveau niveau à partir du tour en cours.
+
+## 3. Premier tour
+
+Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en parallèle. Au niveau `faible`, lance le seul `izanagi:reviewer-standards`, et saute ce que ce skill dit du relecteur Spec. Passe à chacun :
 
 - le chemin du fichier de diff ;
 - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/finding.md`, qui fixe la forme et les étiquettes de ses constats ;
@@ -52,7 +73,7 @@ Le relecteur Spec reçoit en plus l'axe Spec. Le relecteur Standards lit lui-mê
 
 Ne fusionne pas les deux rapports et ne les reclasse pas l'un contre l'autre.
 
-## 3. Traiter chaque constat
+## 4. Traiter chaque constat
 
 Si le relecteur Spec liste des exigences « non vérifiables depuis le diff », contrôle chacune toi-même avant de continuer, dans le code inchangé ou dans les autres tranches. Une exigence qui manque devient un constat Important.
 
@@ -65,26 +86,34 @@ Traite chaque constat selon son étiquette :
 
 Note au journal chaque constat écarté, avec sa raison. Hors jalon, sans journal, note-les dans la description de la PR.
 
-## 4. Vérifier
+## 5. Vérifier
 
-Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commité leurs corrections. Dans un jalon, c'est toi qui commites ensuite le tour : lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour> --commit`, puis commite les lignes ajoutées au journal (`chore(izanagi): journal, tour <numéro du tour>`). `/izanagi:status` lit l'état commité : un tour non commité n'y apparaît pas.
+Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commité leurs corrections. Dans un flux, c'est-à-dire sur une branche qui porte un état (jalon, `task` ou `fix`), c'est toi qui commites ensuite le tour : lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour> risque=<niveau retenu> --commit`, puis commite les lignes ajoutées au journal (`chore(izanagi): journal, tour <numéro du tour>`). `/izanagi:status` lit l'état commité : un tour non commité n'y apparaît pas. La clôture d'un flux supprime son journal avec `git rm`, qui refuse un fichier modifié : ne laisse aucune ligne de journal hors d'un commit.
 
-## 5. Tours suivants
+**Correctif de jalon.** Si l'état porte une clé `correctif`, il est celui du jalon, pas celui du correctif en revue. N'y écris ni le tour ni le niveau : commite seulement les lignes du journal, où tu notes aussi le niveau retenu.
 
-Relance les deux relecteurs avec les mêmes pièces qu'au premier tour, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va aux deux relecteurs, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
+## 6. Tours suivants
+
+**Niveau `faible` : pas de tour suivant.** Les constats Important du tour unique se corrigent, la vérification passe, et la revue s'arrête là. Dis à l'utilisateur que les corrections n'ont pas été relues, et qu'il peut monter le niveau à `normal` pour qu'elles le soient.
+
+Aux niveaux `normal` et `eleve`, relance les deux relecteurs avec les mêmes pièces qu'au premier tour, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va aux deux relecteurs, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
 
 La revue a convergé quand un tour ne rend aucun Important.
 
-## 6. Plafond
+## 7. Plafond
 
 Si le troisième tour rend encore un Important, arrête les tours. Présente à l'utilisateur ce qui revient et pourquoi, et propose de revoir l'approche ou le découpage plutôt qu'un quatrième tour.
 
-## 7. Traiter à la source
+## 8. Traiter à la source
 
 Si une règle ou une classe de bug a déjà été signalée dans une tranche précédente, d'après le journal, propose à l'utilisateur de la traiter à la source : une règle dans `docs/CODING_STANDARDS.md`, une lint ou un test.
 
 ## Fin
 
-La revue est finie sur un tour sans Important, ou sur la décision de l'utilisateur au plafond. Note le nombre de tours au journal, ou dans la description de la PR hors jalon. Hors jalon, supprime ensuite `.izanagi/journal/hors-jalon/` ou `.git/izanagi-review/`.
+La revue est finie sur un tour sans Important, sur le tour unique du niveau `faible`, ou sur la décision de l'utilisateur au plafond.
 
-Rends à la phase qui t'a appelé un compte rendu court : le compte des constats par axe et par étiquette, le nombre de tours, les constats écartés et les issues ouvertes.
+**Niveau `eleve` : relecture par l'utilisateur.** Une fois la revue finie, donne à l'utilisateur de quoi lire le diff entier : le lien de la PR si elle existe, sinon la commande `git diff <point fixe>...HEAD`. Dis-lui quels chemins sensibles le diff touche. Attends qu'il dise avoir relu, et traite ses remarques comme des constats Jugement. La phase qui t'a appelé ne fusionne rien avant.
+
+À tout niveau, note le nombre de tours et le niveau retenu au journal, et commite la ligne. Sans journal, note-les dans la description de la PR. Hors flux, supprime ensuite `.izanagi/journal/hors-jalon/` ou `.git/izanagi-review/`.
+
+Rends à la phase qui t'a appelé un compte rendu court : le niveau de risque retenu, le compte des constats par axe et par étiquette, le nombre de tours, les constats écartés et les issues ouvertes.

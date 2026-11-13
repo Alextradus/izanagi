@@ -107,6 +107,14 @@ Ces décisions précisent ou corrigent des décisions précédentes, qui restent
 36. La clôture d'un jalon ne pousse plus de commit sur la branche principale, que le hook `PreToolUse` refuse. La version mineure monte sur la branche du jalon avant la fusion, et le tag est posé sur le commit de fusion.
 37. Pour la même raison, le cadrage et le plan d'un jalon s'écrivent sur une branche `jalon/<nom court>-cadrage`, fusionnée dans la branche principale par une PR avant la création de la branche du jalon. Les tranches d'un jalon ne touchent pas à la version : seule la clôture la monte.
 
+### Décisions ajoutées le 2026-11-13, avant la 0.5
+
+38. `state.env` reçoit trois clés : `risque` (`faible`, `normal` ou `eleve`, écrit sans accent parce qu'un script le compare), `issue` (le numéro de l'issue d'un flux `task` ou `fix`) et `correctif` (précise la décision 13).
+39. Au niveau faible, le relecteur unique de la décision 26 est le relecteur Standards. Un constat Important se corrige sans second tour.
+40. Les chemins sensibles de la décision 27 sont une clé `chemins_sensibles` de `config.env`, une liste de motifs séparés par des virgules. Un script, `scripts/risk.sh`, calcule le niveau retenu pour un diff : le niveau déclaré, ou élevé si le diff touche un chemin sensible. Le modèle ne décide pas seul qu'un chemin est sensible.
+41. Un flux `task` passe par les phases `debut`, `travail`, `revue`, `test` et `cloture`. Un flux `fix` hors jalon commence par la phase `diagnostic` à la place de `debut`. Le journal d'un flux hors jalon est `.izanagi/journal/<flux>-<nom>.md`.
+42. Un correctif né d'un jalon (décision 22) vit sur une branche `fix/<nom>` partie de la branche du jalon ou d'une tranche. Cette branche garde le `state.env` du jalon, comme une branche de tranche, et y ajoute la clé `correctif`, que le correctif retire avant sa fusion. Il n'a ni état ni phase propres, et la version ne bouge pas.
+
 ## Hors périmètre
 
 - La release et le déploiement d'un projet. La release reste dans la clôture de `jalon`.

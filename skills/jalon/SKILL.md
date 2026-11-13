@@ -60,6 +60,7 @@ Déduis la phase de git, la première ligne qui s'applique :
 
 Compare ensuite à l'état :
 
+- **L'état porte une clé `correctif`.** Tu es sur la branche `fix/<nom>` d'un correctif né de ce jalon. Ne touche pas à l'état : lance `izanagi:fix`, qui reprend le correctif, puis reviens au jalon.
 - **L'état et git concordent.** Reprends à la phase, à la tranche et au tour que l'état donne.
 - **Ils se contredisent.** Git l'emporte. Dis l'écart en une ligne, puis corrige l'état avec `state.sh set … --commit`. `set` ne change ni le flux ni le nom : s'ils sont faux, lance `state.sh clear --commit`, puis `state.sh start` comme pour une branche sans état.
 - **Une branche de jalon n'a pas d'état**, parce que le jalon a commencé avant la 0.4. Crée-le d'après git : `state.sh start jalon <nom court>`, puis `state.sh set plan=<chemin du plan> phase=<phase> tranche=<N> --commit`.
@@ -103,10 +104,10 @@ Traite les tranches dans l'ordre du plan. Pour chacune :
 
 1. **Branche** : `<branche du jalon>-tN`, créée depuis la branche du jalon à jour. Lance `state.sh set tranche=<N> tour=0 --commit`.
 2. **Tâches** : lance `izanagi:task-loop` sur les tâches de la tranche. Il rend la main après la dernière tâche, la vérification verte sur la branche de la tranche.
-3. **Revue** : lance `izanagi:review`, avec la branche du jalon pour point fixe, la tranche du plan pour axe Spec, et le journal.
+3. **Revue** : lance `izanagi:review`, avec la branche du jalon pour point fixe, la tranche du plan pour axe Spec, le journal, et le niveau de risque de la tranche. Le plan donne ce niveau sur la ligne `**Risque :**` de la tranche (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`). Une tranche sans cette ligne, dans un plan d'avant la 0.5, est de niveau normal. Le plan écrit « élevé » : passe `eleve` à `review` et aux scripts.
 4. **PR de tranche** : `gh pr create --base <branche du jalon>`, corps passé par `--body-file` (`docs/agents/issue-tracker.md`). Le corps dit ce que la tranche fait, comment l'essayer (commandes et gestes) et colle la sortie de la vérification.
-5. **Test ciblé** : l'utilisateur essaie la tranche avec le test manuel, depuis la branche de la tranche. Traite ses retours selon la section 8.
-6. **Fusion** : avec l'accord de l'utilisateur, fusionne la PR dans la branche du jalon. Reviens sur la branche du jalon à jour, ajoute au journal la ligne `Tranche N : fusionnée, <k> tours de revue`, commite-la (`chore(izanagi): journal, tranche N`) et pousse. Ajoute la tranche à la note du jalon dans le vault.
+5. **Test ciblé** : l'utilisateur essaie la tranche avec le test manuel, depuis la branche de la tranche. Traite ses retours selon la section 8. Une tranche dont la revue a retenu le niveau faible n'a pas de test ciblé : passe à la fusion.
+6. **Fusion** : avec l'accord de l'utilisateur, fusionne la PR dans la branche du jalon. Reviens sur la branche du jalon à jour, ajoute au journal la ligne `Tranche N : fusionnée, <k> tours de revue, niveau <niveau retenu>`, commite-la (`chore(izanagi): journal, tranche N`) et pousse. Ajoute la tranche à la note du jalon dans le vault.
 
 Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vérification verte sur cette branche.
 
@@ -115,7 +116,7 @@ Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vér
 Les tranches ont déjà passé leur revue. Celle-ci cherche ce qu'elles ne voyaient pas une à une : les écarts à la spec sur l'ensemble du jalon et les défauts entre tranches.
 
 1. Sur la branche du jalon, lance `state.sh set phase=revue tour=0 --commit`.
-2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, et le journal.
+2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut parmi ceux des lignes `Tranche N : fusionnée` et `Correctif <nom> : niveau` du journal. Si une de ces lignes n'a pas de niveau, prends le plus haut des lignes `**Risque :**` du plan.
 3. Lance la vérification sur la branche du jalon. Elle doit passer avant la PR.
 4. Pousse la branche du jalon, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps résume le jalon tranche par tranche, dit comment l'essayer et colle la sortie de la vérification.
 5. Lance `state.sh set phase=test --commit` et pousse.
@@ -136,7 +137,7 @@ Une fois la validation reçue, tout ce qui modifie un fichier se fait sur la bra
 2. Monte la version mineure et commite (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
 3. Relis `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur. Commite s'il change.
 4. Fais la fin de jalon du vault (`docs/agents/vault.md`), qui lit le journal.
-5. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm`. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
+5. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
 6. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 7. Reviens sur la branche principale à jour. Pose le tag sur le commit de fusion et pousse-le.
 8. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.
@@ -148,8 +149,8 @@ Fin de phase : tag poussé, vault clos, la branche principale sans état ni jour
 
 Valable pour le test ciblé d'une tranche comme pour le test du jalon. Traite chaque retour selon sa nature :
 
-- **Comportement cassé** : lance le sous-agent `izanagi:diagnostician`, qui rend la cause et un test de régression rouge. Confie ensuite le correctif à un sous-agent `izanagi:implementer` sur la branche testée.
-- **Attente non cadrée** : une courte ronde de `izanagi:grilling`, la décision au lieu des décisions, puis le correctif par un sous-agent `izanagi:implementer`.
+- **Comportement cassé** : lance `izanagi:fix` depuis la branche testée, avec le geste, l'attendu et le constaté. Il crée une branche `fix/<nom>` depuis cette branche, y ajoute la clé `correctif` à l'état du jalon, prouve la cause par un test rouge, corrige, fait relire et ouvre une PR vers la branche testée. Il te rend la main une fois la PR fusionnée. S'il conclut que le comportement n'a jamais été cadré, il supprime sa branche et te rend la main : traite alors le retour comme une attente non cadrée.
+- **Attente non cadrée** : une courte ronde de `izanagi:grilling`, la décision au lieu des décisions, puis le changement par un sous-agent `izanagi:implementer` sur la branche testée.
 - **Tout retour** : la section Test manuel de la note du jalon dans le vault.
 
 ## Hors phases
