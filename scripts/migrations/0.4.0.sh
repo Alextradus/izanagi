@@ -116,7 +116,8 @@ if [[ ! -f $config && -f $jalon ]]; then
     fi
   done <"$gabarits/config.env" >"$config"
   dire "écrit      .izanagi/config.env"
-  for cle in "${a_completer[@]}"; do
+  # Forme qui passe sous `set -u` avec un tableau vide, avant bash 4.4.
+  for cle in ${a_completer[@]+"${a_completer[@]}"}; do
     echo "à compléter : $cle"
   done
 

@@ -65,6 +65,7 @@ done
 [[ $(json_string '{"a":"x","command":"git push \"origin\" main","b":1}' command) == 'git push "origin" main' ]] || echoue "json_string : guillemets échappés"
 [[ $(json_string '{"cwd":"C:\\Users\\moi\\projet"}' cwd) == 'C:\Users\moi\projet' ]] || echoue "json_string : barres obliques inverses"
 [[ $(json_string '{"command": "a\nb"}' command) == 'a b' ]] || echoue "json_string : saut de ligne"
+[[ $(json_string '{"command": "a\nb"}' command '|') == 'a|b' ]] || echoue "json_string : saut de ligne remplacé"
 json_string '{"a":"x"}' absente >/dev/null && echoue "json_string : clé absente"
 
 # --- session-start.sh ---
@@ -109,6 +110,7 @@ lancer session-start.sh "$tmp/ancien" '{}'
 # --- guard-push.sh ---
 entree_push() { # entree_push <commande>
   local c="${1//\\/\\\\}"
+  c="${c//$'\n'/\\n}"
   printf '{"tool_name":"Bash","tool_input":{"command":"%s","description":"x"}}' "${c//\"/\\\"}"
 }
 refuse() { # refuse <projet> <commande>
@@ -125,20 +127,28 @@ p="$(nouveau_projet push)"
 git -C "$p" switch -q -c task/x
 for c in 'git push origin main' 'git push origin HEAD:main' 'git push -f origin task/x:main' \
   'git push origin refs/heads/main' 'cd sub && git push origin main' 'git push origin +main' \
-  'git push "origin" "main"' 'git -C . push origin main' 'git add -A; git push origin main'; do
+  'git push "origin" "main"' 'git -C . push origin main' 'git add -A; git push origin main' \
+  $'git status\ngit push origin main' $'git add .\ngit commit -m x\ngit push origin main' \
+  'git -C "mon dossier" push origin main' "git -C 'mon dossier' push origin main" \
+  'git push origin main --tags' 'git push --all' 'git push --mirror origin' \
+  'git push -o ci.skip origin main' '(git push origin main)' $'git push origin \\\n  main'; do
   refuse "$p" "$c"
 done
 grep -qF 'hook_push=avertit' <<<"$erreur" || echoue "le refus ne dit pas comment l'autoriser : $erreur"
 for c in 'git push' 'git push -u origin task/x' 'git push origin maintenance' 'git push origin HEAD' \
-  'git push origin main-backup' 'git status && echo push main' 'git log --oneline main'; do
+  'git push origin main-backup' 'git status && echo push main' 'git log --oneline main' \
+  'git commit -m "a; git push origin main"' "git commit -m 'x && git push origin main'" \
+  $'git commit -m "titre\n\ngit push origin main"' 'git push -o ci.skip origin task/x' \
+  'git push origin task/x --tags'; do
   passe "$p" "$c"
 done
 
 git -C "$p" switch -q main
-for c in 'git push' 'git push origin' 'git push -u origin' 'git push origin HEAD'; do
+for c in 'git push' 'git push origin' 'git push -u origin' 'git push origin HEAD' \
+  'git push -o ci.skip origin' 'git push --follow-tags'; do
   refuse "$p" "$c"
 done
-for c in 'git push origin v1.2.0' 'git push --tags' 'git push origin refs/tags/v1.2.0' \
+for c in 'git push origin v1.2.0' 'git push --tags' 'git push origin --tags' 'git push origin refs/tags/v1.2.0' \
   'git push origin --delete jalon/essai' 'git push origin -d jalon/essai' 'git push --follow-tags origin v0.4.0'; do
   passe "$p" "$c"
 done

@@ -67,7 +67,7 @@ Note au journal chaque constat écarté, avec sa raison. Hors jalon, sans journa
 
 ## 4. Vérifier
 
-Lance la vérification, puis commite les corrections. Dans un jalon, lance avant le commit `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour>`, sans `--commit` : le commit des corrections emporte `state.env` et les lignes ajoutées au journal.
+Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commité leurs corrections. Dans un jalon, c'est toi qui commites ensuite le tour : lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" set tour=<numéro du tour> --commit`, puis commite les lignes ajoutées au journal (`chore(izanagi): journal, tour <numéro du tour>`). `/izanagi:status` lit l'état commité : un tour non commité n'y apparaît pas.
 
 ## 5. Tours suivants
 

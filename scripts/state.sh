@@ -41,13 +41,19 @@ charger() {
 }
 
 # Écrit l'état par un fichier temporaire du même dossier, puis le renomme.
+# Si rien ne change hors de la date `maj`, le fichier reste tel quel : une écriture
+# sans changement ne donne pas de commit.
 ecrire() {
-  local c tmp
-  etat[maj]="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  tmp="$(mktemp "$racine/.izanagi/state.XXXXXX")"
+  local c tmp contenu=""
   for c in "${cles[@]}"; do
-    [[ -n ${etat[$c]:-} ]] && printf '%s=%s\n' "$c" "${etat[$c]}"
-  done >"$tmp"
+    [[ $c == maj ]] && continue
+    [[ -n ${etat[$c]:-} ]] && contenu+="$c=${etat[$c]}"$'\n'
+  done
+  if [[ -f $fichier && $(grep -v '^maj=' "$fichier") == "${contenu%$'\n'}" ]]; then
+    return 0
+  fi
+  tmp="$(mktemp "$racine/.izanagi/state.XXXXXX")"
+  printf '%smaj=%s\n' "$contenu" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$tmp"
   mv "$tmp" "$fichier"
 }
 
@@ -96,7 +102,7 @@ case "$commande" in
       etat[$cle]="$valeur"
     done
     ecrire
-    commiter "${etat[flux]} ${etat[nom]}, ${etat[phase]}"
+    commiter "${etat[flux]:-} ${etat[nom]:-}, ${etat[phase]:-}"
     ;;
   get)
     [[ -f $fichier ]] || exit 1

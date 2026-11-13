@@ -32,7 +32,7 @@ Le journal d'un jalon, `.izanagi/journal/<plan>.md`, est versionné sur la branc
 Le plugin installe trois hooks. Chacun sort sans rien faire hors d'un projet Izanagi.
 
 - **Au démarrage d'une session**, le premier ajoute au contexte l'état du flux de la branche courante. Il avertit aussi quand le cadre du projet est en retard sur le plugin.
-- **Avant un `git push`**, le deuxième refuse un push qui vise la branche principale. Un push de tag et une suppression de branche passent. C'est un garde-fou contre un push fait par habitude : une commande construite pour le tromper passe.
+- **Avant un `git push`**, le deuxième refuse un push qui vise la branche principale, `git push --all` et `git push --mirror` compris. Un push de tag et une suppression de branche passent. C'est un garde-fou contre un push fait par habitude : une commande construite pour le tromper passe.
 - **À l'arrêt de l'implémenteur**, le troisième relance la vérification du projet. Un échec renvoie l'implémenteur au travail, avec la fin de la sortie. Le hook laisse passer un implémenteur qui se déclare bloqué, et cesse de bloquer après deux refus.
 
 Les deux derniers bloquent par défaut. Pour qu'un hook avertisse au lieu de bloquer, écris `hook_push=avertit` ou `hook_verification=avertit` dans `.izanagi/config.env`.
@@ -57,6 +57,7 @@ Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de t
 Izanagi n'a aucun prérequis de skill. Il lui faut :
 
 - le CLI `gh`, connecté au compte qui porte le dépôt, et Git Bash sous Windows ;
+- bash 4 ou plus récent. Le bash 3.2 livré avec macOS ne suffit pas aux scripts du plugin : installe un bash récent (`brew install bash`) ;
 - les outils de la pile choisie (`cargo`, `node`, `uv`…). `init` donne la commande d'installation d'un outil absent et attend ton accord avant de la lancer.
 
 ### Skills optionnels

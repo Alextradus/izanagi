@@ -28,24 +28,27 @@ Arrête-toi, en disant pourquoi, si :
 - la branche courante porte un flux en cours (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" get` affiche un état) ;
 - le dépôt n'a pas de dépôt distant, puisque la mise à jour finit par une PR.
 
-Si la version du cadre vaut celle du plugin, il n'y a pas de migration à lancer. Passe à la section 3 pour montrer les écarts au gabarit.
+Reviens ensuite sur la branche principale à jour et crée `task/izanagi-upgrade`. Chaque commit de la mise à jour va sur cette branche, y compris quand il n'y a aucune migration à lancer.
 
-Fin : tu annonces en une ligne la version du cadre, celle du plugin et les migrations à lancer.
+Fin : tu es sur `task/izanagi-upgrade`, et tu annonces en une ligne la version du cadre, celle du plugin et les migrations à lancer.
 
 ## 2. Migrer
 
-1. Reviens sur la branche principale à jour, puis crée `task/izanagi-upgrade`.
-2. Liste les scripts de `${CLAUDE_PLUGIN_ROOT}/scripts/migrations/`. Chacun porte dans son nom la version qu'il atteint (`0.4.0.sh`). Garde ceux dont la version dépasse celle du cadre, dans l'ordre des versions. Un cadre d'avant la 0.4 les prend tous.
-3. Pour chaque script, dans l'ordre :
+Si la version du cadre vaut celle du plugin, il n'y a pas de migration à lancer : passe à la section 3.
+
+1. Liste les scripts de `${CLAUDE_PLUGIN_ROOT}/scripts/migrations/`. Chacun porte dans son nom la version qu'il atteint (`0.4.0.sh`). Garde ceux dont la version dépasse celle du cadre, dans l'ordre des versions. Un cadre d'avant la 0.4 les prend tous.
+2. Pour chaque script, dans l'ordre :
 
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/migrations/<version>.sh" <racine du projet>
    ```
 
-   Lis sa sortie. Une ligne `non reconnu : …` cite une ligne de l'ancien `docs/agents/jalon.md` que le script n'a pas su lire, et une ligne `à compléter : <clé>` une clé restée vide dans `.izanagi/config.env`. Montre-les à l'utilisateur, remplis la clé avec sa réponse, puis supprime `docs/agents/jalon.md` avec son accord. Commite ensuite (`chore(izanagi): migration <version>`).
-4. Si `izanagi_version` de `.izanagi/config.env` est encore en retard sur le plugin après la dernière migration, écris-y la version du plugin et commite.
+   Lis sa sortie. Une ligne `non reconnu : …` cite une ligne de l'ancien `docs/agents/jalon.md` que le script n'a pas su lire, et une ligne `à compléter : <clé>` une clé restée vide dans `.izanagi/config.env`. Montre-les à l'utilisateur, remplis la clé avec sa réponse, puis supprime `docs/agents/jalon.md` avec son accord. Commite ensuite (`chore(izanagi): migration <version>`), en nommant à `git add` les fichiers des lignes `écrit` et `supprimé`, jamais avec `git add -A`.
+3. Si `izanagi_version` de `.izanagi/config.env` est encore en retard sur le plugin après la dernière migration, écris-y la version du plugin et commite.
 
-Fin : chaque migration a son commit, et `izanagi_version` vaut la version du plugin.
+**Journaux.** La migration 0.4.0 cesse de faire ignorer `.izanagi/journal/*.md` par git, et peut y déplacer un journal d'avant la 0.3 (ligne `déplacé`). Ces journaux apparaissent alors comme fichiers non suivis. Ne les commite pas sur `task/izanagi-upgrade` : la branche principale ne porte jamais de journal. Chacun appartient à la branche de son jalon, où il se commite après la mise à jour.
+
+Fin : chaque migration a son commit, `izanagi_version` vaut la version du plugin, et aucun journal n'est commité.
 
 ## 3. Comparer au gabarit
 
@@ -75,7 +78,7 @@ Tu fais la modification que l'utilisateur désigne, et elle seule. Pour reprendr
 
 Ce que chaque version a changé dans les gabarits, à présenter ainsi :
 
-- **Depuis la 0.2.** `scripts/check.sh` et `.github/workflows/ci.yml` vérifient par composant, acceptent `--host` et `--clean`, et la CI tourne en matrice de systèmes. Propose de les reprendre en entier. La 0.1 gardait les builds Rust de WSL dans `~/.cache/<projet_dossier>-target`, que `check.sh` n'utilise plus. Sous Windows, propose de supprimer ce cache, et lance sur l'accord de l'utilisateur :
+- **Depuis la 0.2**, pour un projet posé en 0.1 seulement. `scripts/check.sh` et `.github/workflows/ci.yml` vérifient par composant, acceptent `--host` et `--clean`, et la CI tourne en matrice de systèmes. Propose de les reprendre en entier. La 0.1 gardait les builds Rust de WSL dans `~/.cache/<projet_dossier>-target`, que `check.sh` n'utilise plus. Sous Windows, propose de supprimer ce cache, et lance sur l'accord de l'utilisateur :
 
   ```bash
   wsl.exe --exec bash -c 'rm -rf "$HOME/.cache/<projet_dossier>-target"'
@@ -88,7 +91,7 @@ Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le 
 
 Si `docs/agents/harness.md` vient d'être créé avec la valeur `à préciser` pour les couches de test, propose de la remplir avec les couches de la fiche du type.
 
-Commite les reprises acceptées (`chore(izanagi): cadre <version du plugin>`).
+Commite les reprises acceptées (`chore(izanagi): cadre <version du plugin>`), en nommant les fichiers à `git add`.
 
 Fin : chaque écart est repris ou laissé sur décision de l'utilisateur.
 
@@ -115,6 +118,7 @@ Rends compte à l'utilisateur :
 - la version de départ et la version atteinte ;
 - les migrations et ce que chacune a fait ;
 - les écarts repris et ceux laissés ;
-- ce qui reste à faire après la fusion : sur chaque branche de flux ouverte (`jalon/*`, `task/*`, `fix/*`), fusionner la branche principale pour y amener le nouveau cadre. `/izanagi:jalon` crée ensuite l'état d'un jalon commencé avant la 0.4.
+- ce qui reste à faire après la fusion : sur chaque branche de flux ouverte (`jalon/*`, `task/*`, `fix/*`), fusionner la branche principale pour y amener le nouveau cadre. `/izanagi:jalon` crée ensuite l'état d'un jalon commencé avant la 0.4 ;
+- les journaux restés non suivis dans `.izanagi/journal/`, à commiter chacun sur la branche de son jalon.
 
 Fin : la PR est ouverte et l'utilisateur a le bilan.

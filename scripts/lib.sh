@@ -54,16 +54,18 @@ version_lt() {
   local a1 a2 a3 b1 b2 b3
   IFS=. read -r a1 a2 a3 <<<"$1"
   IFS=. read -r b1 b2 b3 <<<"$2"
-  ((${a1:-0} != ${b1:-0})) && { ((${a1:-0} < ${b1:-0})); return; }
-  ((${a2:-0} != ${b2:-0})) && { ((${a2:-0} < ${b2:-0})); return; }
-  ((${a3:-0} < ${b3:-0}))
+  # `10#` : un nombre qui commence par 0 se lit en base dix, pas en octal.
+  ((10#${a1:-0} != 10#${b1:-0})) && { ((10#${a1:-0} < 10#${b1:-0})); return; }
+  ((10#${a2:-0} != 10#${b2:-0})) && { ((10#${a2:-0} < 10#${b2:-0})); return; }
+  ((10#${a3:-0} < 10#${b3:-0}))
 }
 
-# json_string <texte> <clé> : affiche la valeur de la première chaîne `"clé": "…"`
-# d'un texte JSON, échappements défaits. Un saut de ligne devient une espace.
+# json_string <texte> <clé> [saut] : affiche la valeur de la première chaîne
+# `"clé": "…"` d'un texte JSON, échappements défaits. Un saut de ligne devient une
+# espace, ou le texte `saut` s'il est donné.
 # Rend 1 si la clé manque. Suffit pour l'entrée d'un hook, sans décodeur JSON.
 json_string() {
-  local motif brut resultat="" i=0 c bo
+  local motif brut resultat="" i=0 c bo saut="${3- }"
   # bo : une barre oblique inverse. Le motif lit une chaîne JSON, où `bo` suivi
   # d'un caractère forme un échappement.
   bo=$(printf '%b' '\0134')
@@ -76,7 +78,8 @@ json_string() {
       i=$((i + 1))
       c="${brut:i:1}"
       case "$c" in
-        n | r | t) resultat+=" " ;;
+        n) resultat+="$saut" ;;
+        r | t) resultat+=" " ;;
         u) resultat+="${bo}u" ;;
         *) resultat+="$c" ;;
       esac

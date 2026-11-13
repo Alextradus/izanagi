@@ -46,6 +46,7 @@ version_lt 0.3.0 0.4.0 || echoue "version_lt 0.3.0 0.4.0"
 version_lt 0.10.0 0.9.0 && echoue "version_lt 0.10.0 0.9.0"
 version_lt 0.4.0 0.4.0 && echoue "version_lt 0.4.0 0.4.0"
 version_lt 0.4.9 1.0.0 || echoue "version_lt 0.4.9 1.0.0"
+version_lt 0.08.0 0.9.0 || echoue "version_lt 0.08.0 0.9.0 : zéro de tête lu en octal"
 
 # --- plugin_version ---
 [[ $(plugin_version) =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || echoue "plugin_version : $(plugin_version)"
@@ -109,10 +110,19 @@ bash "$state" set --commit phase=revue
 [[ $(git show --name-only --format= HEAD) == .izanagi/state.env ]] || echoue "--commit a pris d'autres fichiers : $(git show --name-only --format= HEAD)"
 [[ $(git log -1 --format=%s) == 'chore(izanagi): état jalon essai, revue' ]] || echoue "--commit : message : $(git log -1 --format=%s)"
 git status --porcelain | grep -q 'autre.txt' || echoue "--commit a touché autre.txt"
-# Sans changement, pas de commit.
+# Sans changement, ni commit ni nouvelle date.
+bash "$state" set --commit tour=1
 tete="$(git rev-parse HEAD)"
-bash "$state" set tour=1
-git add .izanagi/state.env && git commit -q -m "tour" -- .izanagi/state.env
+maj="$(bash "$state" get maj)"
+sleep 1
+bash "$state" set --commit tour=1
+[[ $(git rev-parse HEAD) == "$tete" ]] || echoue "set --commit sans changement a commité"
+[[ $(bash "$state" get maj) == "$maj" ]] || echoue "set sans changement a changé la date"
+# Un changement fait sans --commit part avec le --commit suivant, même sans nouvelle valeur.
+bash "$state" set tour=2
+bash "$state" set --commit tour=2
+[[ $(git rev-parse HEAD) != "$tete" ]] || echoue "set --commit n'a pas commité un changement en attente"
+[[ -z $(git status --porcelain -- .izanagi/state.env) ]] || echoue "state.env reste modifié après set --commit"
 tete="$(git rev-parse HEAD)"
 
 # clear.
@@ -129,6 +139,14 @@ code 0 bash "$state" clear --commit
 bash "$state" start task petit-changement --commit
 [[ $(bash "$state" get phase) == debut ]] || echoue "start task : phase"
 [[ $(git log -1 --format=%s) == 'chore(izanagi): état task petit-changement, debut' ]] || echoue "start --commit : message"
+
+# Un état écrit à la main, sans flux ni nom, n'arrête pas set.
+git switch -q -c task/main-seule
+printf 'phase=debut\n' >.izanagi/state.env
+code 0 bash "$state" set --commit tour=1
+[[ -z $(git status --porcelain -- .izanagi/state.env) ]] || echoue "set --commit sur un état incomplet n'a pas commité"
+git switch -q -
+git branch -q -D task/main-seule
 
 # Depuis un sous-dossier du projet.
 mkdir -p sous/dossier && cd sous/dossier
