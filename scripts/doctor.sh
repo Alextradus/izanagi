@@ -85,6 +85,11 @@ if [[ -f $config ]]; then
     ligne="${ligne%$'\r'}"
     [[ $ligne =~ $re_gabarit ]] || continue
     cle="${BASH_REMATCH[1]}"
+    # `chemins_sensibles` peut rester vide : la ligne doit seulement exister.
+    if [[ $cle == chemins_sensibles ]]; then
+      kv_get "$config" "$cle" >/dev/null || manquantes+="${manquantes:+, }$cle"
+      continue
+    fi
     valeur="$(kv_get "$config" "$cle" || true)"
     [[ -n $valeur ]] || manquantes+="${manquantes:+, }$cle"
   done <"$izanagi_lib_dir/../templates/core/.izanagi/config.env"

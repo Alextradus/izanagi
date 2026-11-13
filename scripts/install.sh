@@ -203,7 +203,9 @@ rendre() {
   texte="${texte%x}"
   for cle in "${!valeurs[@]}"; do
     if [[ -z ${valeurs[$cle]} ]]; then
-      texte="${texte//"{{$cle}}"$'\n'/}"
+      # La ligne entière seulement : `clé={{clé}}` garde son saut de ligne.
+      texte="${texte//$'\n'"{{$cle}}"$'\n'/$'\n'}"
+      if [[ $texte == "{{$cle}}"$'\n'* ]]; then texte="${texte#"{{$cle}}"$'\n'}"; fi
     fi
     texte="${texte//"{{$cle}}"/"${valeurs[$cle]}"}"
   done
