@@ -25,7 +25,7 @@ Dans toute session sur le projet, sans attendre qu'on le demande :
 
 ## Fin de jalon
 
-Avant de supprimer le journal du jalon :
+Avant le commit qui supprime le journal du jalon, à la clôture :
 
 1. Copie dans `Décisions/Journaux/Décisions <jalon>.md` ses lignes `Décision :` et ses constats écartés, chacun avec sa raison. Dans un journal d'avant la 0.3, ce sont les lignes `Ruling:`.
 2. Termine la note du jalon : livré, mesures, retours du test manuel, reporté.

@@ -14,7 +14,7 @@ Tu résous un conflit de fusion ou de rebase en cours.
 
 3. **Résous chaque bloc.** Garde les deux intentions quand c'est possible. Quand elles s'excluent, garde celle qui sert le but de la fusion et note ce que tu abandonnes. N'invente aucun comportement nouveau. Résous toujours : n'abandonne pas l'opération avec `--abort`.
 
-4. **Vérifie.** Lance la vérification de `docs/agents/jalon.md`. Corrige ce que la fusion a cassé.
+4. **Vérifie.** Lance la commande de la clé `verification` de `.izanagi/config.env`. Corrige ce que la fusion a cassé.
 
 5. **Termine.** Indexe tout et commite. Pendant un rebase, continue jusqu'à ce que tous les commits soient rejoués.
 

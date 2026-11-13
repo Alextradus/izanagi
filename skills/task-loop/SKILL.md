@@ -10,7 +10,7 @@ Tu exécutes les tâches d'une tranche. Pour chaque tâche, tu lances un sous-ag
 
 Un sous-agent ne reçoit jamais l'historique de ta session. Tu lui construis ce dont il a besoin : sa tâche, les interfaces qu'elle touche et les contraintes globales.
 
-`/izanagi:jalon` te donne le plan, le numéro de la tranche et sa branche. Lis `docs/agents/jalon.md` pour la vérification et le chemin de la spec.
+`/izanagi:jalon` te donne le plan, le numéro de la tranche et sa branche. Lis `.izanagi/config.env` : la clé `verification` donne la vérification, la clé `spec` le chemin de la spec.
 
 ## Sans pause
 
@@ -29,12 +29,11 @@ Quatre cas t'arrêtent, et eux seuls. Pose alors la question à l'utilisateur :
 
 La mémoire de la conversation ne survit pas à une compaction. Le journal dit où tu en es, et les commits qu'il cite existent dans git même quand tu ne te souviens plus de les avoir créés. Après une compaction, crois le journal et `git log` plutôt que ton souvenir.
 
-- Le journal est `.izanagi/journal/<nom du plan sans extension>.md`.
-- Le **dossier du plan** est `.izanagi/journal/<nom du plan sans extension>/`. Il reçoit les briefs, les rapports et les diffs de ce plan, quel que soit l'emplacement du journal.
-- Le dossier `.izanagi/journal/` n'est pas suivi par git. À sa création, écris-y un fichier `.gitignore` qui contient la seule ligne `*`.
+- Le journal est `.izanagi/journal/<nom du plan sans extension>.md`. Il est versionné sur la branche du jalon : tu le commites à la clôture de chaque tâche.
+- Le **dossier du plan** est `.izanagi/journal/<nom du plan sans extension>/`. Il reçoit les briefs, les rapports et les diffs de ce plan. Git l'ignore (`.izanagi/.gitignore`).
 - La première ligne du journal l'identifie : `# Journal, plan : <chemin du plan>`.
 - **Reprise.** Si le journal existe et que sa première ligne nomme ton plan, une tâche qui a une ligne `Tâche N : terminée` est finie : ne la relance pas, et reprends à la première tâche sans cette ligne. Une tâche dont la dernière ligne est un tour de correction reprend au tour suivant.
-- **Journal d'avant la 0.3.** Si `.superpowers/sdd/<nom du plan>/progress.md` existe pour ce plan, continue ce fichier au lieu d'en créer un. Reprends-le même si sa première ligne n'a pas la forme ci-dessus. Ses lignes `Task N: complete` valent `Tâche N : terminée`. Le dossier du plan reste sous `.izanagi/journal/`.
+- **Journal d'avant la 0.3.** `/izanagi:upgrade` l'a déplacé de `.superpowers/sdd/` vers `.izanagi/journal/`. Reprends-le même si sa première ligne n'a pas la forme ci-dessus. Ses lignes `Task N: complete` valent `Tâche N : terminée`.
 
 ## Avant la première tâche
 
@@ -71,6 +70,8 @@ Les valeurs exactes (nombres, chaînes, signatures, cas de test) viennent du pla
 Lance le sous-agent `izanagi:implementer` avec deux chemins : celui du brief (« Lis ce fichier d'abord, il contient tes exigences. ») et celui où il écrit son rapport, `<dossier du plan>/tache-N.rapport.md`. Garde son identifiant, les tours de correction le relancent.
 
 ### 2. Traiter le rapport
+
+Le statut est la première ligne du rapport, écrite `Statut : …`. Un hook du plugin a déjà relancé la vérification à l'arrêt de l'implémenteur, sauf pour un statut « bloqué » ou « question ».
 
 - **Fait** : passe à la revue.
 - **Fait avec réserves** : lis les réserves. Si elles portent sur la justesse ou le périmètre, traite-les avant la revue. Si ce sont des remarques (« ce fichier grossit »), note-les au journal et passe à la revue.
@@ -133,7 +134,7 @@ Quand la relecture ne rend plus d'Important, ou que chaque Important restant est
 - `Tâche N : terminée (commits <base>..<tête>, revue nette)`, ou
 - `Tâche N : terminée (commits <base>..<tête>, <k> constats notés)`.
 
-Coche les étapes de la tâche dans le plan, puis passe à la tâche suivante.
+Coche les étapes de la tâche dans le plan. Commite ensemble le journal et le plan (`chore(izanagi): journal, tâche N`), puis passe à la tâche suivante.
 
 ## Fin de la tranche
 

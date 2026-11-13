@@ -95,6 +95,18 @@ En 0.2, le plugin lance quatorze skills externes sans les copier, déduit la pha
 29. La 1.0 sort après un projet mené de bout en bout sur la 0.5.
 30. Chaque version a son plan dans `docs/plans/`. Izanagi garde son mode de travail : pas de jalon, une PR par version, relue par la revue convergente, validée à la main dans un bac à sable.
 
+### Décisions ajoutées le 2026-11-12, après la 0.3
+
+Ces décisions précisent ou corrigent des décisions précédentes, qui restent écrites telles qu'elles ont été prises.
+
+31. La décision 7 annonçait cinq skills optionnels contrôlés par `init`. `init` en contrôle quatre : `codebase-design`, `prototype`, `research` et `wizard`, tous du plugin `mattpocock-skills`. `/retro` est un skill personnel de l'utilisateur, sans commande d'installation. `jalon` le propose à la clôture si l'utilisateur l'a.
+32. Le journal d'un flux est versionné, comme `state.env` (précise la décision 16). Il vit sur la branche du flux, et le dernier commit du flux le supprime avec `state.env`, après la fin de jalon du vault. Le dossier du plan (`.izanagi/journal/<plan>/`), qui reçoit les briefs, les rapports et les diffs, reste hors de git.
+33. À la clôture d'un jalon, `jalon` supprime la branche du jalon en plus des branches de tranche, en local et sur le dépôt distant, une fois la PR fusionnée et le tag poussé (précise la décision 4).
+34. Les clés de `config.env` et de `state.env` sont en minuscules, comme celles du fichier de valeurs d'`install.sh` (`branche`, `verification`). La clé de version s'écrit `izanagi_version` (corrige la décision 12). `config.env` reprend les clés que `docs/agents/jalon.md` portait, plus `izanagi_version` et une clé par hook.
+35. Le hook `SubagentStop` laisse passer un implémenteur qui rend le statut « bloqué » ou « question », parce qu'il n'a pas de vérification verte à montrer. Il cesse de bloquer après deux refus pour le même sous-agent et avertit l'utilisateur à la place (précise la décision 17).
+36. La clôture d'un jalon ne pousse plus de commit sur la branche principale, que le hook `PreToolUse` refuse. La version mineure monte sur la branche du jalon avant la fusion, et le tag est posé sur le commit de fusion.
+37. Pour la même raison, le cadrage et le plan d'un jalon s'écrivent sur une branche `jalon/<nom court>-cadrage`, fusionnée dans la branche principale par une PR avant la création de la branche du jalon. Les tranches d'un jalon ne touchent pas à la version : seule la clôture la monte.
+
 ## Hors périmètre
 
 - La release et le déploiement d'un projet. La release reste dans la clôture de `jalon`.

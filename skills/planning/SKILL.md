@@ -8,7 +8,7 @@ user-invocable: false
 
 Tu écris un plan pour un implémenteur qui n'a vu ni ce dépôt ni la spec. Il écrit du code idiomatique dès qu'il connaît l'interface exacte et le test exact, et il fait un choix raisonnable partout où le plan en laisse un. Il ne peut pas deviner ce que tu as décidé : quels fichiers, quels noms et signatures, quelles valeurs de la spec, quels tests prouvent chaque tâche. Le plan écrit ces décisions.
 
-Le plan va dans le dossier de la ligne Plans de `docs/agents/jalon.md`, sous le nom `AAAA-MM-JJ-<jalon>.md`.
+Le plan va dans le dossier de la clé `plans` de `.izanagi/config.env`, sous le nom `AAAA-MM-JJ-<jalon>.md`.
 
 ## Périmètre
 
@@ -31,7 +31,7 @@ Si la forme d'une couture est en question (profondeur du module, place de l'inte
 
 ## Tranches
 
-Regroupe les tâches en tranches. Une tranche livre un comportement que l'utilisateur peut essayer avec le test manuel des réglages, et son diff reste sous la taille d'une tranche des réglages. Chaque tranche dit en une phrase ce que l'utilisateur pourra essayer à la fin.
+Regroupe les tâches en tranches. Une tranche livre un comportement que l'utilisateur peut essayer avec le test manuel (clé `test_manuel`), et son diff reste sous la taille d'une tranche (clé `taille_tranche`). Chaque tranche dit en une phrase ce que l'utilisateur pourra essayer à la fin.
 
 Fais valider le découpage en tranches en même temps que les coutures.
 
@@ -140,7 +140,7 @@ Un plan plus long que le code qu'il décrit a écrit le code à la place de l'im
 
 ## Versions
 
-Le plan n'écrit aucun numéro de version. Il dit « le patch suivant celui de la branche principale au moment de la PR » (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
+Le plan n'écrit aucun numéro de version et ne prévoit aucune tâche qui change la version. La clôture du jalon monte la version mineure (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
 
 ## Relecture du plan
 

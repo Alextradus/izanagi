@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init)
-commandes=" init jalon grilling "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor)
+commandes=" init jalon grilling upgrade status doctor "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -67,9 +67,27 @@ for a in reviewer-standards reviewer-spec; do
 done
 
 externes="$(grep -rnoE '(mattpocock-skills|superpowers):[a-z*-]+' skills agents references templates 2>/dev/null |
-  grep -vE ':(mattpocock-skills|superpowers):(codebase-design|prototype|research|wizard)$' || true)"
+  grep -vE ':(mattpocock-skills|superpowers):(codebase-design|prototype|research|wizard)$' |
+  grep -v '^skills/doctor/' || true)" # doctor nomme les skills en double pour les signaler
 [[ -z $externes ]] || echoue "renvoi à un skill externe obligatoire :
 $externes"
+
+# Depuis la 0.4, les réglages sont dans .izanagi/config.env. Seuls `jalon`, `init` et
+# `upgrade` nomment encore docs/agents/jalon.md, pour renvoyer à la migration.
+anciens="$(grep -rnF 'docs/agents/jalon.md' skills agents references templates 2>/dev/null |
+  grep -vE '^skills/(jalon|init|upgrade)/' || true)"
+[[ -z $anciens ]] || echoue "renvoi à docs/agents/jalon.md, remplacé par .izanagi/config.env :
+$anciens"
+
+# Seul scripts/state.sh écrit l'état : `jalon` et `review` doivent le nommer.
+for s in jalon review; do
+  grep -qF 'scripts/state.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas par scripts/state.sh"
+done
+# La clôture met en index la suppression de l'état, que `state.sh clear` ne fait pas.
+grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture de jalon ne retire pas state.env de l'index"
+# `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.
+awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { exit !vu }' skills/upgrade/SKILL.md ||
+  echoue "upgrade ne crée pas sa branche avant la section Migrer"
 
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do

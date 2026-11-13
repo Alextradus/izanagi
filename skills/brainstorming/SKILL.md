@@ -64,7 +64,7 @@ Si la demande couvre en réalité plusieurs projets indépendants, dis-le, conve
 
 ## La spec
 
-Écris la spec au chemin de la ligne Spec de `docs/agents/jalon.md`. Un constructeur compétent doit pouvoir en tirer un plan sans revenir vers l'utilisateur. Elle contient :
+Écris la spec au chemin de la clé `spec` de `.izanagi/config.env`. Un constructeur compétent doit pouvoir en tirer un plan sans revenir vers l'utilisateur. Elle contient :
 
 - le but et sa raison ;
 - les buts, ce qui est hors périmètre, et ce qui serait un échec ;
