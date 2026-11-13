@@ -207,7 +207,7 @@ git switch -q -c jalon/essai
 bash "$racine/scripts/state.sh" start jalon essai
 bash "$racine/scripts/state.sh" set phase=tranches --commit
 git switch -q -c jalon/essai-t1
-bash "$racine/scripts/state.sh" set tranche=1 tour=2 --commit
+bash "$racine/scripts/state.sh" set tranche=1 tour=2 risque=eleve --commit
 git switch -q main
 git switch -q -c task/x
 git switch -q main
@@ -216,7 +216,7 @@ git switch -q jalon/essai-t1
 sortie="$(bash "$status")"
 jour="$(date -u +%Y-%m-%d)"
 attendu="  jalon/essai  jalon « essai », phase tranches  ($jour)
-*   jalon/essai-t1  jalon « essai », phase tranches, tranche 1, tour 2  ($jour)
+*   jalon/essai-t1  jalon « essai », phase tranches, tranche 1, tour 2, risque eleve  ($jour)
   task/x  sans état"
 [[ $sortie == "$attendu" ]] || echoue "status : sortie inattendue :
 $sortie"

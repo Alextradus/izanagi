@@ -55,6 +55,7 @@ while IFS= read -r nom; do
     ligne="$flux « $(kv_get "$tmp" nom || true) », phase $(kv_get "$tmp" phase || true)"
     if tranche="$(kv_get "$tmp" tranche)"; then ligne+=", tranche $tranche"; fi
     if tour="$(kv_get "$tmp" tour)"; then ligne+=", tour $tour"; fi
+    if risque="$(kv_get "$tmp" risque)"; then ligne+=", risque $risque"; fi
     if maj="$(kv_get "$tmp" maj)"; then ligne+="  (${maj%%T*})"; fi
   else
     ligne="sans état"
