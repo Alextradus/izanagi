@@ -30,19 +30,6 @@ kv_get() {
   printf '%s\n' "$valeur"
 }
 
-# config_get <clé> et state_get <clé> : kv_get sur les fichiers du projet courant.
-config_get() {
-  local racine
-  racine="$(project_root)" || return 1
-  kv_get "$racine/.izanagi/config.env" "$1"
-}
-
-state_get() {
-  local racine
-  racine="$(project_root)" || return 1
-  kv_get "$racine/.izanagi/state.env" "$1"
-}
-
 # Affiche la version du plugin, lue dans son plugin.json.
 plugin_version() {
   sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \

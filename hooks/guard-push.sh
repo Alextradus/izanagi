@@ -8,7 +8,8 @@
 #
 # Le script lit la commande dans l'entrée JSON et la découpe en mots, guillemets
 # compris. C'est un garde-fou contre un push fait par habitude, pas une barrière :
-# une commande construite pour le tromper (variable, alias, eval) passe.
+# une commande construite pour le tromper (variable, alias, eval) passe, et une
+# commande de plus de 20 000 caractères aussi, avec un avertissement.
 
 # shellcheck source=../scripts/lib.sh
 . "$(dirname "$0")/../scripts/lib.sh"
@@ -18,6 +19,15 @@ hook_enter "$entree"
 racine="$(izanagi_root)" || exit 0
 commande="$(json_string "$entree" command $'\n')" || exit 0
 [[ $commande == *git*push* ]] || exit 0
+
+# Le temps de la découpe croît avec le carré de la longueur : environ deux secondes
+# pour 20 Ko sous Git Bash, mesurées le 2026-11-13. Au-delà de cette limite, le hook
+# ne découpe pas : il laisse passer et le dit.
+limite=20000
+if ((${#commande} > limite)); then
+  printf '{"systemMessage": "Izanagi : commande de plus de %s caractères, push non contrôlé."}\n' "$limite"
+  exit 0
+fi
 
 principale="$(kv_get "$racine/.izanagi/config.env" branche || true)"
 [[ -n $principale ]] || exit 0
@@ -100,8 +110,6 @@ fin_commande() {
 # et un séparateur du shell finit une commande simple. Entre guillemets, tout
 # caractère appartient au mot : le `;` d'un message de commit ne coupe rien.
 bo=$(printf '%b' '\0134')
-# Le temps de cette boucle croît avec le carré de la longueur de la commande :
-# environ deux secondes pour 20 Ko sous Git Bash, mesurées le 2026-11-13.
 n=${#commande}
 k=0
 while ((k < n)); do

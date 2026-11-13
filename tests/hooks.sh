@@ -153,6 +153,12 @@ for c in 'git push origin v1.2.0' 'git push --tags' 'git push origin --tags' 'gi
   passe "$p" "$c"
 done
 
+# Une commande trop longue pour être découpée passe, avec un avertissement.
+longue="$(printf 'echo %020000d; ' 0)git push origin main"
+lancer guard-push.sh "$p" "$(entree_push "$longue")"
+[[ $code -eq 0 ]] || echoue "commande trop longue : code $code"
+[[ $sortie == '{"systemMessage": "Izanagi : commande de plus de 20000 caractères, push non contrôlé."}' ]] || echoue "commande trop longue : sortie « ${sortie:0:200} »"
+
 regler "$p" hook_push avertit
 lancer guard-push.sh "$p" "$(entree_push 'git push origin main')"
 [[ $code -eq 0 ]] || echoue "hook_push=avertit : code $code"

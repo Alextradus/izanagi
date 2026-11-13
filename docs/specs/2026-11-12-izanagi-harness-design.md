@@ -72,7 +72,7 @@ En 0.2, le plugin lance quatorze skills externes sans les copier, déduit la pha
 22. `fix` conduit un correctif : diagnostic, test de régression rouge, correctif, revue selon le niveau de risque, PR. La branche `fix/<nom>` part de la branche principale, ou de la branche du jalon quand le bug vient du jalon en cours. Les retours de test d'un jalon passent par `fix`.
 23. `upgrade` compare `IZANAGI_VERSION` à la version du plugin et applique les migrations une à une, chacune dans son commit, sur une branche `task/izanagi-upgrade` avec une PR. Il montre chaque écart au gabarit et n'écrase un fichier modifié qu'avec l'accord de l'utilisateur. Il laisse la spec et les plans d'un projet existant à leur place et ne déplace que le journal. Le cas « projet 0.1 » quitte `init`, qui ne garde que la pose initiale.
 24. `status` liste les flux ouverts en lisant le `state.env` des branches `jalon/*`, `task/*` et `fix/*`.
-25. `doctor` contrôle le poste (outils de la pile, Git Bash, `gh` connecté, WSL si `linux` est une cible, hooks activés) et le projet (contrat de vérification, écarts au gabarit, cohérence de `state.env` avec git, doublons de skills de la décision 8).
+25. `doctor` contrôle le poste (outils de la pile, Git Bash, `gh` connecté, WSL si `linux` est une cible, hook `pre-push` de git activé, réglage des clés `hook_push` et `hook_verification`) et le projet (contrat de vérification, écarts au gabarit, cohérence de `state.env` avec git, doublons de skills de la décision 8). Il ne sait pas si Claude Code a chargé les hooks du plugin : le skill renvoie à `/hooks` pour le voir.
 
 ### Niveaux de risque
 
