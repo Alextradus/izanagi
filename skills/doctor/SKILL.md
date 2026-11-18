@@ -17,7 +17,7 @@ Le script rend une ligne par contrôle, `ok      <contrôle>` ou `écart   <cont
 
 ## 2. Ajouter ce que le script ne voit pas
 
-**Hooks du plugin.** Le script contrôle le réglage des clés `hook_push` et `hook_verification`, pas le chargement des hooks par Claude Code. Dis à l'utilisateur que `/hooks` liste les hooks chargés, et qu'il doit y voir `session-start.sh`, `guard-push.sh` et `verify-implementer.sh`.
+**Hooks du plugin.** Le script contrôle le réglage des clés `hook_push`, `hook_verification` et `hook_destructif`, pas le chargement des hooks par Claude Code. Dis à l'utilisateur que `/hooks` liste les hooks chargés, et qu'il doit y voir `session-start.sh`, `guard-push.sh`, `guard-destructive.sh` et `verify-implementer.sh`.
 
 **Skills en double.** Regarde ta liste de skills. Un skill d'un autre plugin qui a le rôle d'un skill d'Izanagi est un doublon : `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`, `superpowers:test-driven-development`, `superpowers:systematic-debugging`, `mattpocock-skills:grilling`, `mattpocock-skills:tdd`, `mattpocock-skills:code-review`, `mattpocock-skills:diagnosing-bugs`, `mattpocock-skills:domain-modeling`. Signale ceux que tu vois, en une ligne chacun. Le `CLAUDE.md` du projet dit déjà que les skills `izanagi:*` priment, donc un doublon n'est pas une panne. Si Superpowers est actif, dis que son hook de démarrage pousse ses propres skills à chaque session, et que l'utilisateur peut le désactiver pour ce projet.
 
@@ -36,6 +36,8 @@ Rends la sortie du script dans un bloc de code, puis la liste des écarts. Pour 
 | `config.env` | remplir les clés citées dans `.izanagi/config.env` |
 | `version du cadre`, `jalon.md` | `/izanagi:upgrade` |
 | `hook_push`, `hook_verification` | remettre `bloque` dans `.izanagi/config.env`. C'est un choix de l'utilisateur : rappelle-le sans insister |
+| `hook_destructif` | remettre `demande` dans `.izanagi/config.env`. Même remarque |
+| `permissions` | ajouter les règles citées à la liste `permissions.deny` de `.claude/settings.json`, avec l'outil Edit, sans toucher aux autres clés |
 | `contrat` | `bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine>` pour le détail, puis la correction de chaque règle |
 | `état` | git l'emporte. Sur une branche de flux, `/izanagi:jalon` corrige l'état. Sur la branche principale, supprimer `.izanagi/state.env` par une PR |
 

@@ -107,8 +107,27 @@ if [[ -f $config ]]; then
     valeur="$(kv_get "$config" "$cle" || true)"
     if [[ $valeur == bloque ]]; then ok "$cle"; else ecart "$cle" "en avertissement (${valeur:-absent})"; fi
   done
+  valeur="$(kv_get "$config" hook_destructif || true)"
+  if [[ $valeur == demande || $valeur == bloque ]]; then
+    ok hook_destructif
+  else
+    ecart hook_destructif "en avertissement (${valeur:-absent})"
+  fi
 else
   ecart "config.env" "absent : lance /izanagi:upgrade"
+fi
+
+# Règles `permissions.deny` de .claude/settings.json : cherchées comme texte entre
+# guillemets, sans décodeur JSON. La liste est celle du gabarit.
+manquantes=""
+reglages="$cible/.claude/settings.json"
+while IFS= read -r regle; do
+  grep -qF "\"$regle\"" "$reglages" 2>/dev/null || manquantes+="${manquantes:+, }$regle"
+done < <(sed -n 's/^ *"\(\(Read\|Edit\)([^"]*)\)",\{0,1\}$/\1/p' "$izanagi_lib_dir/../templates/core/.claude/settings.json")
+if [[ -z $manquantes ]]; then
+  ok permissions
+else
+  ecart permissions "règles absentes de .claude/settings.json : $manquantes"
 fi
 
 if [[ -f $harness ]]; then

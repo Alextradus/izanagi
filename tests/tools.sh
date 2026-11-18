@@ -66,7 +66,8 @@ config="$tmp/p03/.izanagi/config.env"
 [[ $(kv_get "$config" fichier_version) == *Cargo.toml* ]] || echoue "migration : fichier_version"
 [[ $(kv_get "$config" vault) == C:/Vault/essai ]] || echoue "migration : vault"
 [[ $(kv_get "$config" hook_push) == bloque && $(kv_get "$config" hook_verification) == bloque ]] || echoue "migration : hooks"
-[[ $(cat "$tmp/p03/.izanagi/.gitignore") == 'journal/*/' ]] || echoue "migration : .izanagi/.gitignore"
+[[ $(cat "$tmp/p03/.izanagi/.gitignore") == "$(cat "$racine/templates/core/.izanagi/.gitignore")" ]] || echoue "migration : .izanagi/.gitignore"
+[[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "migration : hook_destructif"
 
 # La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
 { echo pile=rust; valeurs_de "$tmp/p03"; } >"$tmp/p03v2"
@@ -104,9 +105,12 @@ sortie="$(bash "$migration05" "$tmp/p04")"
 [[ $sortie == 'écrit      .izanagi/config.env' ]] || echoue "migration 0.5.0 : $sortie"
 [[ $(kv_get "$tmp/p04/.izanagi/config.env" izanagi_version) == 0.5.0 ]] || echoue "migration 0.5.0 sur 0.4.1 : izanagi_version"
 [[ $(grep -A1 '^taille_tranche=' "$tmp/p04/.izanagi/config.env" | tail -1) == 'chemins_sensibles=' ]] || echoue "migration 0.5.0 : chemins_sensibles mal placé"
-# La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
+# La pose de la 0.5.0, relancée avec ces valeurs, trouve le config.env identique à
+# son gabarit. Le gabarit courant porte les clés des versions suivantes.
 { echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v"
-sortie="$("$install" "$tmp/p04" "$tmp/p04v")"
+mkdir -p "$tmp/v05"
+git -C "$racine" archive v0.5.0 scripts templates .claude-plugin | tar -x -C "$tmp/v05"
+sortie="$(bash "$tmp/v05/scripts/install.sh" "$tmp/p04" "$tmp/p04v")"
 grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "config.env migré en 0.5 différent du gabarit : $sortie"
 [[ $(bash "$migration05" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.5.0 relancée sur 0.4.1"
 # Sans config.env, la migration refuse.
@@ -183,10 +187,10 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 2 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 3 ]] || echoue "0.1.1 : créations en trop : $sortie"
   grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
@@ -264,7 +268,7 @@ mkdir "$tmp/dr"
 depot "$tmp/dr"
 git -C "$tmp/dr" config core.hooksPath .githooks
 cd "$tmp/dr"
-controles_projet='hook pre-push|config.env|version du cadre|hook_push|hook_verification|contrat|état|jalon.md'
+controles_projet='hook pre-push|config.env|version du cadre|hook_push|hook_verification|hook_destructif|permissions|contrat|état|jalon.md'
 
 # diagnostic : remplit $sortie et $code.
 diagnostic() {
@@ -283,7 +287,7 @@ for c in 'outil git' 'outil bash' 'outil gh' 'outil cargo'; do
   grep -qE "^(ok|écart)   +$c" <<<"$sortie" || echoue "doctor : contrôle « $c » absent : $sortie"
 done
 grep -E "^écart   ($controles_projet)" <<<"$sortie" && echoue "doctor : écart sur un projet sain : $sortie"
-for c in 'hook pre-push' 'config.env' 'version du cadre' 'hook_push' 'hook_verification' 'contrat' 'état' 'jalon.md'; do
+for c in 'hook pre-push' 'config.env' 'version du cadre' 'hook_push' 'hook_verification' 'hook_destructif' 'permissions' 'contrat' 'état' 'jalon.md'; do
   grep -qxF "ok      $c" <<<"$sortie" || echoue "doctor : « ok      $c » absent : $sortie"
 done
 
@@ -294,6 +298,20 @@ retablir() { cp "$tmp/dr-config" "$config"; }
 sed -i 's/^hook_push=.*/hook_push=avertit/' "$config"
 ecart hook_push 'en avertissement'
 retablir
+sed -i 's/^hook_destructif=.*/hook_destructif=avertit/' "$config"
+ecart hook_destructif 'en avertissement \(avertit\)'
+retablir
+sed -i 's/^hook_destructif=.*/hook_destructif=bloque/' "$config"
+diagnostic
+grep -qxF 'ok      hook_destructif' <<<"$sortie" || echoue "doctor : hook_destructif=bloque signalé : $sortie"
+retablir
+reglages="$tmp/dr/.claude/settings.json"
+cp "$reglages" "$tmp/dr-settings"
+sed -i '/"Read(\*.pem)"/d' "$reglages"
+ecart permissions 'règles absentes de .claude/settings.json : Read\(\*\.pem\)'
+rm "$reglages"
+ecart permissions 'Read\(\.env\*\)'
+cp "$tmp/dr-settings" "$reglages"
 # `chemins_sensibles` peut être vide, pas absent.
 grep -qxF 'chemins_sensibles=' "$config" || echoue "doctor : le projet sain n'a pas chemins_sensibles vide"
 sed -i '/^chemins_sensibles=/d' "$config"

@@ -10,7 +10,8 @@
 # Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
 # templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
 # argument. `izanagi_version` vaut la version du plugin, sauf si le fichier de
-# valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`.
+# valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`,
+# `hook_destructif` vaut `demande`, `bloque` ou `avertit`.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -155,6 +156,10 @@ for cle_hook in hook_push hook_verification; do
     exit 2
   fi
 done
+if [[ ! ${valeurs[hook_destructif]:-} =~ ^(demande|bloque|avertit)$ ]]; then
+  echo "install.sh : hook_destructif « ${valeurs[hook_destructif]:-} » refusé : demande, bloque ou avertit" >&2
+  exit 2
+fi
 # Version du cadre posé : celle du plugin, sauf si le fichier de valeurs la donne.
 valeurs[izanagi_version]="${valeurs[izanagi_version]:-$(plugin_version)}"
 # Chemins sensibles : vide si le fichier de valeurs ne les donne pas.

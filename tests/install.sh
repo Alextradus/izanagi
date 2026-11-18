@@ -20,8 +20,8 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 13 ]] || echoue "première pose : $sortie"
-for f in .izanagi/config.env .izanagi/.gitignore AGENTS.md; do
+[[ $(grep -c '^créé' <<<"$sortie") -eq 14 ]] || echoue "première pose : $sortie"
+for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
   grep -qxF "créé       $f" <<<"$sortie" || echoue "$f non posé : $sortie"
 done
 [[ ! -e $tmp/p/docs/agents/jalon.md ]] || echoue "docs/agents/jalon.md encore posé"
@@ -36,7 +36,11 @@ config="$tmp/p/.izanagi/config.env"
 [[ $(kv_get "$config" spec) == docs/spec.md ]] || echoue "config.env : spec"
 [[ $(kv_get "$config" lieu_test) == 'dans WSL' ]] || echoue "config.env : lieu_test"
 grep -q '{{' "$config" && echoue "config.env garde un {{"
-[[ $(cat "$tmp/p/.izanagi/.gitignore") == 'journal/*/' ]] || echoue ".izanagi/.gitignore"
+[[ $(cat "$tmp/p/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue ".izanagi/.gitignore"
+[[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "config.env : hook_destructif"
+for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(credentials*)'; do
+  grep -qF "\"$regle\"" "$tmp/p/.claude/settings.json" || echoue ".claude/settings.json : règle $regle absente"
+done
 grep -q '{{' "$tmp/p/AGENTS.md" && echoue "AGENTS.md garde un {{"
 grep -qi 'izanagi' "$tmp/p/AGENTS.md" && echoue "AGENTS.md nomme Izanagi"
 grep -qF 'docs/spec.md' "$tmp/p/AGENTS.md" || echoue "AGENTS.md : spec"
@@ -54,7 +58,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 12 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 13 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -73,7 +77,7 @@ printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nizanagi_version=0.1.0
 
 # Valeur de hook refusée avant toute écriture.
 mkdir "$tmp/hk"
-for cle in hook_push hook_verification; do
+for cle in hook_push hook_verification hook_destructif; do
   printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n%s=parfois\n' "$cle" >"$tmp/hkv"
   if sortie="$("$install" "$tmp/hk" "$tmp/hkv" 2>&1)"; then echoue "$cle=parfois accepté"; fi
   grep -q 'refusé' <<<"$sortie" || echoue "$cle=parfois : message : $sortie"

@@ -101,6 +101,8 @@ Pour chaque fichier `différent`, lis `<rapport>/diff/<chemin>.diff`. Le côté 
 - **Manque au projet** (lignes en `+` seules) : une convention du gabarit absente du projet. Cite-la.
 - **Divergence** (les deux) : le projet et le gabarit disent la même chose autrement. Cite les deux versions.
 
+Un `.claude/settings.json` déjà présent sort `différent` quand il porte d'autres réglages du projet. Ajoute à sa liste `permissions.deny` les règles du gabarit qui lui manquent, avec l'outil Edit, sans toucher aux autres clés. Ces règles empêchent les outils de Claude Code de lire ou d'écrire les fichiers de secrets (`.env*` sauf `.env.example`, `*.pem`, `*.key`, `id_rsa*`, `credentials*`). Garde l'ordre du gabarit : une règle `!` n'exclut que des chemins des règles qui la précèdent.
+
 Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Le contrôle de la section 8 les couvre, donc ne classe pas ces blocs.
 
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
