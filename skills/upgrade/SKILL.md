@@ -88,6 +88,7 @@ Ce que chaque version a changé dans les gabarits, à présenter ainsi :
 - **Depuis la 0.4.** `CLAUDE.md` renvoie à `.izanagi/config.env`. `AGENTS.md` est nouveau. Dans `docs/CODING_STANDARDS.md`, la liste des chemins hors revue cite `.izanagi/` : ajoute ce chemin à celle du projet et garde le chemin de ses plans.
 
 - **Depuis la 0.5.** `.izanagi/config.env` porte la clé `chemins_sensibles`, que la migration ajoute vide. Demande à l'utilisateur où sont les données, la sécurité, les migrations et l'API publique du projet, et écris les motifs qu'il donne, séparés par des virgules (`db/migrations/*, src/auth/*`). Un diff qui touche un de ces chemins passe la revue du niveau de risque élevé (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`). La clé peut rester vide.
+- **Depuis la 0.6.** Pour chaque `docs/standards/<langage>.md`, compare les règles de la section `## À proposer au plugin` à celles de `${CLAUDE_PLUGIN_ROOT}/references/langages/<langage>.md`. Une règle que le plugin porte désormais, même reformulée, se retire du projet : montre les deux versions et retire-la sur l'accord de l'utilisateur.
 
 Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Ne classe pas ces blocs : le contrôle de la section 4 les couvre.
 

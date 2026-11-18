@@ -88,4 +88,4 @@ gh issue create --repo <dépôt> --title "<titre>" --body-file <brouillon>
 
 ## 6. Rendre compte
 
-Donne à l'utilisateur, en quelques lignes : les règles écrites et leurs fichiers, les leçons écartées, les issues ouvertes et leurs liens. Si une section `## À proposer au plugin` n'est pas vide, dis-le : ces règles attendent d'être proposées au plugin.
+Donne à l'utilisateur, en quelques lignes : les règles écrites et leurs fichiers, les leçons écartées, les issues ouvertes et leurs liens. Si une section `## À proposer au plugin` n'est pas vide, dis-le : ces règles attendent d'être proposées au plugin par `/izanagi:contribuer <langage>`, que seul l'utilisateur lance.

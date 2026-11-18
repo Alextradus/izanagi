@@ -142,6 +142,7 @@ Une fois la validation reçue, tout ce qui modifie un fichier se fait sur la bra
 7. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 8. Reviens sur la branche principale à jour. Pose le tag sur le commit de fusion et pousse-le.
 9. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.
+10. Si une section `## À proposer au plugin` de `docs/standards/` a au moins une règle, dis-le à l'utilisateur en une ligne, et propose `/izanagi:contribuer <langage>`. Ne le lance pas toi-même : seul l'utilisateur le lance.
 
 Fin de phase : tag poussé, vault clos, rétrospective faite, la branche principale sans état ni journal, branches du jalon supprimées.
 

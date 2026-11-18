@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix retro)
-commandes=" init jalon grilling upgrade status doctor task fix retro "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix retro contribuer)
+commandes=" init jalon grilling upgrade status doctor task fix retro contribuer "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -167,6 +167,17 @@ done
 for mot in 'scripts/refus.sh' 'Correction : ' 'docs/standards/' '## À proposer au plugin' 'chemins_sensibles' 'gh issue create'; do
   grep -qF -- "$mot" skills/retro/SKILL.md || echoue "skills/retro ne nomme pas « $mot »"
 done
+
+# Remontée des règles au plugin : jamais sans l'utilisateur. `contribuer` ne se lance
+# que sur sa demande, montre le diff et attend son accord avant de pousser.
+[[ $(champ skills/contribuer/SKILL.md disable-model-invocation) == true ]] || echoue "skills/contribuer peut être lancé par le modèle"
+for mot in '## À proposer au plugin' 'repository' 'gh repo fork' 'langage/<langage>-' 'gh pr create' '**Accord.**'; do
+  grep -qF -- "$mot" skills/contribuer/SKILL.md || echoue "skills/contribuer ne nomme pas « $mot »"
+done
+awk '/\*\*Accord\.\*\*/ { a = NR } /git push/ { if (!p) p = NR } END { exit !(a && p && a < p) }' skills/contribuer/SKILL.md ||
+  echoue "skills/contribuer pousse avant l'étape d'accord"
+grep -qF '/izanagi:contribuer' skills/jalon/SKILL.md || echoue "la clôture de jalon ne propose pas /izanagi:contribuer"
+grep -qF '## À proposer au plugin' skills/upgrade/SKILL.md || echoue "upgrade ne retire pas les règles reprises par le plugin"
 
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do
