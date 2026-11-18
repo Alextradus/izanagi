@@ -14,6 +14,7 @@ Plugin Claude Code qui pose le cadre de travail d'un projet, conduit ses jalons 
 - `/izanagi:jalon [phase]` conduit un jalon : cadrage, plan, tranches, revue de jalon, test, clôture. Chaque tranche passe une revue convergente (trois tours au plus, re-revue sur le seul diff des corrections). `/izanagi:jalon convergente` lance cette revue seule, pour une PR hors jalon.
 - `/izanagi:task [issue ou description]` conduit un petit changement, de l'issue à la PR, sans spec ni plan : cadrage en cinq questions au plus, implémentation testée, revue, patch monté. Si le changement dépasse une tranche ou touche plusieurs coutures, il s'arrête au cadrage et propose un jalon.
 - `/izanagi:fix [issue ou description du bug]` conduit un correctif : un diagnostic qui prouve la cause par un test de régression rouge, le correctif, la revue, la PR. Lancé pendant un jalon, il part de la branche du jalon et y revient. Les retours de test d'un jalon passent par lui.
+- `/izanagi:retro [branche]` tire les leçons d'un flux : il lit le journal, les rapports de revue, les refus des hooks (`.izanagi/refus.log`) et les lignes `Correction :` que les flux notent quand tu reprends l'agent. Il te propose une règle par leçon, dans le fichier qui convient (`docs/CODING_STANDARDS.md`, `docs/standards/<langage>.md`, `CLAUDE.md`…), et ne l'écrit qu'avec ton accord. Une leçon sur Izanagi lui-même devient un brouillon d'issue, ouvert seulement sur ton accord. La clôture d'un jalon le lance. `task` et `fix` te demandent « une leçon à garder ? » quand la revue a pris plus d'un tour ou qu'un hook a refusé quelque chose.
 - `/izanagi:grilling [sujet]` t'interroge par tours sur un plan ou une décision, jusqu'à ce que chaque point soit tranché. Le cadrage d'un jalon le lance aussi.
 - `/izanagi:upgrade` met à jour le cadre d'un projet déjà posé. Il applique les migrations une à une sur une branche `task/izanagi-upgrade`, montre les écarts au gabarit, n'écrase un fichier modifié qu'avec ton accord et ouvre une PR.
 - `/izanagi:status` liste les flux ouverts, d'après les branches `jalon/*`, `task/*` et `fix/*`, avec la phase, la tranche et le tour de revue de chacun.
@@ -94,8 +95,6 @@ Quatre skills du plugin `mattpocock-skills` aident à certaines étapes. Un jalo
 ```bash
 claude plugin install mattpocock-skills
 ```
-
-La clôture d'un jalon propose aussi `/retro`, si tu as un skill de ce nom.
 
 Dans un projet Izanagi, les skills `izanagi:*` priment sur les skills de même rôle d'un autre plugin, Superpowers compris. Le `CLAUDE.md` posé le dit.
 

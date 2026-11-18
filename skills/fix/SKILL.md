@@ -29,6 +29,8 @@ Un correctif naît hors jalon ou dans un jalon. Tout le skill dépend de ce cas,
 | Version | le patch monte | la version ne bouge pas |
 | PR | vers la branche principale | vers la base |
 
+**Corrections.** Quand l'utilisateur corrige une consigne, reprend un travail ou rappelle une règle, ajoute au journal du tableau une ligne `Correction : <ce qu'il a repris, en une phrase>`, et commite-la avec la prochaine ligne du journal. La rétrospective et la question de la clôture s'en servent.
+
 ## 1. Situer
 
 Lis `.izanagi/config.env`. S'il manque, renvoie à `/izanagi:init`, ou à `/izanagi:upgrade` si le projet a un cadre d'avant la 0.4, et arrête-toi.
@@ -105,14 +107,15 @@ Fin : la PR est ouverte et l'utilisateur confirme que le bug a disparu.
 **Hors jalon.**
 
 1. Lance `state.sh set phase=cloture --commit`.
-2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
-3. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
-4. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
-5. Reviens sur la branche principale à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
+2. **Leçon.** Si le tour de revue de l'état vaut 2 ou plus, ou si `bash "${CLAUDE_PLUGIN_ROOT}/scripts/refus.sh" fix/<nom court>` affiche une ligne, demande à l'utilisateur : « une leçon à garder ? », en citant ce qui a coûté. Sur un oui, lance `izanagi:retro` avec l'outil Skill pour cette seule leçon : il l'écrit et la commite sur la branche. Sinon, ne demande rien.
+3. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
+4. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
+5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+6. Reviens sur la branche principale à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
 
 **Dans un jalon.**
 
-1. Ajoute au journal du jalon la ligne `Correctif <nom court> : <cause en une phrase>`, et commite-la.
+1. Ajoute au journal du jalon la ligne `Correctif <nom court> : <cause en une phrase>`, et commite-la. Ne pose pas la question de la leçon : la rétrospective du jalon lira ce journal.
 2. Lance `state.sh set correctif= --commit`, qui retire la clé. Contrôle avec `git diff <base> -- .izanagi/state.env` que l'état ne diffère plus de celui de la base que par sa date, puis pousse.
 3. Fusionne la PR dans la base, avec l'accord de l'utilisateur.
 4. Reviens sur la base à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.

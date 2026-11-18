@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix)
-commandes=" init jalon grilling upgrade status doctor task fix "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix retro)
+commandes=" init jalon grilling upgrade status doctor task fix retro "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -147,6 +147,25 @@ for a in reviewer-standards implementer; do
 done
 for s in review task-loop task fix; do
   grep -qF 'references/langages/index.md' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas references/langages/index.md"
+done
+
+# Les flux notent au journal les corrections de l'utilisateur, que la rétrospective lit.
+for s in task-loop task fix; do
+  grep -qF 'Correction : ' "skills/$s/SKILL.md" || echoue "skills/$s ne note pas les corrections au journal"
+done
+
+# Rétrospective : `jalon` la lance à la clôture (par l'outil Skill, donc sans
+# disable-model-invocation), à la place de `/retro`. `task` et `fix` posent la question.
+[[ -z $(champ skills/retro/SKILL.md disable-model-invocation) ]] || echoue "skills/retro porte disable-model-invocation : jalon ne pourrait pas le lancer"
+grep -qF 'izanagi:retro' skills/jalon/SKILL.md || echoue "la clôture de jalon ne lance pas izanagi:retro"
+grep -qF '/retro' skills/jalon/SKILL.md && echoue "la clôture de jalon propose encore /retro"
+awk '/izanagi:retro/ { r = NR } /git rm -f --ignore-unmatch/ { s = NR } END { exit !(r && s && r < s) }' skills/jalon/SKILL.md ||
+  echoue "la clôture de jalon supprime le journal avant la rétrospective"
+for s in task fix; do
+  grep -qF 'une leçon à garder ?' "skills/$s/SKILL.md" || echoue "skills/$s ne pose pas la question de la leçon"
+done
+for mot in 'scripts/refus.sh' 'Correction : ' 'docs/standards/' '## À proposer au plugin' 'chemins_sensibles' 'gh issue create'; do
+  grep -qF -- "$mot" skills/retro/SKILL.md || echoue "skills/retro ne nomme pas « $mot »"
 done
 
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.

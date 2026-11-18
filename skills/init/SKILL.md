@@ -130,7 +130,7 @@ Donne à l'utilisateur :
 
 - les fichiers créés, identiques et différents, avec les écarts de la section 7 et ceux du contrat restés ouverts ;
 - les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `.izanagi/config.env` ;
-- les skills optionnels absents de ta liste de skills, parmi `mattpocock-skills:codebase-design`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:wizard`. Dis en une ligne ce que chacun apporte : une aide sur la forme d'une couture, un essai exécutable pendant le cadrage, une recherche de faits sur un outil, un guide pour une étape que seul l'utilisateur peut faire. Ils viennent tous du même plugin, qui s'installe avec `claude plugin install mattpocock-skills`. Propose cette commande et lance-la seulement sur l'accord de l'utilisateur. Aucun flux d'Izanagi n'en dépend. `/retro`, que la clôture d'un jalon propose, est un skill personnel que seul l'utilisateur lance : il ne figure jamais dans ta liste, ne le signale pas.
+- les skills optionnels absents de ta liste de skills, parmi `mattpocock-skills:codebase-design`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:wizard`. Dis en une ligne ce que chacun apporte : une aide sur la forme d'une couture, un essai exécutable pendant le cadrage, une recherche de faits sur un outil, un guide pour une étape que seul l'utilisateur peut faire. Ils viennent tous du même plugin, qui s'installe avec `claude plugin install mattpocock-skills`. Propose cette commande et lance-la seulement sur l'accord de l'utilisateur. Aucun flux d'Izanagi n'en dépend.
 
 Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune avec sa commande exacte. Saute celles qui sont déjà faites :
 

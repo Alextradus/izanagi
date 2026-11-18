@@ -14,4 +14,4 @@ Pour écarter une règle du plugin dans ce projet, écris une ligne de cette for
 
 ## À proposer au plugin
 
-<!-- Les règles valables hors de ce projet, en attente d'être proposées au plugin Izanagi. Le relecteur et l'implémenteur les appliquent déjà. -->
+<!-- Les règles valables hors de ce projet, que /izanagi:retro range ici, en attente d'être proposées au plugin Izanagi. Le relecteur et l'implémenteur les appliquent déjà. -->

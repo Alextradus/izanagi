@@ -17,6 +17,8 @@ Les skills `izanagi:*` cités, tu les lances toi-même avec l'outil Skill. Dans 
 
 **Journal.** Le cadrage, les constats écartés et les retours de test vont dans `.izanagi/journal/task-<nom court>.md`, versionné sur la branche. La clôture le supprime avec l'état.
 
+**Corrections.** Quand l'utilisateur corrige une consigne, reprend un travail ou rappelle une règle, ajoute au journal une ligne `Correction : <ce qu'il a repris, en une phrase>`, et commite-la avec la prochaine ligne du journal. La question de la clôture s'en sert.
+
 **Niveau de risque.** `${CLAUDE_PLUGIN_ROOT}/references/risk.md` décrit les trois niveaux. Le niveau règle la revue et le test manuel.
 
 ## 1. Situer
@@ -98,10 +100,11 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 ## 7. Clôture
 
 1. Lance `state.sh set phase=cloture --commit`.
-2. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
-3. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
-4. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
-5. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
+2. **Leçon.** Si le tour de revue de l'état vaut 2 ou plus, ou si `bash "${CLAUDE_PLUGIN_ROOT}/scripts/refus.sh" task/<nom court>` affiche une ligne, demande à l'utilisateur : « une leçon à garder ? », en citant ce qui a coûté. Sur un oui, lance `izanagi:retro` avec l'outil Skill pour cette seule leçon : il l'écrit et la commite sur la branche. Sinon, ne demande rien.
+3. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
+4. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
+5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+6. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
 
 Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni journal, la branche du changement supprimée.
 
