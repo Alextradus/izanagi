@@ -126,6 +126,19 @@ done
 grep -qF 'izanagi:reviewer-security' skills/review/SKILL.md || echoue "skills/review ne lance pas izanagi:reviewer-security"
 grep -qF 'Standards, Spec et Sécurité' references/risk.md || echoue "references/risk.md : pas de relecteur Sécurité au niveau élevé"
 
+# Règles générales par langage : chaque fichier que l'index nomme existe, et chaque
+# règle (`## R<n>. …`) a sa ligne `Source : …`.
+[[ -f references/langages/index.md ]] || echoue "references/langages/index.md absent"
+fichiers_langage="$(grep -oE '`[a-z-]+\.md`' references/langages/index.md | tr -d '`' | sort -u)"
+[[ -n $fichiers_langage ]] || echoue "references/langages/index.md ne nomme aucun fichier"
+for f in $fichiers_langage; do
+  [[ -f references/langages/$f ]] || echoue "references/langages/$f nommé par l'index et absent"
+  regles="$(grep -cE '^## R[0-9]+\. ' "references/langages/$f" || true)"
+  sources="$(grep -cE '^Source : ' "references/langages/$f" || true)"
+  ((regles >= 8)) || echoue "references/langages/$f : $regles règles, huit au moins attendues"
+  ((regles == sources)) || echoue "references/langages/$f : $regles règles pour $sources sources"
+done
+
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do
   [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"
