@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo-wordmark.svg" alt="Izanagi" width="480">
+</p>
+
 # Izanagi
 
 Plugin Claude Code qui pose le cadre de travail d'un projet, conduit ses jalons et applique ses règles par des hooks. Les réglages d'un projet et l'état de son flux en cours sont dans son dossier `.izanagi/`.
