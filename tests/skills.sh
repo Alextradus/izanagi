@@ -50,14 +50,14 @@ for d in skills/*/; do
   [[ " ${skills[*]} " == *" $s "* ]] || echoue "skills/$s absent de la liste de ce test"
 done
 
-for a in implementer reviewer-standards reviewer-spec diagnostician; do
+for a in implementer reviewer-standards reviewer-spec reviewer-security diagnostician; do
   f="agents/$a.md"
   [[ -f $f ]] || echoue "$f absent"
   [[ $(champ "$f" name) == "$a" ]] || echoue "$f : name différent de « $a »"
   [[ -n $(champ "$f" description) ]] || echoue "$f : description vide"
 done
 
-for a in reviewer-standards reviewer-spec; do
+for a in reviewer-standards reviewer-spec reviewer-security; do
   f="agents/$a.md"
   outils="$(champ "$f" tools)"
   [[ -n $outils ]] || echoue "$f : champ tools absent ou hors de la forme sur une ligne"
@@ -117,6 +117,14 @@ grep -qF 'git add -u -- .izanagi' skills/fix/SKILL.md || echoue "la clôture de 
 # `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.
 awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { exit !vu }' skills/upgrade/SKILL.md ||
   echoue "upgrade ne crée pas sa branche avant la section Migrer"
+
+# Relecteur sécurité : chaque fiche de type a sa section, et `review` le lance au
+# niveau élevé.
+for t in references/types/*.md; do
+  grep -qx '## Sécurité' "$t" || echoue "$t : pas de section ## Sécurité"
+done
+grep -qF 'izanagi:reviewer-security' skills/review/SKILL.md || echoue "skills/review ne lance pas izanagi:reviewer-security"
+grep -qF 'Standards, Spec et Sécurité' references/risk.md || echoue "references/risk.md : pas de relecteur Sécurité au niveau élevé"
 
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do

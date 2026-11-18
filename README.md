@@ -19,7 +19,7 @@ Plugin Claude Code qui pose le cadre de travail d'un projet, conduit ses jalons 
 - `/izanagi:status` liste les flux ouverts, d'après les branches `jalon/*`, `task/*` et `fix/*`, avec la phase, la tranche et le tour de revue de chacun.
 - `/izanagi:doctor` contrôle le poste et le cadre : outils, hooks, réglages, version du cadre, contrat de vérification, cohérence de l'état avec git. Il propose la correction de chaque écart.
 
-Les flux chargent huit autres skills du plugin, absents du menu des commandes : `brainstorming` écrit la spec, `domain-modeling` tient `CONTEXT.md`, `planning` écrit le plan en tranches, `task-loop` exécute les tâches d'une tranche, `tdd` fixe les règles de test, `review` conduit la revue convergente, `diagnosing` cherche la cause d'un bug et `merge-conflicts` résout un conflit. Quatre sous-agents font le travail délégué : `implementer`, `reviewer-standards`, `reviewer-spec` et `diagnostician`. Les deux relecteurs sont en lecture seule.
+Les flux chargent huit autres skills du plugin, absents du menu des commandes : `brainstorming` écrit la spec, `domain-modeling` tient `CONTEXT.md`, `planning` écrit le plan en tranches, `task-loop` exécute les tâches d'une tranche, `tdd` fixe les règles de test, `review` conduit la revue convergente, `diagnosing` cherche la cause d'un bug et `merge-conflicts` résout un conflit. Cinq sous-agents font le travail délégué : `implementer`, `reviewer-standards`, `reviewer-spec`, `reviewer-security` et `diagnostician`. Les trois relecteurs sont en lecture seule. `reviewer-security` ne tourne qu'au niveau de risque élevé, contre la section « Sécurité » de la fiche du type d'application.
 
 `init` pose `CLAUDE.md`, `AGENTS.md`, `.izanagi/config.env`, `docs/agents/*` (tracker, libellés de tri, domaine, vault, harnais), un squelette de `docs/CODING_STANDARDS.md`, le hook `.githooks/pre-push`, `scripts/check.sh` et la CI. Un projet à plusieurs composants reçoit aussi `scripts/dev.sh`, qui les lance ensemble.
 
@@ -41,7 +41,7 @@ Une tranche, un petit changement ou un correctif porte un niveau de risque, qui 
 |---|---|---|---|
 | faible | documentation, renommage, configuration | un relecteur, un tour | non |
 | normal | comportement nouveau | deux relecteurs, trois tours au plus | oui |
-| élevé | données, sécurité, migration, API publique | deux relecteurs, trois tours au plus, puis tu relis le diff | oui |
+| élevé | données, sécurité, migration, API publique | trois relecteurs, Sécurité compris, trois tours au plus, puis tu relis le diff | oui |
 
 Le plan d'un jalon donne le niveau de chaque tranche. `task` et `fix` en proposent un au départ. Tu peux le changer à tout moment.
 
