@@ -271,6 +271,30 @@ else
   grep -qF -- '-- secrets : gitleaks absent, voir /izanagi:doctor' <<<"$sortie" || echoue "secrets : gitleaks absent : $sortie"
 fi
 
+# ============ refus.sh ============
+refus="$racine/scripts/refus.sh"
+[[ -f $refus ]] || echoue "scripts/refus.sh absent"
+mkdir -p "$tmp/rf/.izanagi"
+printf 'branche=main\n' >"$tmp/rf/.izanagi/config.env"
+depot "$tmp/rf"
+# Fichier absent : aucune sortie, code 0.
+[[ -z $(cd "$tmp/rf" && bash "$refus" task/a) ]] || echoue "refus.sh : sortie sans refus.log"
+printf '%s\n' '2026-11-18T10:00:00Z|task/a|push|push direct sur main' \
+  '2026-11-18T10:01:00Z|task/b|destructif|git reset --hard' \
+  '2026-11-18T10:02:00Z|task/a|verification|vérification rouge' >"$tmp/rf/.izanagi/refus.log"
+sortie="$(cd "$tmp/rf" && bash "$refus" task/a)"
+[[ $sortie == $'2026-11-18T10:00:00Z|task/a|push|push direct sur main\n2026-11-18T10:02:00Z|task/a|verification|vérification rouge' ]] || echoue "refus.sh : filtre : $sortie"
+[[ -z $(cd "$tmp/rf" && bash "$refus" task/c) ]] || echoue "refus.sh : branche sans refus"
+# Une branche dont le nom est le préfixe d'une autre ne prend pas ses lignes.
+[[ -z $(cd "$tmp/rf" && bash "$refus" task) ]] || echoue "refus.sh : préfixe de branche"
+(cd "$tmp/rf" && bash "$refus" task/a --vider)
+[[ $(cat "$tmp/rf/.izanagi/refus.log") == '2026-11-18T10:01:00Z|task/b|destructif|git reset --hard' ]] || echoue "refus.sh : vidage : $(cat "$tmp/rf/.izanagi/refus.log")"
+if (cd "$tmp/rf" && bash "$refus" task/a --tout >/dev/null 2>&1); then echoue "refus.sh : option inconnue acceptée"; fi
+if (cd "$tmp/rf" && bash "$refus" >/dev/null 2>&1); then echoue "refus.sh : sans argument accepté"; fi
+mkdir "$tmp/rf-hors" && git -C "$tmp/rf-hors" init -q
+code=0; (cd "$tmp/rf-hors" && bash "$refus" task/a >/dev/null 2>&1) || code=$?
+[[ $code -eq 2 ]] || echoue "refus.sh : hors projet Izanagi : code $code"
+
 # ============ status.sh ============
 status="$racine/scripts/status.sh"
 [[ -f $status ]] || echoue "scripts/status.sh absent"

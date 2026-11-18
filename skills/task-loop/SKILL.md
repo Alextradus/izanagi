@@ -18,6 +18,8 @@ Exécute toutes les tâches de la tranche sans demander à l'utilisateur s'il fa
 
 Un conflit, une ambiguïté ou un défaut du plan ne t'arrête pas. Tranche-le : la spec fait foi, le plan en découle, et ton jugement règle ce que ni l'un ni l'autre ne dit. Note chaque décision au journal sous la forme `Décision : <ce que tu as décidé>, parce que <raison>. Si c'est faux : <ce que ça coûte>.`
 
+**Corrections.** Quand l'utilisateur corrige une consigne, reprend un travail ou rappelle une règle, ajoute au journal une ligne `Correction : <ce qu'il a repris, en une phrase>`, et commite-la avec la prochaine ligne du journal. La rétrospective du jalon lit ces lignes pour en tirer des règles.
+
 Quatre cas t'arrêtent, et eux seuls. Pose alors la question à l'utilisateur :
 
 - une opération irréversible ou destructrice ;
