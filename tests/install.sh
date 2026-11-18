@@ -20,7 +20,9 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 14 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 15 ]] || echoue "première pose : $sortie"
+grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
+grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
 for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
   grep -qxF "créé       $f" <<<"$sortie" || echoue "$f non posé : $sortie"
 done
@@ -58,7 +60,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 13 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 14 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -168,7 +170,9 @@ grep -qF '",$cibles," == *,linux,*' "$tmp/m1/scripts/check.sh" || echoue "cibles
 mkdir "$tmp/fx" "$tmp/hc"
 printf '#!/bin/sh\necho MINGW64_NT-10.0\n' >"$tmp/fx/uname"
 printf '#!/usr/bin/env bash\ncat >/dev/null\necho "$*" >>"%s/appels"\n' "$tmp/fx" >"$tmp/fx/wsl.exe"
-chmod +x "$tmp/fx/uname" "$tmp/fx/wsl.exe"
+# Faux gitleaks : la recherche de secrets passe, ces cas testent le choix des systèmes.
+printf '#!/bin/sh\nexit 0\n' >"$tmp/fx/gitleaks"
+chmod +x "$tmp/fx/uname" "$tmp/fx/wsl.exe" "$tmp/fx/gitleaks"
 # Un dépôt git avec un composant zig dont la section écrit `lance` quand elle
 # tourne. Les cas changent ensuite la seule ligne `cibles=`.
 git -C "$tmp/hc" init -q

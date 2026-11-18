@@ -187,13 +187,88 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md .claude/settings.json; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 3 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 4 ]] || echoue "0.1.1 : créations en trop : $sortie"
   grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
+fi
+
+# ============ check.sh : recherche de secrets ============
+# Un faux gitleaks note ses arguments et rend le code de $GITLEAKS_CODE. Le projet n'a
+# qu'un composant sans gabarit, dont la section ne lance rien, et pour seul système
+# cible le système courant : `check.sh --host` ne lance que la recherche de secrets.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) ici=windows ;;
+  Darwin*) ici=macos ;;
+  *) ici=linux ;;
+esac
+mkdir -p "$tmp/faux" "$tmp/sec"
+cat >"$tmp/faux/gitleaks" <<'FAUX'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >"$GITLEAKS_ARGS"
+exit "${GITLEAKS_CODE:-0}"
+FAUX
+chmod +x "$tmp/faux/gitleaks"
+export GITLEAKS_ARGS="$tmp/gitleaks.args"
+printf 'projet=sec\nspec=s.md\nlieu_test=ici\ntest_manuel=x\nfichier_version=y\ncomposant=api|.|zig|\nsystemes=%s\n' "$ici" >"$tmp/secv"
+"$install" "$tmp/sec" "$tmp/secv" >/dev/null
+grep -qF 'verifier_secrets' "$tmp/sec/scripts/check.sh" || echoue "check.sh : pas de verifier_secrets"
+depot "$tmp/sec"
+git -C "$tmp/sec" switch -q -c task/x
+echo x >"$tmp/sec/x.txt" && git -C "$tmp/sec" add x.txt && git -C "$tmp/sec" commit -q -m x
+# secrets <dossier> : lance check.sh --host avec le faux gitleaks ; remplit $sortie et $code.
+secrets() {
+  code=0
+  rm -f "$GITLEAKS_ARGS"
+  sortie="$(cd "$1" && PATH="$tmp/faux:$PATH" bash scripts/check.sh --host 2>&1)" || code=$?
+}
+secrets "$tmp/sec"
+[[ $code -eq 0 ]] || echoue "secrets : code $code : $sortie"
+[[ $(cat "$GITLEAKS_ARGS") == 'git --redact --no-banner --log-opts=main..HEAD .' ]] || echoue "secrets : arguments « $(cat "$GITLEAKS_ARGS") »"
+grep -qF -- '-- secrets' <<<"$sortie" || echoue "secrets : étape non annoncée : $sortie"
+GITLEAKS_CODE=1 secrets "$tmp/sec"
+[[ $code -ne 0 ]] || echoue "secrets : une fuite ne fait pas échouer check.sh"
+
+# Clone sans branche principale locale, comme le checkout d'une CI.
+git clone -q "$tmp/sec" "$tmp/sec-clone"
+git -C "$tmp/sec-clone" rev-parse -q --verify refs/heads/main >/dev/null && echoue "secrets : le clone a une branche main locale"
+secrets "$tmp/sec-clone"
+[[ $(cat "$GITLEAKS_ARGS") == 'git --redact --no-banner --log-opts=origin/main..HEAD .' ]] || echoue "secrets : clone : « $(cat "$GITLEAKS_ARGS") »"
+
+# Aucune des deux références : tout l'historique, et une ligne qui le dit.
+git -C "$tmp/sec" branch -q -D main
+secrets "$tmp/sec"
+[[ $(cat "$GITLEAKS_ARGS") == 'git --redact --no-banner .' ]] || echoue "secrets : sans branche principale : « $(cat "$GITLEAKS_ARGS") »"
+grep -qF -- '-- secrets : branche principale introuvable, analyse de tout l'"'"'historique' <<<"$sortie" || echoue "secrets : sans branche principale : $sortie"
+
+# Hors d'un dépôt git, comme la copie WSL : étape sautée.
+mkdir "$tmp/sec-copie"
+git -C "$tmp/sec" archive HEAD | tar -x -C "$tmp/sec-copie"
+secrets "$tmp/sec-copie"
+[[ $code -eq 0 && ! -e $GITLEAKS_ARGS ]] || echoue "secrets : hors dépôt git : code $code : $sortie"
+grep -qF -- '-- secrets : pas de dépôt git, sauté' <<<"$sortie" || echoue "secrets : hors dépôt git : $sortie"
+
+if command -v gitleaks >/dev/null; then
+  # Une fausse clé AWS commitée fait échouer check.sh, et la sortie la masque.
+  git -C "$tmp/sec" switch -q -c main 2>/dev/null || true
+  git -C "$tmp/sec" switch -q -c task/fuite
+  cle='AKIA'"ZQ3DRSJ7XKW4PLMB"
+  printf 'aws_access_key_id = %s\n' "$cle" >"$tmp/sec/conf.ini"
+  git -C "$tmp/sec" add conf.ini && git -C "$tmp/sec" commit -q -m fuite
+  code=0
+  sortie="$(cd "$tmp/sec" && bash scripts/check.sh --host 2>&1)" || code=$?
+  [[ $code -ne 0 ]] || echoue "gitleaks : fuite non trouvée : $sortie"
+  grep -qF "$cle" <<<"$sortie" && echoue "gitleaks : la clé apparaît dans la sortie"
+else
+  echo "tools.sh : gitleaks absent, cas réel sauté"
+  # Sans gitleaks, check.sh échoue et renvoie à doctor.
+  code=0
+  sortie="$(cd "$tmp/sec" && bash scripts/check.sh --host 2>&1)" || code=$?
+  [[ $code -ne 0 ]] || echoue "secrets : gitleaks absent accepté"
+  grep -qF -- '-- secrets : gitleaks absent, voir /izanagi:doctor' <<<"$sortie" || echoue "secrets : gitleaks absent : $sortie"
 fi
 
 # ============ status.sh ============
@@ -283,7 +358,7 @@ ecart() {
 }
 
 diagnostic
-for c in 'outil git' 'outil bash' 'outil gh' 'outil cargo'; do
+for c in 'outil git' 'outil bash' 'outil gh' 'outil gitleaks' 'outil cargo'; do
   grep -qE "^(ok|écart)   +$c" <<<"$sortie" || echoue "doctor : contrôle « $c » absent : $sortie"
 done
 grep -E "^écart   ($controles_projet)" <<<"$sortie" && echoue "doctor : écart sur un projet sain : $sortie"

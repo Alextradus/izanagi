@@ -10,6 +10,12 @@ Lu par `init` quand il pose ou remplit `scripts/check.sh` et la CI. Le script `c
 - **Code de sortie.** 0 si tout passe, un autre code sinon.
 - **Verrou.** Les dépendances s'installent depuis le fichier de verrou : `npm ci`, `uv sync --locked`, `cargo ... --locked`.
 
+## Secrets et dépendances
+
+`check.sh` cherche des secrets avant de vérifier les composants, avec la fonction `verifier_secrets` du gabarit. Elle lance `gitleaks git --redact` sur les commits de la branche absents de la branche principale, avec la configuration `.gitleaks.toml` du projet. Elle prend la plage `<branche>..HEAD`, sinon `origin/<branche>..HEAD`, sinon tout l'historique. Elle ne dépend d'aucune pile : une pile sans gabarit la garde telle quelle. Hors d'un dépôt git, comme dans la copie WSL, elle annonce qu'elle saute l'étape. Sans `gitleaks`, elle échoue et renvoie à `/izanagi:doctor`.
+
+L'audit des dépendances tourne dans la CI, pas dans `check.sh` : il a besoin du réseau, et une faille publiée après coup bloquerait sinon le push d'un changement sans rapport.
+
 ## WSL
 
 Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de travail dans WSL, dans `~/.cache/<projet_dossier>-wsl`, puis y lance `check.sh --host`. La copie prend les fichiers suivis et les fichiers non suivis qui ne sont pas ignorés. Elle retire les fichiers disparus depuis la copie précédente. `node_modules`, `.venv` et `target` restent dans le cache d'une vérification à l'autre. Cette règle vaut pour toutes les piles.
@@ -41,7 +47,7 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 
 ## Règles du contrôle
 
-`check-contract.sh` applique ces huit règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
+`check-contract.sh` applique ces neuf règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
 
 1. `scripts/check.sh` existe, est exécutable et passe `bash -n`.
 2. `check.sh --inconnu` sort avec le code 2 sans rien lancer. Cette règle ne court que si `check.sh` a un cas `--host`. Elle tourne sous `timeout`, avec un délai de 20 s (variable `IZANAGI_CONTRAT_DELAI`).
@@ -51,6 +57,7 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 6. Aucune installation sans verrou : ni `npm install`, ni `pip install`, ni `uv sync` sans `--locked`, ni `cargo build`, `test` ou `clippy` sans `--locked`.
 7. La CI lance `bash scripts/check.sh --host`, et sa ligne `os: [...]` correspond aux systèmes de `harness.md`.
 8. `docs/agents/harness.md` existe.
+9. `check.sh` lance la recherche de secrets (`gitleaks git`).
 
 ## Remplir une section `# À ÉCRIRE`
 

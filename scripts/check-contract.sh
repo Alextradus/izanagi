@@ -85,6 +85,8 @@ if [[ -f $projet/$check ]]; then
     fi
     [[ $code -eq 2 ]] || ecart "$check" "une option inconnue doit sortir avec le code 2 sans rien lancer"
   fi
+  # Règle 9 : la recherche de secrets.
+  grep -qF 'gitleaks git' "$projet/$check" || ecart "$check" "ne lance pas la recherche de secrets (gitleaks git)"
   # Règle 5 : une section par composant.
   for nom in "${noms[@]}"; do
     grep -qF -- "# --- composant $nom (" "$projet/$check" || ecart "$check" "pas de section pour le composant $nom"

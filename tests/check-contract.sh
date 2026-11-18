@@ -32,6 +32,12 @@ avant="$(cd "$tmp/ok" && find . -type f | sort | xargs cat | cksum)"
 apres="$(cd "$tmp/ok" && find . -type f | sort | xargs cat | cksum)"
 [[ $avant == "$apres" ]] || echoue "check-contract.sh a écrit dans le projet"
 
+# Sans recherche de secrets : refusé.
+cp -r "$tmp/ok" "$tmp/sanssecret"
+sed -i '/gitleaks git/d' "$tmp/sanssecret/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/sanssecret")"; then echoue "check.sh sans gitleaks accepté"; fi
+grep -qF 'contrat : scripts/check.sh : ne lance pas la recherche de secrets (gitleaks git)' <<<"$sortie" || echoue "sans gitleaks : $sortie"
+
 # zig sans rien remplir : À ÉCRIRE dans check.sh et ci.yml.
 poser zig composant='api|.|zig|' systemes=linux,windows
 if sortie="$("$contrat" "$tmp/zig")"; then echoue "zig vide accepté"; fi

@@ -14,6 +14,7 @@ cd "$(dirname "$0")/.."
 # Systèmes à vérifier. Sous Windows, `linux` veut dire : dans WSL.
 cibles="{{systemes}}"
 cache_wsl='.cache/{{projet_dossier}}-wsl'
+principale='{{branche}}'
 
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*) systeme=windows ;;
@@ -39,6 +40,33 @@ case "${1:-}" in
     ;;
   *) echo "usage : scripts/check.sh [--host|--clean]" >&2; exit 2 ;;
 esac
+
+# Cherche des secrets dans les commits de la branche absents de la branche principale,
+# avec gitleaks et .gitleaks.toml. Ne dépend pas du système : tourne une fois, sur le
+# poste. Hors d'un dépôt git, comme dans la copie WSL, l'étape est sautée.
+verifier_secrets() {
+  local plage=""
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    echo "-- secrets : pas de dépôt git, sauté"
+    return 0
+  fi
+  if ! command -v gitleaks >/dev/null; then
+    echo "-- secrets : gitleaks absent, voir /izanagi:doctor" >&2
+    return 1
+  fi
+  if git rev-parse -q --verify "refs/heads/$principale" >/dev/null; then
+    plage="$principale..HEAD"
+  elif git rev-parse -q --verify "refs/remotes/origin/$principale" >/dev/null; then
+    plage="origin/$principale..HEAD"
+  fi
+  if [[ -n $plage ]]; then
+    echo "-- secrets : $plage"
+    gitleaks git --redact --no-banner --log-opts="$plage" .
+  else
+    echo "-- secrets : branche principale introuvable, analyse de tout l'historique"
+    gitleaks git --redact --no-banner .
+  fi
+}
 
 {{sections}}
 
@@ -111,6 +139,8 @@ hote_cible=false
 [[ ",$cibles," == *",$systeme,"* ]] && hote_cible=true
 wsl_cible=false
 [[ $systeme == windows && ",$cibles," == *,linux,* ]] && wsl_cible=true
+
+verifier_secrets
 
 if $hote_cible; then
   echo "== $systeme"

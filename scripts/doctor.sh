@@ -57,6 +57,8 @@ case "$(uname -s)" in
     fi
     ;;
 esac
+# La recherche de secrets de check.sh demande gitleaks dès qu'il y a un composant.
+[[ -n $piles ]] && outil gitleaks
 for pile in $piles; do
   case "$pile" in
     rust) outil cargo ;;
