@@ -95,3 +95,69 @@ izanagi_root() {
   [[ -f $racine/.izanagi/config.env ]] || return 1
   printf '%s\n' "$racine"
 }
+
+# commandes_simples <commande> <fonction> : découpe une commande Bash en commandes
+# simples et appelle `<fonction> <mot>…` pour chacune, avec ses mots. Rend 0 si au
+# moins un appel de la fonction a rendu 0, et 1 sinon : « une commande est visée ».
+#
+# Hors guillemets, une espace finit un mot, et `;`, `&`, `|`, `(`, `)`, l'accent grave
+# et le saut de ligne finissent une commande simple. Entre guillemets, tout caractère
+# appartient au mot : le `;` d'un message de commit ne coupe rien. Une barre oblique
+# inverse en fin de ligne continue la ligne. Le découpage ne développe ni variable,
+# ni alias, ni `eval` : une commande construite pour le tromper passe.
+# Le temps croît avec le carré de la longueur : limite la commande avant l'appel.
+commandes_simples() {
+  local commande=$1 fonction=$2 c bo n k=0 mot="" dans_mot=0 guillemet="" vise=1
+  local -a mots=()
+  bo=$(printf '%b' '\0134')
+  n=${#commande}
+  while ((k <= n)); do
+    if ((k == n)); then
+      c=$'\n'
+    else
+      c="${commande:k:1}"
+    fi
+    if [[ -n $guillemet ]] && ((k < n)); then
+      if [[ $c == "$guillemet" ]]; then
+        guillemet=""
+      elif [[ $c == "$bo" && $guillemet == '"' ]]; then
+        k=$((k + 1))
+        mot+="${commande:k:1}"
+      else
+        mot+="$c"
+      fi
+    else
+      case "$c" in
+        '"' | "'")
+          guillemet="$c"
+          dans_mot=1
+          ;;
+        "$bo")
+          k=$((k + 1))
+          if [[ ${commande:k:1} != $'\n' ]]; then
+            mot+="${commande:k:1}"
+            dans_mot=1
+          fi
+          ;;
+        ' ' | $'\t')
+          if ((dans_mot)); then mots+=("$mot"); fi
+          mot=""
+          dans_mot=0
+          ;;
+        ';' | '&' | '|' | '(' | ')' | '`' | $'\n')
+          if ((dans_mot)); then mots+=("$mot"); fi
+          mot=""
+          dans_mot=0
+          if ((${#mots[@]})) && "$fonction" "${mots[@]}"; then vise=0; fi
+          mots=()
+          ;;
+        *)
+          mot+="$c"
+          dans_mot=1
+          ;;
+      esac
+    fi
+    k=$((k + 1))
+  done
+  return "$vise"
+}

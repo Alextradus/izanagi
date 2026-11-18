@@ -68,6 +68,20 @@ done
 [[ $(json_string '{"command": "a\nb"}' command '|') == 'a|b' ]] || echoue "json_string : saut de ligne remplacé"
 json_string '{"a":"x"}' absente >/dev/null && echoue "json_string : clé absente"
 
+# --- commandes_simples ---
+# montrer : affiche les mots d'une commande simple séparés par `|`, et ne vise rien.
+montrer() { local IFS='|'; printf '%s\n' "$*"; return 1; }
+vise_push() { [[ $1 == git && $2 == push ]]; }
+decoupe() { commandes_simples "$1" montrer || true; }
+[[ $(decoupe 'git commit -m "a; b" && git push') == $'git|commit|-m|a; b\ngit|push' ]] || echoue "commandes_simples : guillemets et && : « $(decoupe 'git commit -m "a; b" && git push') »"
+[[ $(decoupe $'git push origin \\\n  main') == 'git|push|origin|main' ]] || echoue "commandes_simples : ligne continuée"
+[[ $(decoupe '(cd x && git push)') == $'cd|x\ngit|push' ]] || echoue "commandes_simples : sous-shell"
+[[ $(decoupe "echo \"l'a\" 'b \"c\"'") == "echo|l'a|b \"c\"" ]] || echoue "commandes_simples : guillemets imbriqués"
+[[ $(decoupe 'a ""') == 'a|' ]] || echoue "commandes_simples : mot vide entre guillemets"
+[[ -z $(decoupe ' ; ') ]] || echoue "commandes_simples : commande vide"
+commandes_simples 'ls; git push' vise_push || echoue "commandes_simples : visée non rendue"
+commandes_simples 'git status' vise_push && echoue "commandes_simples : visée rendue à tort"
+
 # --- session-start.sh ---
 mkdir "$tmp/vide"
 lancer session-start.sh "$tmp/vide" '{}'
