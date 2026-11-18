@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
+  <title id="title">Izanagi</title>
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f80ed"/>
+      <stop offset="0.55" stop-color="#1450b4"/>
+      <stop offset="1" stop-color="#0a2a6b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Losange principal -->
+  <polygon points="256,12 500,256 256,500 12,256" fill="url(#fill)"/>
+  <!-- Filet intérieur -->
+  <polygon points="256,40 472,256 256,472 40,256" fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.9"/>
+  <polygon points="256,54 458,256 256,458 54,256" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.5"/>
+
+  <!-- 伊邪那岐 en carré 2 x 2 -->
+  <g fill="#ffffff" font-family="'Noto Serif JP','Yu Mincho','YuMincho','Hiragino Mincho ProN','MS Mincho',serif" font-weight="900" font-size="96" text-anchor="middle" dominant-baseline="central">
+    <text x="200" y="200">伊</text>
+    <text x="312" y="200">邪</text>
+    <text x="200" y="312">那</text>
+    <text x="312" y="312">岐</text>
+  </g>
+</svg>
