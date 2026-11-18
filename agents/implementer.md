@@ -13,6 +13,8 @@ Le skill `tdd` d'Izanagi fixe tes règles de test. S'il n'est pas déjà dans to
 
 Lis le brief en entier, puis `CLAUDE.md`, `docs/CODING_STANDARDS.md` et `.izanagi/config.env`. La clé `verification` de ce dernier donne la commande de vérification du projet.
 
+Le brief donne le chemin de `langages/index.md` du plugin. Avant d'écrire le premier test, lis-le et déduis-en les langages des fichiers que tu vas toucher. Pour chacun, lis le fichier de règles générales que l'index donne, dans le même dossier que l'index, s'il en donne un, puis `docs/standards/<langage>.md` du projet s'il existe. Une règle du plugin que le projet écarte par une ligne `Écarte : R<n>` ne s'applique pas. Le relecteur Standards relira ton diff contre ces règles.
+
 Si une exigence, une approche ou une hypothèse du brief n'est pas claire, pose ta question maintenant : rends le statut « question » sans rien écrire. Ne devine pas.
 
 ## Le travail

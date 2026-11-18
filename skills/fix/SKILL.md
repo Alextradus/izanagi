@@ -74,7 +74,7 @@ Fin : la cause est prouvée par un test rouge commité.
 ## 4. Correctif
 
 1. Propose le niveau de risque d'après `references/risk.md`, normal par défaut, et fais-le confirmer par l'utilisateur. Si tu reviens ici après un test qui montre encore le bug, garde le niveau déjà confirmé, sans le redemander. Hors jalon, lance `state.sh set phase=travail risque=<niveau> --commit`, à la reprise aussi, pour que l'état dise la phase en cours. Dans un jalon, n'écris rien dans l'état, qui est celui du jalon : ajoute au journal du jalon la ligne `Correctif <nom court> : niveau <niveau>` et commite-la, une seule fois par correctif.
-2. Lance un sous-agent `izanagi:implementer`. Son brief : le rapport du diagnostic, le test de régression à faire passer, et la consigne de ne corriger que cette cause. Un hook du plugin relance la vérification à son arrêt.
+2. Lance un sous-agent `izanagi:implementer`. Son brief : le rapport du diagnostic, le test de régression à faire passer, la consigne de ne corriger que cette cause, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`. Un hook du plugin relance la vérification à son arrêt.
 3. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse.
 
 Fin : le test de régression passe, la vérification est verte, le correctif est commité.

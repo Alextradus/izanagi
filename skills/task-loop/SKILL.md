@@ -63,7 +63,8 @@ Note `BASE` (`git rev-parse HEAD`) avant de lancer : le diff de la revue en part
 3. le texte de la tâche, recopié tel quel, du titre `### Tâche N` au titre suivant ;
 4. les sections de la spec que la tâche cite, recopiées ;
 5. les interfaces et les décisions des tâches précédentes que le texte de la tâche ne peut pas connaître, et ta réponse à toute ambiguïté que tu as vue ;
-6. si une tâche précédente a laissé au journal un constat dans la zone que celle-ci touche, ce constat.
+6. si une tâche précédente a laissé au journal un constat dans la zone que celle-ci touche, ce constat ;
+7. le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`, d'où l'implémenteur tire les règles des langages qu'il touche.
 
 Les valeurs exactes (nombres, chaînes, signatures, cas de test) viennent du plan et de la spec, recopiées sans reformulation. Le brief ne contient pas le récit des tâches précédentes.
 

@@ -136,7 +136,7 @@ Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune 
 
 1. Commit du cadre : `git add <fichiers> && git commit -m "chore: cadre Izanagi"`. Sur un dossier vide, le commit prend aussi le projet créé et son fichier de verrou.
 2. Outils à installer : chaque outil refusé à la section 3 et chaque prérequis de la fiche du type (`npx playwright install`), avec sa commande.
-3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type.
+3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type. Les fichiers `docs/standards/<langage>.md` peuvent rester vides : les règles générales du plugin pour Rust, TypeScript et Python s'appliquent déjà, et les rétrospectives des jalons les compléteront.
 4. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
 
 Propose de lancer tout de suite la première étape que tu peux faire toi-même, en général le commit, et fais-la sur son accord.

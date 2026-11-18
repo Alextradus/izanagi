@@ -139,6 +139,16 @@ for f in $fichiers_langage; do
   ((regles == sources)) || echoue "references/langages/$f : $regles règles pour $sources sources"
 done
 
+# Les deux couches de règles par langage : le relecteur Standards et l'implémenteur
+# les lisent, et les flux qui les lancent leur passent le chemin de l'index.
+for a in reviewer-standards implementer; do
+  grep -qF 'docs/standards/' "agents/$a.md" || echoue "agents/$a.md ne lit pas docs/standards/"
+  grep -qF 'langages/index.md' "agents/$a.md" || echoue "agents/$a.md ne lit pas l'index des langages"
+done
+for s in review task-loop task fix; do
+  grep -qF 'references/langages/index.md' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas references/langages/index.md"
+done
+
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do
   [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"

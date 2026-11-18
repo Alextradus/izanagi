@@ -187,10 +187,10 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 6 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 7 ]] || echoue "0.1.1 : créations en trop : $sortie"
   grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"

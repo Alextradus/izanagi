@@ -69,7 +69,7 @@ Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en
 - les constats écartés notés au journal pour ce jalon, pour qu'il ne les reprenne pas ;
 - les mineurs que les revues de tâche ont laissés au journal, à confirmer avec une étiquette ou à écarter.
 
-Le relecteur Spec reçoit en plus l'axe Spec. Le relecteur Standards lit lui-même `docs/CODING_STANDARDS.md` et `CLAUDE.md`. Le relecteur Sécurité reçoit en plus le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/types/<type>.md`, où `<type>` est le type d'application que donne `docs/agents/harness.md`. Pour un projet à plusieurs types, passe-lui chaque fiche.
+Le relecteur Spec reçoit en plus l'axe Spec. Le relecteur Standards lit lui-même `docs/CODING_STANDARDS.md`, `CLAUDE.md` et `docs/standards/`, et reçoit en plus le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`, qui le mène aux règles générales de chaque langage. Le relecteur Sécurité reçoit en plus le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/types/<type>.md`, où `<type>` est le type d'application que donne `docs/agents/harness.md`. Pour un projet à plusieurs types, passe-lui chaque fiche.
 
 Ne fusionne pas les rapports et ne les reclasse pas l'un contre l'autre.
 

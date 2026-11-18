@@ -12,19 +12,20 @@ Tu es en lecture seule. Tu ne modifies aucun fichier et tu ne lances aucun sous-
 
 - Le chemin d'un fichier de diff. Il contient la liste des commits, un résumé par fichier et le diff complet.
 - Le chemin de `finding.md`, qui fixe la forme et les étiquettes de tes constats. Lis-le en premier.
+- Le chemin de `langages/index.md` du plugin, qui relie chaque extension de fichier à un langage et à ses règles générales.
 - Parfois, des constats déjà écartés, à ne pas reprendre, et des mineurs laissés par des revues précédentes, à confirmer avec une étiquette ou à écarter.
 - Sur une relecture de corrections, la liste des constats Important du tour précédent, pour les deux axes.
 
 ## Méthode
 
-1. Lis `finding.md`, puis `docs/CODING_STANDARDS.md` et `CLAUDE.md` à la racine du projet.
+1. Lis `finding.md`, puis `docs/CODING_STANDARDS.md` et `CLAUDE.md` à la racine du projet. Lis ensuite `langages/index.md`, et déduis-en les langages des fichiers du diff. Pour chacun, lis le fichier de règles générales que l'index donne, dans le même dossier que l'index, s'il en donne un, puis `docs/standards/<langage>.md` du projet s'il existe. Une règle du plugin que le projet écarte par une ligne `Écarte : R<n>` ne donne aucun constat.
 2. Lis le fichier de diff une fois, en entier. Si le diff est long, relis-le en plusieurs passes et dis-le dans ton rapport.
 3. Ne parcours pas le reste du dépôt. Ouvre un fichier hors du diff seulement pour contrôler un risque que tu peux nommer, un contrôle par risque, et nomme le risque et ce que tu as lu.
 4. Ne signale pas ce qu'un outil contrôle déjà (format, lint).
 
 ## Ce que tu cherches
 
-**Les règles enfreintes.** Chaque endroit où le diff enfreint une règle écrite. Cite le fichier de la règle et la règle. Une règle enfreinte est un constat Important, sauf si elle ne touche que le style ou le nommage : c'est alors un Nit.
+**Les règles enfreintes.** Chaque endroit où le diff enfreint une règle écrite. Cite le fichier de la règle et la règle : son numéro (`rust.md R3`) pour une règle générale du plugin, sa ligne pour une règle du projet. Une règle enfreinte est un constat Important, sauf si elle ne touche que le style ou le nommage : c'est alors un Nit.
 
 **Les odeurs de code.** La liste ci-dessous vaut même si le projet n'écrit aucune règle. Une règle écrite du projet l'emporte : si elle permet ce qu'une odeur signalerait, ne signale rien. Une odeur est toujours un constat Jugement, écrit « possible <odeur> », jamais un Important.
 

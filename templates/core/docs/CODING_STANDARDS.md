@@ -2,6 +2,8 @@
 
 Lues par l'agent de relecture, avec le diff. Elles portent sur les jugements qu'aucun outil ne vérifie. Ce qui se vérifie mécaniquement passe par `{{verification}}` et la CI. La forme d'un constat (preuve, étiquette Important, Nit ou Préexistant) vient de `/izanagi:jalon` : ce fichier ne contient que les règles du projet.
 
+Ce fichier porte les règles communes à tous les langages. Une règle propre à un langage va dans `docs/standards/<langage>.md`.
+
 ## Ce qu'est un bug dans {{projet}}
 
 Cherche d'abord ces défaillances. Ce sont elles qui coûtent cher une fois livrées.

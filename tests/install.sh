@@ -20,7 +20,7 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 17 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 18 ]] || echoue "première pose : $sortie"
 grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
 grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
 for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
@@ -60,7 +60,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 16 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 17 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -114,6 +114,34 @@ for mot in 'cargo audit' 'npm audit --audit-level=high' 'pip-audit' 'À ÉCRIRE 
 done
 non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/au/.github/workflows/"*.yml | grep -vE '@[0-9a-f]{40} # ' || true)"
 [[ -z $non_epinglees ]] || echoue "trois piles : actions non épinglées : $non_epinglees"
+
+# Règles par langage : un fichier par pile des composants, qui renvoie aux règles du
+# plugin quand elles existent.
+for l in rust typescript python zig; do
+  [[ -f $tmp/au/docs/standards/$l.md ]] || echoue "docs/standards/$l.md non posé"
+  grep -qx "# Règles $l" "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md : titre"
+  grep -qx '## À proposer au plugin' "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md : section À proposer au plugin"
+  grep -qF 'Écarte : R<n>, parce que <raison>' "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md : forme d'une exception"
+done
+for l in rust typescript python; do
+  grep -qF "references/langages/$l.md" "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md ne renvoie pas aux règles du plugin"
+done
+grep -qF 'references/langages/' "$tmp/au/docs/standards/zig.md" && echoue "docs/standards/zig.md renvoie à des règles du plugin qui n'existent pas"
+grep -qF 'docs/standards/' "$tmp/au/docs/CODING_STANDARDS.md" || echoue "CODING_STANDARDS.md ne renvoie pas à docs/standards/"
+for f in AGENTS.md CLAUDE.md; do
+  grep -qF 'docs/standards/' "$tmp/au/$f" || echoue "$f ne nomme pas docs/standards/"
+done
+# Deux composants de même pile : un seul fichier.
+mkdir "$tmp/deux"
+printf '%s\n' pile=aucune projet=Deux spec=s.md lieu_test=ici test_manuel=x fichier_version=y \
+  'composant=a|a|rust|' 'composant=b|b|rust|' >"$tmp/deuxv"
+sortie="$("$install" "$tmp/deux" "$tmp/deuxv")"
+[[ $(grep -c 'docs/standards/' <<<"$sortie") -eq 1 ]] || echoue "deux composants rust : $sortie"
+# Sans composant : aucun fichier de langage.
+mkdir "$tmp/nu"
+printf '%s\n' projet=Nu spec=s.md lieu_test=ici test_manuel=x fichier_version=y >"$tmp/nuv"
+"$install" "$tmp/nu" "$tmp/nuv" >/dev/null
+[[ ! -e $tmp/nu/docs/standards ]] || echoue "docs/standards posé sans composant"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"
