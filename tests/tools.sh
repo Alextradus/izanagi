@@ -118,6 +118,47 @@ mkdir "$tmp/nu"
 code=0; bash "$migration05" "$tmp/nu" >/dev/null 2>&1 || code=$?
 [[ $code -eq 2 ]] || echoue "migration 0.5.0 sans config.env : code $code"
 
+# ============ Migration 0.6.0 ============
+migration06="$racine/scripts/migrations/0.6.0.sh"
+[[ -f $migration06 ]] || echoue "scripts/migrations/0.6.0.sh absent"
+# Sur le projet migré en 0.5 : clé, .gitignore et règles permissions.deny.
+git -C "$tmp/p04" add -A && git -C "$tmp/p04" commit -q -m "cadre 0.5"
+sortie="$(bash "$migration06" "$tmp/p04")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      .izanagi/.gitignore\ncréé       .claude/settings.json' ]] || echoue "migration 0.6.0 : $sortie"
+config04="$tmp/p04/.izanagi/config.env"
+[[ $(kv_get "$config04" izanagi_version) == 0.6.0 ]] || echoue "migration 0.6.0 : izanagi_version"
+[[ $(grep -A1 '^hook_verification=' "$config04" | tail -1) == 'hook_destructif=demande' ]] || echoue "migration 0.6.0 : hook_destructif mal placé"
+[[ $(kv_get "$config04" projet) == 'Essai Rapide' ]] || echoue "migration 0.6.0 a perdu une valeur"
+# La pose courante, relancée avec ces valeurs, trouve ces trois fichiers identiques au gabarit.
+{ echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v6"
+sortie="$("$install" "$tmp/p04" "$tmp/p04v6")"
+for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json; do
+  grep -qxF "identique  $f" <<<"$sortie" || echoue "migration 0.6.0 : $f différent du gabarit : $sortie"
+done
+[[ $(bash "$migration06" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.6.0 relancée"
+
+# Un .claude/settings.json du projet, avec d'autres réglages, n'est jamais réécrit.
+mkdir -p "$tmp/p06r/.izanagi" "$tmp/p06r/.claude"
+printf 'izanagi_version=0.5.0\nhook_push=bloque\nhook_verification=bloque\n' >"$tmp/p06r/.izanagi/config.env"
+printf '{\n  "model": "sonnet"\n}\n' >"$tmp/p06r/.claude/settings.json"
+avant="$(cat "$tmp/p06r/.claude/settings.json")"
+sortie="$(bash "$migration06" "$tmp/p06r")"
+grep -qxF 'à fusionner .claude/settings.json' <<<"$sortie" || echoue "migration 0.6.0 : settings.json existant : $sortie"
+[[ $(cat "$tmp/p06r/.claude/settings.json") == "$avant" ]] || echoue "migration 0.6.0 a réécrit settings.json"
+grep -qxF 'journal/*/' "$tmp/p06r/.izanagi/.gitignore" 2>/dev/null && echoue "migration 0.6.0 a inventé un .gitignore"
+# Les règles déjà fusionnées : plus rien à signaler.
+cp "$racine/templates/core/.claude/settings.json" "$tmp/p06r/.claude/settings.json"
+[[ $(bash "$migration06" "$tmp/p06r") == 'déjà migré' ]] || echoue "migration 0.6.0 après fusion"
+
+# Enchaînée après la 0.4.0 et la 0.5.0 sur le projet posé en 0.3.0 : la clé est déjà là.
+sortie="$(bash "$migration05" "$tmp/p03" >/dev/null; bash "$migration06" "$tmp/p03")"
+[[ $(kv_get "$config" izanagi_version) == 0.6.0 ]] || echoue "migration 0.6.0 après 0.5.0 : izanagi_version : $sortie"
+[[ $(grep -c '^hook_destructif=' "$config") -eq 1 ]] || echoue "migration 0.6.0 après 0.4.0 : hook_destructif en double"
+git -C "$tmp/p03" checkout -q -- .izanagi
+rm -rf "$tmp/p03/.claude"
+code=0; bash "$migration06" "$tmp/nu" >/dev/null 2>&1 || code=$?
+[[ $code -eq 2 ]] || echoue "migration 0.6.0 sans config.env : code $code"
+
 # --- Vault absent ---
 mkdir "$tmp/sv"
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n' >"$tmp/svv"

@@ -119,13 +119,11 @@ else
   ecart "config.env" "absent : lance /izanagi:upgrade"
 fi
 
-# Règles `permissions.deny` de .claude/settings.json : cherchées comme texte entre
-# guillemets, sans décodeur JSON. La liste est celle du gabarit.
+# Règles `permissions.deny` de .claude/settings.json, celles du gabarit.
 manquantes=""
-reglages="$cible/.claude/settings.json"
 while IFS= read -r regle; do
-  grep -qF "\"$regle\"" "$reglages" 2>/dev/null || manquantes+="${manquantes:+, }$regle"
-done < <(sed -n 's/^ *"\(\(Read\|Edit\)([^"]*)\)",\{0,1\}$/\1/p' "$izanagi_lib_dir/../templates/core/.claude/settings.json")
+  manquantes+="${manquantes:+, }$regle"
+done < <(regles_deny_absentes "$cible/.claude/settings.json")
 if [[ -z $manquantes ]]; then
   ok permissions
 else

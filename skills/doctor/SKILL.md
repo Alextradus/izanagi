@@ -38,6 +38,8 @@ Rends la sortie du script dans un bloc de code, puis la liste des écarts. Pour 
 | `hook_push`, `hook_verification` | remettre `bloque` dans `.izanagi/config.env`. C'est un choix de l'utilisateur : rappelle-le sans insister |
 | `hook_destructif` | remettre `demande` dans `.izanagi/config.env`. Même remarque |
 | `permissions` | ajouter les règles citées à la liste `permissions.deny` de `.claude/settings.json`, avec l'outil Edit, sans toucher aux autres clés |
+| `actions épinglées` | remplacer l'étiquette de chaque action citée par le SHA de son commit, l'étiquette en commentaire (`uses: <action>@<SHA> # v1.2.3`). Le SHA se lit avec `gh api repos/<propriétaire>/<action>/commits/<étiquette> --jq .sha` |
+| `outil gitleaks` | `winget install Gitleaks.Gitleaks` sous Windows, `brew install gitleaks` sous macOS, le binaire de https://github.com/gitleaks/gitleaks/releases sous Linux |
 | `contrat` | `bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine>` pour le détail, puis la correction de chaque règle |
 | `état` | git l'emporte. Sur une branche de flux, `/izanagi:jalon` corrige l'état. Sur la branche principale, supprimer `.izanagi/state.env` par une PR |
 

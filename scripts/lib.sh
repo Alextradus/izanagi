@@ -175,6 +175,23 @@ refus_noter() {
     >>"$racine/.izanagi/refus.log" 2>/dev/null || true
 }
 
+# regles_deny : affiche une par ligne les règles `permissions.deny` du gabarit
+# templates/core/.claude/settings.json (`Read(.env*)`…).
+regles_deny() {
+  sed -n 's/^ *"\(\(Read\|Edit\)([^"]*)\)",\{0,1\}$/\1/p' \
+    "$izanagi_lib_dir/../templates/core/.claude/settings.json" | tr -d '\r'
+}
+
+# regles_deny_absentes <settings.json> : affiche les règles du gabarit que le fichier
+# ne contient pas, cherchées comme texte entre guillemets, sans décodeur JSON.
+# Fichier absent : toutes.
+regles_deny_absentes() {
+  local regle
+  while IFS= read -r regle; do
+    grep -qF "\"$regle\"" "$1" 2>/dev/null || printf '%s\n' "$regle"
+  done < <(regles_deny)
+}
+
 # json_echappe <texte> : affiche le texte prêt à entrer entre guillemets dans du JSON.
 json_echappe() {
   local t=$1 bo
