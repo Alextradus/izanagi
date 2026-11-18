@@ -161,3 +161,26 @@ commandes_simples() {
   done
   return "$vise"
 }
+
+# refus_noter <racine> <hook> <motif> : ajoute à .izanagi/refus.log la ligne
+# `<date UTC>|<branche courante>|<hook>|<motif>`, que la rétrospective lit. Les `|` et
+# les sauts de ligne du motif deviennent des espaces. N'échoue jamais : une écriture
+# ratée ne change pas la décision du hook.
+refus_noter() {
+  local racine=$1 hook=$2 motif=$3 branche
+  branche="$(git -C "$racine" rev-parse --abbrev-ref HEAD 2>/dev/null || echo inconnue)"
+  motif="${motif//|/ }"
+  motif="${motif//$'\n'/ }"
+  printf '%s|%s|%s|%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$branche" "$hook" "$motif" \
+    >>"$racine/.izanagi/refus.log" 2>/dev/null || true
+}
+
+# json_echappe <texte> : affiche le texte prêt à entrer entre guillemets dans du JSON.
+json_echappe() {
+  local t=$1 bo
+  bo=$(printf '%b' '\0134')
+  t="${t//"$bo"/"$bo$bo"}"
+  t="${t//\"/"$bo"\"}"
+  t="${t//$'\n'/ }"
+  printf '%s' "$t"
+}

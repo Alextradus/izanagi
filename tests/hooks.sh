@@ -57,7 +57,7 @@ version="$(plugin_version)"
 # --- hooks.json ---
 json="$racine/hooks/hooks.json"
 [[ -f $json ]] || echoue "hooks/hooks.json absent"
-for mot in '"SessionStart"' '"PreToolUse"' '"SubagentStop"' 'session-start.sh' 'guard-push.sh' 'verify-implementer.sh' '^izanagi:implementer$' 'CLAUDE_PLUGIN_ROOT'; do
+for mot in '"SessionStart"' '"PreToolUse"' '"SubagentStop"' 'session-start.sh' 'guard-push.sh' 'guard-destructive.sh' 'verify-implementer.sh' '^izanagi:implementer$' 'CLAUDE_PLUGIN_ROOT'; do
   grep -qF -- "$mot" "$json" || echoue "hooks.json ne contient pas $mot"
 done
 
@@ -185,15 +185,113 @@ regler "$p" hook_push avertit
 lancer guard-push.sh "$p" "$(entree_push 'git push origin main')"
 [[ $code -eq 0 ]] || echoue "hook_push=avertit : code $code"
 [[ $sortie == '{"systemMessage": "Izanagi : push direct sur main."}' ]] || echoue "hook_push=avertit : sortie « $sortie »"
+[[ $(tail -n 1 "$p/.izanagi/refus.log") == *'|main|push|push direct sur main' ]] || echoue "refus.log : avertissement du push non noté"
 
 regler "$p" hook_push bloque
 regler "$p" branche trunk
 git -C "$p" switch -q task/x
 refuse "$p" 'git push origin trunk'
+[[ $(tail -n 1 "$p/.izanagi/refus.log") == *'|task/x|push|push direct sur trunk' ]] || echoue "refus.log : refus du push non noté"
 passe "$p" 'git push origin main'
 
 passe "$tmp/sans" 'git push origin main'
 passe "$tmp/vide" 'git push origin main'
+
+# --- guard-destructive.sh ---
+# Faits lus le 2026-11-18 dans https://code.claude.com/docs/en/hooks.md : un hook
+# PreToolUse qui sort avec 0 et écrit `permissionDecision: "ask"` dans
+# `hookSpecificOutput` fait demander confirmation à l'utilisateur, qui voit la raison.
+demande() { # demande <projet> <commande> [motif attendu]
+  lancer guard-destructive.sh "$1" "$(entree_push "$2")"
+  [[ $code -eq 0 ]] || echoue "destructif : code $code : $2"
+  [[ $sortie == '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "Izanagi : '* ]] || echoue "destructif : pas de demande (« $sortie ») : $2"
+  if [[ -n ${3:-} ]]; then
+    [[ $(tail -n 1 "$1/.izanagi/refus.log") =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z\|[^|]+\|destructif\|(.*)$ ]] || echoue "destructif : ligne de refus.log illisible : $2"
+    [[ ${BASH_REMATCH[1]} == "$3" ]] || echoue "destructif : motif « ${BASH_REMATCH[1]} » au lieu de « $3 » : $2"
+  fi
+}
+laisse() { # laisse <projet> <commande>
+  lancer guard-destructive.sh "$1" "$(entree_push "$2")"
+  [[ $code -eq 0 && -z $sortie ]] || echoue "destructif : demande à tort (code $code, « $sortie ») : $2"
+}
+
+p="$(nouveau_projet destructif)"
+mkdir -p "$p/src" "$p/node_modules"
+echo a >"$p/src/a.txt"
+git -C "$p" add -A && git -C "$p" commit -q -m src
+git -C "$p" switch -q -c task/x
+# Arbre propre : `checkout -- .` et `restore .` ne perdent rien.
+laisse "$p" 'git checkout -- .'
+laisse "$p" 'git restore .'
+[[ ! -e $p/.izanagi/refus.log ]] || echoue "destructif : refus.log écrit sans demande"
+
+demande "$p" 'git reset --hard' 'git reset --hard'
+demande "$p" 'git reset --hard HEAD~1'
+demande "$p" 'cd src && git reset --hard'
+demande "$p" 'FOO=1 git -C . reset --hard'
+demande "$p" 'git clean -fd' 'git clean -f'
+demande "$p" 'git clean -xfd'
+demande "$p" 'git clean --force'
+demande "$p" 'git push --force origin task/x' 'git push --force'
+demande "$p" 'git push -f'
+demande "$p" 'git push origin +task/x'
+demande "$p" 'git branch -D vieille' 'git branch -D'
+demande "$p" 'git branch --delete --force vieille'
+echo b >"$p/src/a.txt"
+demande "$p" 'git checkout -- .' 'git checkout . sur un arbre modifié'
+demande "$p" 'git restore .' 'git restore . sur un arbre modifié'
+git -C "$p" checkout -q -- .
+demande "$p" 'rm -rf ..' 'rm -rf ..'
+demande "$p" 'rm -rf ~/x'
+demande "$p" 'rm -rf "$DOSSIER"' 'rm -rf $DOSSIER'
+demande "$p" 'rm -rf `pwd`/src'
+demande "$p" 'rm -fr /'
+demande "$p" 'rm -r -f ../x'
+demande "$p" 'rm --recursive --force ..'
+demande "$p" 'rm -rf .' 'rm -rf .'
+demande "$p" 'rm -rf *'
+demande "$p" "rm -rf $p"
+demande "$p" 'rm -Rf src/../..'
+demande "$p" 'cat .env' 'lecture de .env'
+demande "$p" 'source .env.local' 'lecture de .env.local'
+demande "$p" '. .env'
+demande "$p" 'cp .env /tmp/x'
+demande "$p" 'cat .envrc'
+demande "$p" 'cat cle.pem'
+demande "$p" 'less config/server.key' 'lecture de config/server.key'
+demande "$p" 'cat ~/.ssh/id_rsa'
+demande "$p" 'base64 credentials.json'
+demande "$p" 'grep KEY .env | wc -l'
+
+for c in 'git commit -m "doc: git reset --hard"' "git commit -m 'rm -rf / et cat .env'" \
+  'git push --force-with-lease' 'git push --force-with-lease origin task/x' 'git push -u origin task/x' \
+  'git reset --soft HEAD~1' 'git reset HEAD a.txt' 'git clean -n' 'git clean -nd' 'git branch -d vieille' \
+  'git restore src/a.txt' 'git checkout main' 'rm -rf node_modules' 'rm -rf src/*' 'rm -rf build/out' \
+  "rm -rf $p/node_modules" 'rm -f ../x' 'rm -r ../x' 'cat .env.example' 'cat README.md' 'ls .env' \
+  'git status' 'echo rm -rf ..'; do
+  laisse "$p" "$c"
+done
+(cd "$p/src" && laisse "$p/src" 'rm -rf ../node_modules')
+demande "$p/src" 'rm -rf ..'
+
+regler "$p" hook_destructif bloque
+lancer guard-destructive.sh "$p" "$(entree_push 'git reset --hard')"
+[[ $code -eq 2 ]] || echoue "hook_destructif=bloque : code $code"
+[[ $erreur == 'Izanagi : git reset --hard refusé. Pour être consulté à la place, mets hook_destructif=demande dans .izanagi/config.env.' ]] || echoue "hook_destructif=bloque : « $erreur »"
+regler "$p" hook_destructif avertit
+lancer guard-destructive.sh "$p" "$(entree_push 'git reset --hard')"
+[[ $code -eq 0 && $sortie == '{"systemMessage": "Izanagi : git reset --hard."}' ]] || echoue "hook_destructif=avertit : code $code, « $sortie »"
+sed -i '/^hook_destructif=/d' "$p/.izanagi/config.env"
+demande "$p" 'git reset --hard'
+# Un nom de fichier qui porte un guillemet reste du JSON valide.
+lancer guard-destructive.sh "$p" "$(entree_push 'cat "a\"b.pem"')"
+[[ $sortie == *'lecture de a\"b.pem'* ]] || echoue "destructif : guillemet non échappé : « $sortie »"
+
+lancer guard-destructive.sh "$p" "$(entree_push "$longue")"
+[[ $code -eq 0 && $sortie == '{"systemMessage": "Izanagi : commande de plus de 20000 caractères, gestes destructeurs non contrôlés."}' ]] || echoue "destructif : commande trop longue : « ${sortie:0:200} »"
+
+laisse "$tmp/sans" 'git reset --hard'
+laisse "$tmp/vide" 'rm -rf ..'
 
 # --- verify-implementer.sh ---
 p="$(nouveau_projet verif)"
@@ -219,10 +317,12 @@ for essai in 1 2; do
   grep -qF 'ligne de la vérification' <<<"$erreur" || echoue "le refus ne montre pas la sortie de la vérification : $erreur"
   grep -qF 'statut bloqué' <<<"$erreur" || echoue "le refus ne nomme pas le statut de sortie : $erreur"
   grep -qE 'Statut : (bloqu|question)' <<<"$erreur" && echoue "le refus écrit le motif que le hook cherche dans le transcript"
+  [[ $(tail -n 1 "$p/.izanagi/refus.log") == *'|main|verification|vérification rouge' ]] || echoue "refus.log : vérification rouge non notée, essai $essai"
 done
 lancer verify-implementer.sh "$p" "$(entree_arret a1)"
 [[ $code -eq 0 ]] || echoue "troisième échec : code $code"
 grep -qF '"systemMessage"' <<<"$sortie" || echoue "troisième échec : pas d'avertissement : « $sortie »"
+[[ $(tail -n 1 "$p/.izanagi/refus.log") == *'|main|verification|vérification rouge après deux refus' ]] || echoue "refus.log : troisième échec non noté"
 lancer verify-implementer.sh "$p" "$(entree_arret a1)"
 [[ $code -eq 2 ]] || echoue "le compteur n'est pas remis à zéro après l'avertissement : code $code"
 

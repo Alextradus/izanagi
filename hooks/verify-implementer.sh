@@ -43,6 +43,7 @@ if (cd "$racine" && bash -c "$verification") >"$journal" 2>&1; then
 fi
 
 if [[ $(kv_get "$config" hook_verification || true) == avertit ]]; then
+  refus_noter "$racine" verification "vérification rouge"
   printf '%s\n' "{\"systemMessage\": \"Izanagi : la vérification échoue à l'arrêt de l'implémenteur.\"}"
   exit 0
 fi
@@ -51,10 +52,12 @@ refus=0
 [[ -f $compteur ]] && refus="$(cat "$compteur")"
 if ((refus >= 2)); then
   rm -f "$compteur"
+  refus_noter "$racine" verification "vérification rouge après deux refus"
   printf '%s\n' "{\"systemMessage\": \"Izanagi : la vérification échoue encore après deux refus, l'implémenteur s'arrête.\"}"
   exit 0
 fi
 echo $((refus + 1)) >"$compteur"
+refus_noter "$racine" verification "vérification rouge"
 {
   echo "Izanagi : la vérification échoue ($verification). Corrige, puis rends ton rapport. Si tu ne peux pas corriger, rends un rapport au statut bloqué."
   echo "Fin de la sortie de la vérification :"

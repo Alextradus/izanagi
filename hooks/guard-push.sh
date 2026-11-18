@@ -91,6 +91,7 @@ examine_push() {
 }
 
 commandes_simples "$commande" examine_push || exit 0
+refus_noter "$racine" push "push direct sur $principale"
 
 if [[ $(kv_get "$racine/.izanagi/config.env" hook_push || true) == avertit ]]; then
   printf '{"systemMessage": "Izanagi : push direct sur %s."}\n' "$principale"

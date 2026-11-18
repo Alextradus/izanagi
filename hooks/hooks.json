@@ -1,5 +1,5 @@
 {
-  "description": "Izanagi : état du flux au démarrage, refus du push sur la branche principale, vérification à l'arrêt de l'implémenteur. Chaque hook sort sans rien faire hors d'un projet Izanagi.",
+  "description": "Izanagi : état du flux au démarrage, refus du push sur la branche principale, confirmation avant une commande destructrice, vérification à l'arrêt de l'implémenteur. Chaque hook sort sans rien faire hors d'un projet Izanagi.",
   "hooks": {
     "SessionStart": [
       {
@@ -19,6 +19,10 @@
             "type": "command",
             "if": "Bash(git *)",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-push.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-destructive.sh\""
           }
         ]
       }
