@@ -24,6 +24,7 @@ harness=docs/agents/harness.md
 check=scripts/check.sh
 ci=.github/workflows/ci.yml
 dev=scripts/dev.sh
+secu=.github/workflows/securite.yml
 
 # Règle 8 : harness.md existe.
 if [[ ! -f $projet/$harness ]]; then
@@ -94,7 +95,7 @@ if [[ -f $projet/$check ]]; then
 fi
 
 # Règle 4 : aucun À ÉCRIRE.
-for f in "$check" "$ci" "$dev"; do
+for f in "$check" "$ci" "$secu" "$dev"; do
   if [[ -f $projet/$f ]] && grep -qF 'À ÉCRIRE' "$projet/$f"; then
     ecart "$f" "contient À ÉCRIRE, à remplir"
   fi

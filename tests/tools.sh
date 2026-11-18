@@ -187,10 +187,10 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 4 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 6 ]] || echoue "0.1.1 : créations en trop : $sortie"
   grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
@@ -343,7 +343,7 @@ mkdir "$tmp/dr"
 depot "$tmp/dr"
 git -C "$tmp/dr" config core.hooksPath .githooks
 cd "$tmp/dr"
-controles_projet='hook pre-push|config.env|version du cadre|hook_push|hook_verification|hook_destructif|permissions|contrat|état|jalon.md'
+controles_projet='hook pre-push|config.env|version du cadre|hook_push|hook_verification|hook_destructif|permissions|actions épinglées|contrat|état|jalon.md'
 
 # diagnostic : remplit $sortie et $code.
 diagnostic() {
@@ -362,7 +362,7 @@ for c in 'outil git' 'outil bash' 'outil gh' 'outil gitleaks' 'outil cargo'; do
   grep -qE "^(ok|écart)   +$c" <<<"$sortie" || echoue "doctor : contrôle « $c » absent : $sortie"
 done
 grep -E "^écart   ($controles_projet)" <<<"$sortie" && echoue "doctor : écart sur un projet sain : $sortie"
-for c in 'hook pre-push' 'config.env' 'version du cadre' 'hook_push' 'hook_verification' 'hook_destructif' 'permissions' 'contrat' 'état' 'jalon.md'; do
+for c in 'hook pre-push' 'config.env' 'version du cadre' 'hook_push' 'hook_verification' 'hook_destructif' 'permissions' 'actions épinglées' 'contrat' 'état' 'jalon.md'; do
   grep -qxF "ok      $c" <<<"$sortie" || echoue "doctor : « ok      $c » absent : $sortie"
 done
 
@@ -387,6 +387,11 @@ ecart permissions 'règles absentes de .claude/settings.json : Read\(\*\.pem\)'
 rm "$reglages"
 ecart permissions 'Read\(\.env\*\)'
 cp "$tmp/dr-settings" "$reglages"
+ci_dr="$tmp/dr/.github/workflows/ci.yml"
+cp "$ci_dr" "$tmp/dr-ci"
+sed -i '0,/uses: actions\/checkout@[0-9a-f]*/s//uses: actions\/checkout@v4/' "$ci_dr"
+ecart 'actions épinglées' 'ci.yml:[0-9]+ actions/checkout@v4'
+cp "$tmp/dr-ci" "$ci_dr"
 # `chemins_sensibles` peut être vide, pas absent.
 grep -qxF 'chemins_sensibles=' "$config" || echoue "doctor : le projet sain n'a pas chemins_sensibles vide"
 sed -i '/^chemins_sensibles=/d' "$config"

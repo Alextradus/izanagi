@@ -132,6 +132,23 @@ else
   ecart permissions "règles absentes de .claude/settings.json : $manquantes"
 fi
 
+# Actions de la CI épinglées par le SHA d'un commit. Une action locale (`./…`) ou une
+# image (`docker://…`) n'a rien à épingler.
+non_epinglees=""
+for wf in "$cible"/.github/workflows/*.yml "$cible"/.github/workflows/*.yaml; do
+  [[ -f $wf ]] || continue
+  while IFS=: read -r num ligne; do
+    action="$(sed -E 's/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1/' <<<"$ligne")"
+    [[ $action =~ @[0-9a-f]{40}$ || $action == ./* || $action == docker://* ]] && continue
+    non_epinglees+="${non_epinglees:+, }${wf##*/}:$num $action"
+  done < <(grep -nE '^[[:space:]]*-?[[:space:]]*uses:' "$wf" | tr -d '\r')
+done
+if [[ -z $non_epinglees ]]; then
+  ok "actions épinglées"
+else
+  ecart "actions épinglées" "$non_epinglees"
+fi
+
 if [[ -f $harness ]]; then
   contrat="$(bash "$izanagi_lib_dir/check-contract.sh" "$cible" 2>&1 || true)"
   if grep -qE '^contrat : (respecté|aucun composant)' <<<"$contrat"; then

@@ -245,6 +245,7 @@ lancements=""
 tableau=""
 lignes_composants=""
 ci_setup=""
+ci_audit=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
 for entree in "${composants[@]}"; do
@@ -260,6 +261,9 @@ for entree in "${composants[@]}"; do
     setup_vus[$c_pile]=1
     ci_setup+="${ci_setup:+$'\n'}$(rendre_fragment "$(fragment ci-setup.yml "$c_pile")" "pile=$c_pile")"
   fi
+  # Audit des dépendances : un bloc par composant, dans son dossier.
+  ci_audit+="${ci_audit:+$'\n'}$(rendre_fragment "$(fragment ci-audit.yml "$c_pile")" \
+    "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
   [[ -f $racine/templates/$c_pile/fragments/check-section.sh ]] || a_ecrire+=("$c_nom ($c_pile)")
   resume+=("$c_nom($c_pile)")
 done
@@ -273,6 +277,8 @@ valeurs[lignes_composants]="$lignes_composants"
 valeurs[sections]="$sections"
 valeurs[appels]="$appels"
 valeurs[ci_setup]="$ci_setup"
+valeurs[ci_audit]="$ci_audit"
+valeurs[ci_gitleaks]="$(cat "$racine/templates/core/fragments/ci-gitleaks.yml")"
 valeurs[lancements]="$lancements"
 
 declare -a fichiers=()

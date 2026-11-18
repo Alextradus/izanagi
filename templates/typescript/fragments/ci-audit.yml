@@ -1,0 +1,8 @@
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+      - name: Audit des dépendances de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        # Échoue sur une faille haute ou critique ; le rapport liste aussi les autres.
+        run: npm audit --audit-level=high

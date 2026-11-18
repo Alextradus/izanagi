@@ -20,7 +20,7 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 15 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 17 ]] || echoue "première pose : $sortie"
 grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
 grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
 for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
@@ -60,7 +60,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 14 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 16 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -88,6 +88,32 @@ done
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nhook_push=avertit\n' >"$tmp/hkv"
 "$install" "$tmp/hk" "$tmp/hkv" >/dev/null
 [[ $(kv_get "$tmp/hk/.izanagi/config.env" hook_push) == avertit ]] || echoue "hook_push=avertit non posé"
+
+# CI : actions épinglées par SHA, jeton non gardé, gitleaks vérifié, audit des dépendances.
+for f in .github/dependabot.yml .github/workflows/securite.yml; do
+  [[ -f $tmp/p/$f ]] || echoue "$f non posé"
+done
+non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/p/.github/workflows/"*.yml | grep -vE '@[0-9a-f]{40} # ' || true)"
+[[ -z $non_epinglees ]] || echoue "actions non épinglées : $non_epinglees"
+for mot in 'persist-credentials: false' 'fetch-depth: 0' 'gitleaks_8.30.1_' 'sha256' 'cargo audit' 'severity_threshold = "high"'; do
+  grep -qF -- "$mot" "$tmp/p/.github/workflows/ci.yml" || echoue "ci.yml : « $mot » absent"
+done
+for mot in 'cron:' 'workflow_dispatch:' 'issues: write' 'gitleaks git --redact --no-banner .' 'cargo audit' 'securite'; do
+  grep -qF -- "$mot" "$tmp/p/.github/workflows/securite.yml" || echoue "securite.yml : « $mot » absent"
+done
+grep -qF 'package-ecosystem: github-actions' "$tmp/p/.github/dependabot.yml" || echoue "dependabot.yml : écosystème"
+
+# Un projet à trois piles et une pile sans gabarit : un audit par composant.
+mkdir "$tmp/au"
+printf '%s\n' pile=aucune projet=Audit spec=s.md lieu_test=ici test_manuel=x fichier_version=y \
+  'composant=moteur|moteur|rust|' 'composant=web|web|typescript|' 'composant=ml|ml|python|' 'composant=api|api|zig|' >"$tmp/auv"
+"$install" "$tmp/au" "$tmp/auv" >/dev/null
+for mot in 'cargo audit' 'npm audit --audit-level=high' 'pip-audit' 'À ÉCRIRE : audit des dépendances de api (zig)' 'working-directory: moteur' 'working-directory: web' 'working-directory: ml'; do
+  grep -qF -- "$mot" "$tmp/au/.github/workflows/ci.yml" || echoue "audit à trois piles : « $mot » absent de ci.yml"
+  grep -qF -- "$mot" "$tmp/au/.github/workflows/securite.yml" || echoue "audit à trois piles : « $mot » absent de securite.yml"
+done
+non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/au/.github/workflows/"*.yml | grep -vE '@[0-9a-f]{40} # ' || true)"
+[[ -z $non_epinglees ]] || echoue "trois piles : actions non épinglées : $non_epinglees"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"
@@ -205,7 +231,7 @@ mkdir "$tmp/t1"
 printf '%s
 ' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|npm run dev' projet=essai spec=s.md lieu_test=ici >"$tmp/t1v"
 sortie="$("$install" "$tmp/t1" "$tmp/t1v")"
-[[ $(grep -c 'actions/setup-node' "$tmp/t1/.github/workflows/ci.yml") -eq 1 ]] || echoue "setup-node : un seul attendu"
+[[ $(sed '/^  audit:/q' "$tmp/t1/.github/workflows/ci.yml" | grep -c 'actions/setup-node') -eq 1 ]] || echoue "setup-node : un seul attendu dans le job check"
 grep -qF 'node-version: lts/*' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : node-version"
 grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" && echoue "ci.yml : cache npm sans cache-dependency-path"
 [[ $(grep -c '^# --- composant' "$tmp/t1/scripts/check.sh") -eq 2 ]] || echoue "check.sh : deux sections"
