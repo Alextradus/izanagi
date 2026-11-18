@@ -51,13 +51,34 @@ La clé `chemins_sensibles` de `.izanagi/config.env` liste des motifs de chemins
 
 ## Hooks
 
-Le plugin installe trois hooks. Chacun sort sans rien faire hors d'un projet Izanagi.
+Le plugin installe quatre hooks. Chacun sort sans rien faire hors d'un projet Izanagi.
 
 - **Au démarrage d'une session**, le premier ajoute au contexte l'état du flux de la branche courante. Il avertit aussi quand le cadre du projet est en retard sur le plugin.
-- **Avant un `git push`**, le deuxième refuse un push qui vise la branche principale, `git push --all` et `git push --mirror` compris. Un push de tag et une suppression de branche passent. C'est un garde-fou contre un push fait par habitude : une commande construite pour le tromper passe.
-- **À l'arrêt de l'implémenteur**, le troisième relance la vérification du projet. Un échec renvoie l'implémenteur au travail, avec la fin de la sortie. Le hook laisse passer un implémenteur qui se déclare bloqué, et cesse de bloquer après deux refus.
+- **Avant un `git push`**, le deuxième refuse un push qui vise la branche principale, `git push --all` et `git push --mirror` compris. Un push de tag et une suppression de branche passent.
+- **Avant une commande Bash**, le troisième te demande de confirmer un geste destructeur : `git reset --hard`, `git clean -f`, `git push --force` sans `--force-with-lease`, `git branch -D`, `git checkout .` ou `git restore .` sur un arbre modifié, `rm -rf` sur la racine du dépôt ou hors de lui. Il demande aussi avant la lecture d'un fichier de secrets par une commande Bash (`cat`, `source`, `cp`…) : `.env*` sauf `.env.example`, `*.pem`, `*.key`, `id_rsa*`, `credentials*`. Le motif `.env*` couvre aussi `.envrc`.
+- **À l'arrêt de l'implémenteur**, le quatrième relance la vérification du projet. Un échec renvoie l'implémenteur au travail, avec la fin de la sortie. Le hook laisse passer un implémenteur qui se déclare bloqué, et cesse de bloquer après deux refus.
 
-Les deux derniers bloquent par défaut. Pour qu'un hook avertisse au lieu de bloquer, écris `hook_push=avertit` ou `hook_verification=avertit` dans `.izanagi/config.env`.
+Les hooks du push et de la commande Bash sont des garde-fous contre un geste fait par habitude : ils ne voient que la commande tapée, et une commande construite pour les tromper (variable, alias, `eval`) passe. Ils ne surveillent pas le réseau.
+
+Les hooks du push et de la vérification bloquent par défaut, et celui des commandes destructrices demande. Pour qu'un hook avertisse au lieu de bloquer, écris `hook_push=avertit`, `hook_verification=avertit` ou `hook_destructif=avertit` dans `.izanagi/config.env`. `hook_destructif=bloque` refuse au lieu de demander.
+
+Chaque refus, avertissement ou demande d'un hook s'ajoute à `.izanagi/refus.log`, que git ignore et que `/izanagi:retro` lit.
+
+`init` écrit aussi dans `.claude/settings.json` du projet des règles `permissions.deny`, que Claude Code applique lui-même : ses outils ne lisent ni n'écrivent les fichiers de secrets ci-dessus.
+
+## Sécurité du projet
+
+- `scripts/check.sh` cherche des secrets avec `gitleaks` dans les commits de la branche absents de la branche principale, avant de vérifier les composants. Un faux positif s'écarte dans `.gitleaks.toml`, avec sa raison.
+- Le job `audit` de la CI audite les dépendances de chaque composant. Une faille haute ou critique fait échouer la PR (`cargo audit`, `npm audit`). Pour Python, `pip-audit` ne filtre pas par gravité : toute faille connue fait échouer la PR.
+- `.github/workflows/securite.yml` relance chaque lundi l'audit et `gitleaks` sur tout l'historique. En cas d'échec, il ouvre une issue `securite` ou commente celle qui est ouverte.
+- Les actions de la CI sont épinglées par SHA, et `.github/dependabot.yml` propose leurs mises à jour.
+- Au niveau de risque élevé, un troisième relecteur, `reviewer-security`, cherche dans le diff les failles que liste la fiche du type d'application.
+
+## Règles par langage
+
+`docs/CODING_STANDARDS.md` porte les règles communes à tous les langages. Chaque langage des composants a son fichier `docs/standards/<langage>.md`, pour les règles propres au projet. Le plugin porte des règles générales pour Rust, TypeScript et Python, dans `references/langages/`. Le relecteur et l'implémenteur lisent les deux couches. Une ligne `Écarte : R<n>, parce que <raison>` dans le fichier du projet désactive une règle du plugin.
+
+`/izanagi:retro` range une règle valable hors du projet sous `## À proposer au plugin`, et `/izanagi:contribuer` la propose au plugin par une PR.
 
 Comme la branche principale ne reçoit plus de push direct, un jalon passe par des PR du début à la fin : le cadrage et le plan sur une branche `jalon/<nom>-cadrage`, puis le jalon lui-même.
 
@@ -80,7 +101,7 @@ Izanagi n'a aucun prérequis de skill. Il lui faut :
 
 - le CLI `gh`, connecté au compte qui porte le dépôt, et Git Bash sous Windows ;
 - bash 4 ou plus récent. Le bash 3.2 livré avec macOS ne suffit pas aux scripts du plugin : installe un bash récent (`brew install bash`) ;
-- les outils de la pile choisie (`cargo`, `node`, `uv`…). `init` donne la commande d'installation d'un outil absent et attend ton accord avant de la lancer.
+- les outils de la pile choisie (`cargo`, `node`, `uv`…), et `gitleaks` pour un projet qui a du code. `init` donne la commande d'installation d'un outil absent et attend ton accord avant de la lancer.
 
 ### Skills optionnels
 
@@ -113,7 +134,7 @@ Depuis un clone local, remplace `Alextradus/izanagi` par le chemin du clone : Cl
 
 ## Feuille de route
 
-La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 1.0 sortira après un projet mené de bout en bout avec cette version.
+La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, d'après `docs/specs/2026-11-18-izanagi-0.6-securite-amelioration.md`. La 1.0 sortira après un projet mené de bout en bout avec la 0.6.
 
 Restent sans version prévue : un template de PR, la release et le déploiement d'un projet, et des évals du plugin sur un projet témoin.
 
