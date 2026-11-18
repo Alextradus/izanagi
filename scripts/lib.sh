@@ -121,8 +121,16 @@ commandes_simples() {
       if [[ $c == "$guillemet" ]]; then
         guillemet=""
       elif [[ $c == "$bo" && $guillemet == '"' ]]; then
-        k=$((k + 1))
-        mot+="${commande:k:1}"
+        # Entre guillemets doubles, la barre n'échappe que $, `, ", elle-même et le
+        # saut de ligne. Devant un autre caractère, elle reste dans le mot.
+        case "${commande:k+1:1}" in
+          '$' | '`' | '"' | "$bo")
+            k=$((k + 1))
+            mot+="${commande:k:1}"
+            ;;
+          $'\n') k=$((k + 1)) ;;
+          *) mot+="$c" ;;
+        esac
       else
         mot+="$c"
       fi
@@ -163,12 +171,14 @@ commandes_simples() {
 }
 
 # refus_noter <racine> <hook> <motif> : ajoute à .izanagi/refus.log la ligne
-# `<date UTC>|<branche courante>|<hook>|<motif>`, que la rétrospective lit. Les `|` et
-# les sauts de ligne du motif deviennent des espaces. N'échoue jamais : une écriture
+# `<date UTC>|<branche courante>|<hook>|<motif>`, que la rétrospective lit. Les `|` de
+# la branche et du motif, et les sauts de ligne du motif, deviennent des espaces. N'échoue jamais : une écriture
 # ratée ne change pas la décision du hook.
 refus_noter() {
   local racine=$1 hook=$2 motif=$3 branche
   branche="$(git -C "$racine" rev-parse --abbrev-ref HEAD 2>/dev/null || echo inconnue)"
+  # git permet `|` dans un nom de branche : il deviendrait un séparateur de champ.
+  branche="${branche//|/ }"
   motif="${motif//|/ }"
   motif="${motif//$'\n'/ }"
   printf '%s|%s|%s|%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$branche" "$hook" "$motif" \

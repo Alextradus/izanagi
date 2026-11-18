@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Teste les trois hooks du plugin : entrée JSON sur l'entrée standard, code de
+# Teste les quatre hooks du plugin : entrée JSON sur l'entrée standard, code de
 # retour, sortie standard et sortie d'erreur.
 #
 # Faits lus le 2026-11-12 dans https://code.claude.com/docs/en/hooks.md :
@@ -78,6 +78,10 @@ decoupe() { commandes_simples "$1" montrer || true; }
 [[ $(decoupe '(cd x && git push)') == $'cd|x\ngit|push' ]] || echoue "commandes_simples : sous-shell"
 [[ $(decoupe "echo \"l'a\" 'b \"c\"'") == "echo|l'a|b \"c\"" ]] || echoue "commandes_simples : guillemets imbriqués"
 [[ $(decoupe 'a ""') == 'a|' ]] || echoue "commandes_simples : mot vide entre guillemets"
+# Entre guillemets doubles, la barre oblique inverse n'échappe que $, `, ", \ et le
+# saut de ligne, comme dans bash : un chemin Windows garde ses barres.
+[[ $(decoupe 'rm -rf "C:\Users\x"') == 'rm|-rf|C:\Users\x' ]] || echoue "commandes_simples : chemin Windows entre guillemets : « $(decoupe 'rm -rf "C:\Users\x"') »"
+[[ $(decoupe 'echo "a\"b\\c\$d"') == 'echo|a"b\c$d' ]] || echoue "commandes_simples : échappements entre guillemets doubles"
 [[ -z $(decoupe ' ; ') ]] || echoue "commandes_simples : commande vide"
 commandes_simples 'ls; git push' vise_push || echoue "commandes_simples : visée non rendue"
 commandes_simples 'git status' vise_push && echoue "commandes_simples : visée rendue à tort"
@@ -262,6 +266,20 @@ demande "$p" 'less config/server.key' 'lecture de config/server.key'
 demande "$p" 'cat ~/.ssh/id_rsa'
 demande "$p" 'base64 credentials.json'
 demande "$p" 'grep KEY .env | wc -l'
+demande "$p" 'cat ~/.ssh/id_ed25519' 'lecture de ~/.ssh/id_ed25519'
+demande "$p" 'cp ~/.ssh/id_ecdsa /tmp/k'
+# Un `cd` plus tôt dans la commande change le dossier où `rm` résout ses cibles.
+demande "$p" 'cd .. && rm -rf *' 'rm -rf *'
+demande "$p" 'cd /tmp; rm -rf x'
+demande "$p" 'cd "$AILLEURS" && rm -rf build'
+demande "$p" 'cd && rm -rf x'
+demande "$p" 'rm -rf "C:\Users\x"' 'rm -rf C:\Users\x'
+# Les préfixes courants ne cachent pas la commande.
+demande "$p" 'env GIT_DIR=.git git reset --hard'
+demande "$p" 'command rm -rf ..'
+demande "$p" 'time git clean -fd'
+demande "$p" 'nohup rm -rf ~/x'
+demande "$p" 'exec git push --force'
 
 for c in 'git commit -m "doc: git reset --hard"' "git commit -m 'rm -rf / et cat .env'" \
   'git push --force-with-lease' 'git push --force-with-lease origin task/x' 'git push -u origin task/x' \
@@ -273,6 +291,8 @@ for c in 'git commit -m "doc: git reset --hard"' "git commit -m 'rm -rf / et cat
 done
 (cd "$p/src" && laisse "$p/src" 'rm -rf ../node_modules')
 demande "$p/src" 'rm -rf ..'
+laisse "$p" 'cd src && rm -rf build'
+laisse "$p" 'cd src/.. && rm -rf node_modules'
 
 regler "$p" hook_destructif bloque
 lancer guard-destructive.sh "$p" "$(entree_push 'git reset --hard')"

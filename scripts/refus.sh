@@ -19,7 +19,8 @@ refuse() {
 }
 
 [[ $# -eq 1 || ($# -eq 2 && $2 == --vider) ]] || refuse "usage : refus.sh <branche> [--vider]"
-branche=$1
+# Le hook note un `|` du nom de branche comme une espace : même conversion ici.
+branche="${1//|/ }"
 racine="$(izanagi_root)" || refuse "refus.sh : pas un projet Izanagi"
 journal="$racine/.izanagi/refus.log"
 [[ -f $journal ]] || exit 0

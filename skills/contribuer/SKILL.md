@@ -38,22 +38,25 @@ Fin : chaque règle de la section est réécrite ou laissée au projet, et l'uti
 2. Clone-le dans un dossier temporaire hors du projet : `gh repo clone <dépôt> "$(mktemp -d)/izanagi"`. Tout ce qui suit se fait dans ce clone, jamais dans le projet.
 3. Crée la branche `langage/<langage>-<AAAA-MM-JJ>`, à la date du jour. Son nom ne contient pas celui du projet.
 4. Ajoute les règles réécrites à la fin de `references/langages/<langage>.md`. Pour un langage sans fichier, crée le fichier avec l'en-tête des autres fichiers de langage, et remplace sa ligne `aucun` dans la table de `references/langages/index.md` par le nom du fichier, ou ajoute la ligne du langage avec ses extensions.
-5. Regarde si l'utilisateur peut écrire dans le dépôt : `gh api repos/<dépôt> --jq .permissions.push`. Si la réponse n'est pas `true`, il passera par un fork : `gh repo fork <dépôt> --clone=false --remote`, lancé dans le clone, ajoute le fork comme dépôt distant.
+5. Mets en index les fichiers modifiés et créés, et eux seuls, en les nommant : `git -C <clone> add references/langages/<langage>.md references/langages/index.md`. Un fichier créé n'apparaît dans le diff qu'une fois en index.
+6. Regarde si l'utilisateur peut écrire dans le dépôt : `gh api repos/<dépôt> --jq .permissions.push`. Si la réponse n'est pas `true`, l'envoi passera par un fork de son compte. Ne crée pas encore ce fork : il n'existera qu'après l'accord.
+7. Écris le titre et le corps de la PR dans deux fichiers du dossier temporaire. Le titre : `docs: règles <langage> proposées par un projet`. Le corps dit que les règles viennent des leçons d'un projet, sans le nommer, et liste les titres des règles.
 
 ## 4. Accord
 
-**Accord.** Montre à l'utilisateur le diff complet du clone (`git -C <clone> diff`), le dépôt cible et, s'il y a lieu, le fork. Demande-lui s'il veut ouvrir la PR.
+**Accord.** Montre à l'utilisateur, en entier : le diff en index du clone (`git -C <clone> diff --cached`), le titre et le corps de la PR, le dépôt cible, et s'il y a lieu le fork qui sera créé sur son compte. Demande-lui s'il veut ouvrir la PR.
 
-Sans un oui explicite, supprime le clone et arrête-toi : rien n'est commité, rien n'est poussé, et les règles restent dans le projet.
+Sans un oui explicite, supprime le clone et arrête-toi : rien n'est créé sur GitHub, rien n'est commité, rien n'est poussé, et les règles restent dans le projet.
 
 ## 5. Envoyer
 
 Sur le oui de l'utilisateur, et seulement alors :
 
-1. Commite dans le clone : `docs: règles <langage> proposées par un projet`.
-2. Pousse la branche, vers le dépôt ou vers le fork : `git push -u <dépôt distant> langage/<langage>-<AAAA-MM-JJ>`.
-3. Ouvre la PR vers la branche principale du dépôt cible avec `gh pr create --repo <dépôt>`. Le corps dit que les règles viennent des leçons d'un projet, sans le nommer, et liste les titres des règles.
-4. Donne le lien de la PR à l'utilisateur, puis supprime le clone.
+1. Commite dans le clone ce qui est en index, avec le titre de la PR pour message.
+2. Sans droit d'écriture sur le dépôt, crée le fork maintenant : `gh repo fork <dépôt> --clone=false --remote`, lancé dans le clone, ajoute le fork comme dépôt distant.
+3. Pousse la branche, vers le dépôt ou vers le fork : `git push -u <dépôt distant> langage/<langage>-<AAAA-MM-JJ>`.
+4. Ouvre la PR vers la branche principale du dépôt cible : `gh pr create --repo <dépôt> --title "$(cat <fichier du titre>)" --body-file <fichier du corps>`, avec `--head <propriétaire du fork>:<branche>` quand l'envoi passe par un fork.
+5. Donne le lien de la PR à l'utilisateur, puis supprime le dossier temporaire.
 
 Les règles restent dans la section `## À proposer au plugin` du projet jusqu'à la fusion : le relecteur continue de les appliquer. Après la fusion, `/izanagi:upgrade` propose de les retirer, puisque le plugin les porte.
 

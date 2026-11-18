@@ -141,11 +141,13 @@ done
 mkdir -p "$tmp/p06r/.izanagi" "$tmp/p06r/.claude"
 printf 'izanagi_version=0.5.0\nhook_push=bloque\nhook_verification=bloque\n' >"$tmp/p06r/.izanagi/config.env"
 printf '{\n  "model": "sonnet"\n}\n' >"$tmp/p06r/.claude/settings.json"
+# Un .gitignore sans saut de ligne final : le motif ne se colle pas à la dernière ligne.
+printf 'journal/*/' >"$tmp/p06r/.izanagi/.gitignore"
 avant="$(cat "$tmp/p06r/.claude/settings.json")"
 sortie="$(bash "$migration06" "$tmp/p06r")"
 grep -qxF 'à fusionner .claude/settings.json' <<<"$sortie" || echoue "migration 0.6.0 : settings.json existant : $sortie"
 [[ $(cat "$tmp/p06r/.claude/settings.json") == "$avant" ]] || echoue "migration 0.6.0 a réécrit settings.json"
-grep -qxF 'journal/*/' "$tmp/p06r/.izanagi/.gitignore" 2>/dev/null && echoue "migration 0.6.0 a inventé un .gitignore"
+[[ $(cat "$tmp/p06r/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue "migration 0.6.0 : .gitignore sans saut de ligne final : $(cat "$tmp/p06r/.izanagi/.gitignore")"
 # Les règles déjà fusionnées : plus rien à signaler.
 cp "$racine/templates/core/.claude/settings.json" "$tmp/p06r/.claude/settings.json"
 [[ $(bash "$migration06" "$tmp/p06r") == 'déjà migré' ]] || echoue "migration 0.6.0 après fusion"
@@ -328,6 +330,10 @@ sortie="$(cd "$tmp/rf" && bash "$refus" task/a)"
 [[ -z $(cd "$tmp/rf" && bash "$refus" task/c) ]] || echoue "refus.sh : branche sans refus"
 # Une branche dont le nom est le préfixe d'une autre ne prend pas ses lignes.
 [[ -z $(cd "$tmp/rf" && bash "$refus" task) ]] || echoue "refus.sh : préfixe de branche"
+# Un « | » dans un nom de branche est noté comme une espace : refus.sh le retrouve.
+printf '%s\n' '2026-11-18T10:03:00Z|task/a b|push|push direct sur main' >>"$tmp/rf/.izanagi/refus.log"
+[[ $(cd "$tmp/rf" && bash "$refus" 'task/a|b') == '2026-11-18T10:03:00Z|task/a b|push|push direct sur main' ]] || echoue "refus.sh : branche avec |"
+(cd "$tmp/rf" && bash "$refus" 'task/a|b' --vider)
 (cd "$tmp/rf" && bash "$refus" task/a --vider)
 [[ $(cat "$tmp/rf/.izanagi/refus.log") == '2026-11-18T10:01:00Z|task/b|destructif|git reset --hard' ]] || echoue "refus.sh : vidage : $(cat "$tmp/rf/.izanagi/refus.log")"
 if (cd "$tmp/rf" && bash "$refus" task/a --tout >/dev/null 2>&1); then echoue "refus.sh : option inconnue acceptée"; fi

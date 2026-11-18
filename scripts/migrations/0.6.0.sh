@@ -73,6 +73,8 @@ if [[ $monte -eq 1 || $a_la_cle -eq 0 ]]; then
 fi
 
 if [[ $ignore_ok -eq 0 ]]; then
+  # Sans saut de ligne final, le motif se collerait à la dernière ligne.
+  if [[ -s $ignore && -n $(tail -c 1 "$ignore") ]]; then printf '\n' >>"$ignore"; fi
   printf 'refus.log\n' >>"$ignore"
   echo "écrit      .izanagi/.gitignore"
 fi

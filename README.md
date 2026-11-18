@@ -55,7 +55,7 @@ Le plugin installe quatre hooks. Chacun sort sans rien faire hors d'un projet Iz
 
 - **Au démarrage d'une session**, le premier ajoute au contexte l'état du flux de la branche courante. Il avertit aussi quand le cadre du projet est en retard sur le plugin.
 - **Avant un `git push`**, le deuxième refuse un push qui vise la branche principale, `git push --all` et `git push --mirror` compris. Un push de tag et une suppression de branche passent.
-- **Avant une commande Bash**, le troisième te demande de confirmer un geste destructeur : `git reset --hard`, `git clean -f`, `git push --force` sans `--force-with-lease`, `git branch -D`, `git checkout .` ou `git restore .` sur un arbre modifié, `rm -rf` sur la racine du dépôt ou hors de lui. Il demande aussi avant la lecture d'un fichier de secrets par une commande Bash (`cat`, `source`, `cp`…) : `.env*` sauf `.env.example`, `*.pem`, `*.key`, `id_rsa*`, `credentials*`. Le motif `.env*` couvre aussi `.envrc`.
+- **Avant une commande Bash**, le troisième te demande de confirmer un geste destructeur : `git reset --hard`, `git clean -f`, `git push --force` sans `--force-with-lease`, `git branch -D`, `git checkout .` ou `git restore .` sur un arbre modifié, `rm -rf` sur la racine du dépôt ou hors de lui. Il demande aussi avant la lecture d'un fichier de secrets par une commande Bash (`cat`, `source`, `cp`…) : `.env*` sauf `.env.example`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `id_ecdsa*`, `credentials*`. Le motif `.env*` couvre aussi `.envrc`.
 - **À l'arrêt de l'implémenteur**, le quatrième relance la vérification du projet. Un échec renvoie l'implémenteur au travail, avec la fin de la sortie. Le hook laisse passer un implémenteur qui se déclare bloqué, et cesse de bloquer après deux refus.
 
 Les hooks du push et de la commande Bash sont des garde-fous contre un geste fait par habitude : ils ne voient que la commande tapée, et une commande construite pour les tromper (variable, alias, `eval`) passe. Ils ne surveillent pas le réseau.
@@ -150,6 +150,6 @@ claude plugin validate .
 bash tests/install.sh && bash tests/check-contract.sh && bash tests/skills.sh && bash tests/state.sh && bash tests/hooks.sh && bash tests/risk.sh && bash tests/tools.sh
 ```
 
-`tests/skills.sh` contrôle la structure du plugin : les seize skills, les quatre sous-agents, les outils des relecteurs et l'absence de renvoi à un skill externe obligatoire. `tests/state.sh` teste `scripts/state.sh`, `tests/hooks.sh` les trois hooks, `tests/risk.sh` le calcul du niveau de risque, et `tests/tools.sh` les migrations, `status.sh` et `doctor.sh`. Ce dernier prend deux à trois minutes sous Windows.
+`tests/skills.sh` contrôle la structure du plugin : les dix-huit skills, les cinq sous-agents, les outils des relecteurs et l'absence de renvoi à un skill externe obligatoire. `tests/state.sh` teste `scripts/state.sh`, `tests/hooks.sh` les quatre hooks, `tests/risk.sh` le calcul du niveau de risque, et `tests/tools.sh` les migrations, `status.sh`, `doctor.sh`, `refus.sh` et la recherche de secrets de `check.sh`. Ce dernier prend deux à trois minutes sous Windows.
 
 Les skills et les sous-agents dérivent des skills de Matt Pocock et de Superpowers, tous deux sous licence MIT. `NOTICE` cite les deux sources.

@@ -6,7 +6,7 @@
 # `--force-with-lease`, `git branch -D`, `git checkout .` et `git restore .` sur un
 # arbre modifié, `rm -rf` sur la racine du dépôt ou hors de lui, et `cat`, `less`,
 # `source`, `cp`… sur `.env*` (sauf `.env.example`), `*.pem`, `*.key`, `id_rsa*`,
-# `credentials*`.
+# `id_ed25519*`, `id_ecdsa*`, `credentials*`.
 #
 # Avec `hook_destructif=demande` (défaut), écrit `permissionDecision: "ask"` et sort
 # avec 0 : Claude Code demande confirmation et montre la raison à l'utilisateur.
@@ -36,7 +36,7 @@ hook_enter "$entree"
 racine="$(izanagi_root)" || exit 0
 commande="$(json_string "$entree" command $'\n')" || exit 0
 case "$commande" in
-  *git* | *rm* | *env* | *.pem* | *.key* | *id_rsa* | *credentials*) ;;
+  *git* | *rm* | *env* | *.pem* | *.key* | *id_rsa* | *id_ed25519* | *id_ecdsa* | *credentials*) ;;
   *) exit 0 ;;
 esac
 
@@ -47,6 +47,9 @@ if ((${#commande} > limite)); then
 fi
 
 # Les chemins se comparent sous la forme que donne `pwd` (/c/… sous Git Bash).
+# `ici` suit les `cd` de la commande, dans l'ordre ; vide quand le hook ne peut pas
+# résoudre le dossier (`cd "$X"`, `cd -`) : une cible relative compte alors comme
+# hors du dépôt.
 racine_abs="$(cd "$racine" && pwd)"
 ici="$(pwd)"
 motif=""
@@ -67,6 +70,33 @@ normaliser() {
   printf '/%s' "${garde[*]}"
 }
 
+# absolu <chemin> : affiche le chemin absolu, résolu depuis `ici`, sans lire le disque.
+# Rend 1 si le chemin ne se résout pas : variable, substitution, ou relatif à un
+# dossier inconnu.
+absolu() {
+  local cible=$1
+  [[ $cible == *'$'* || $cible == *'`'* ]] && return 1
+  cible="${cible//\\//}"
+  if [[ $cible == '~' || $cible == '~/'* ]]; then cible="$HOME${cible:1}"; fi
+  if [[ $cible =~ ^([A-Za-z]):/(.*)$ ]]; then
+    cible="/${BASH_REMATCH[1],,}/${BASH_REMATCH[2]}"
+  fi
+  if [[ $cible != /* ]]; then
+    [[ -n $ici ]] || return 1
+    cible="$ici/$cible"
+  fi
+  normaliser "$cible"
+}
+
+# suivre_cd <cible> : met à jour `ici` après un `cd` de la commande.
+suivre_cd() {
+  if [[ -z ${1:-} ]]; then
+    ici="$(normaliser "$HOME")"
+  elif [[ $1 == - ]] || ! ici="$(absolu "$1")"; then
+    ici=""
+  fi
+}
+
 # hors_depot <cible> : rend 0 si la cible de `rm` est la racine du dépôt ou hors de lui.
 hors_depot() {
   local cible=$1 chemin
@@ -76,7 +106,10 @@ hors_depot() {
   if [[ $cible =~ ^([A-Za-z]):/(.*)$ ]]; then
     cible="/${BASH_REMATCH[1],,}/${BASH_REMATCH[2]}"
   fi
-  [[ $cible == /* ]] || cible="$ici/$cible"
+  if [[ $cible != /* ]]; then
+    [[ -n $ici ]] || return 0
+    cible="$ici/$cible"
+  fi
   # Un dernier segment avec un joker vaut son dossier : `rm -rf *` vise le dossier.
   if [[ ${cible##*/} == *[*?[]* ]]; then cible="${cible%/*}"; fi
   chemin="$(normaliser "$cible")"
@@ -88,7 +121,7 @@ secret() {
   local nom="${1##*/}"
   [[ $nom == .env.example ]] && return 1
   case "$nom" in
-    .env* | *.pem | *.key | id_rsa* | credentials*) return 0 ;;
+    .env* | *.pem | *.key | id_rsa* | id_ed25519* | id_ecdsa* | credentials*) return 0 ;;
   esac
   return 1
 }
@@ -185,10 +218,25 @@ examine_rm() {
 examine() {
   local -a mots=("$@")
   local i=0 n=${#mots[@]} mot
-  # Les affectations en tête (`FOO=1 cmd`) et `sudo` ne changent pas la commande.
-  while ((i < n)) && [[ ${mots[i]} =~ ^[A-Za-z_][A-Za-z0-9_]*= || ${mots[i]} == sudo ]]; do i=$((i + 1)); done
+  # Les affectations en tête (`FOO=1 cmd`) et les préfixes courants (`sudo`, `env`,
+  # `command`, `time`, `nohup`, `exec`, avec leurs options) ne changent pas la commande.
+  local prefixe=0
+  while ((i < n)); do
+    case "${mots[i]}" in
+      sudo | env | command | time | nohup | exec) prefixe=1 ;;
+      -*) ((prefixe)) || break ;;
+      *)
+        [[ ${mots[i]} =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || break
+        ;;
+    esac
+    i=$((i + 1))
+  done
   ((i < n)) || return 1
   case "${mots[i]}" in
+    cd)
+      suivre_cd "${mots[i + 1]:-}"
+      return 1
+      ;;
     git)
       i=$((i + 1))
       while ((i < n)); do
@@ -224,7 +272,7 @@ case "$(kv_get "$racine/.izanagi/config.env" hook_destructif || true)" in
     printf '{"systemMessage": "Izanagi : %s."}\n' "$(json_echappe "$motif")"
     ;;
   *)
-    printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "Izanagi : %s. Confirme si c%sest voulu."}}\n' "$(json_echappe "$motif")" "'"
+    printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "Izanagi : %s. Confirme que cette commande est voulue."}}\n' "$(json_echappe "$motif")"
     ;;
 esac
 exit 0

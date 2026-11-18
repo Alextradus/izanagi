@@ -20,7 +20,7 @@ La branche est l'argument, ou la branche courante. Lis `.izanagi/state.env` avec
 | `task` | `.izanagi/journal/task-<nom>.md` | aucun dossier |
 | `fix` hors jalon | `.izanagi/journal/fix-<nom>.md` | aucun dossier |
 
-Sans journal, dis-le et arrête-toi : la rétrospective n'a rien à lire.
+Sans journal, par exemple après la clôture d'un `task` ou d'un `fix`, qui le supprime, travaille sur les seuls refus de la branche (section 2). Sans journal ni refus, dis-le et arrête-toi : la rétrospective n'a rien à lire.
 
 Lancé depuis la question de clôture de `task` ou `fix` avec une seule leçon, va droit à la section 3 avec elle.
 
@@ -76,15 +76,15 @@ Chaque leçon harnais devient un brouillon d'issue pour le dépôt d'Izanagi :
 
 - un titre qui nomme le skill, le sous-agent ou le hook ;
 - le constat, en deux ou trois phrases ;
-- la preuve, tirée du journal, sans nom de projet, sans chemin du projet et sans extrait de son code.
+- la preuve, tirée du journal, sans nom de projet, sans chemin du projet ni du poste et sans extrait de son code. Les motifs de `refus.log` contiennent souvent des chemins absolus (`rm -rf /c/Users/…`) : remplace-les par un chemin neutre.
 
 Montre le brouillon à l'utilisateur. Sur son accord explicite, et seulement alors, ouvre-le :
 
 ```bash
-gh issue create --repo <dépôt> --title "<titre>" --body-file <brouillon>
+gh issue create --repo <dépôt> --title "$(cat <fichier du titre>)" --body-file <fichier du brouillon>
 ```
 
-`<dépôt>` vient du champ `repository` de `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, sous la forme `propriétaire/nom`. Écris le brouillon dans un fichier temporaire hors du projet. Sans accord, n'ouvre rien et ne garde rien.
+`<dépôt>` vient du champ `repository` de `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, sous la forme `propriétaire/nom`. Écris le titre et le brouillon dans deux fichiers temporaires hors du projet, avec l'outil Write. Le titre passe ainsi par un fichier : un nom de skill entre accents graves n'est jamais exécuté par le shell. Sans accord, n'ouvre rien et ne garde rien.
 
 ## 6. Rendre compte
 

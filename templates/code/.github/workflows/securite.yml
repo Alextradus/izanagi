@@ -1,6 +1,8 @@
 # Contrôle hebdomadaire de sécurité : secrets sur tout l'historique et audit des
-# dépendances. En cas d'échec, ouvre une issue étiquetée `securite`, ou commente
-# celle qui est ouverte. Ce job seul a le droit d'écrire des issues.
+# dépendances, dans deux jobs qui tournent l'un sans l'autre. Si l'un échoue, un
+# troisième job ouvre une issue étiquetée `securite`, ou commente celle qui est
+# ouverte. Seul ce dernier a le droit d'écrire des issues, et il ne lance aucun
+# outil tiers.
 name: Sécurité
 
 on:
@@ -12,12 +14,9 @@ permissions:
   contents: read
 
 jobs:
-  securite:
-    name: contrôle hebdomadaire
+  secrets:
+    name: secrets, tout l'historique
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -27,20 +26,41 @@ jobs:
       - name: Secrets, tout l'historique
         shell: bash
         run: gitleaks git --redact --no-banner .
+
+  audit:
+    name: audit des dépendances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 {{ci_audit}}
-      - name: Issue de sécurité
-        if: failure()
+
+  issue:
+    name: issue de sécurité
+    needs: [secrets, audit]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Ouvrir ou commenter l'issue
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SECRETS: ${{ needs.secrets.result }}
+          AUDIT: ${{ needs.audit.result }}
         run: |
+          echecs=""
+          [[ $SECRETS == success ]] || echecs+="secrets ($SECRETS) "
+          [[ $AUDIT == success ]] || echecs+="audit des dépendances ($AUDIT) "
           gh label create securite --color B60205 --description "Contrôle de sécurité en échec" --force
           numero="$(gh issue list --label securite --state open --json number --jq '.[0].number')"
           if [[ -n $numero ]]; then
-            gh issue comment "$numero" --body "Le contrôle hebdomadaire échoue encore : $RUN_URL"
+            gh issue comment "$numero" --body "Le contrôle hebdomadaire échoue encore : ${echecs}. Journal : $RUN_URL"
           else
             gh issue create --title "Sécurité : contrôle hebdomadaire en échec" --label securite \
-              --body "Le contrôle hebdomadaire de sécurité échoue. Le détail est dans le journal du job : $RUN_URL"
+              --body "Le contrôle hebdomadaire de sécurité échoue : ${echecs}. Le détail est dans le journal : $RUN_URL"
           fi

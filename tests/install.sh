@@ -40,7 +40,7 @@ config="$tmp/p/.izanagi/config.env"
 grep -q '{{' "$config" && echoue "config.env garde un {{"
 [[ $(cat "$tmp/p/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue ".izanagi/.gitignore"
 [[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "config.env : hook_destructif"
-for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(credentials*)'; do
+for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(id_ed25519*)' 'Read(id_ecdsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(id_ed25519*)' 'Edit(id_ecdsa*)' 'Edit(credentials*)'; do
   grep -qF "\"$regle\"" "$tmp/p/.claude/settings.json" || echoue ".claude/settings.json : règle $regle absente"
 done
 grep -q '{{' "$tmp/p/AGENTS.md" && echoue "AGENTS.md garde un {{"
@@ -98,9 +98,12 @@ non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/p/.github/wor
 for mot in 'persist-credentials: false' 'fetch-depth: 0' 'gitleaks_8.30.1_' 'sha256' 'cargo audit' 'severity_threshold = "high"'; do
   grep -qF -- "$mot" "$tmp/p/.github/workflows/ci.yml" || echoue "ci.yml : « $mot » absent"
 done
-for mot in 'cron:' 'workflow_dispatch:' 'issues: write' 'gitleaks git --redact --no-banner .' 'cargo audit' 'securite'; do
+for mot in 'cron:' 'workflow_dispatch:' 'issues: write' 'needs: [secrets, audit]' 'gitleaks git --redact --no-banner .' 'cargo audit' 'securite'; do
   grep -qF -- "$mot" "$tmp/p/.github/workflows/securite.yml" || echoue "securite.yml : « $mot » absent"
 done
+# Seul le job de l'issue peut écrire, et il ne lance aucune action tierce.
+[[ $(grep -c 'issues: write' "$tmp/p/.github/workflows/securite.yml") -eq 1 ]] || echoue "securite.yml : issues: write hors du seul job de l'issue"
+[[ -z $(sed -n '/^  issue:/,$p' "$tmp/p/.github/workflows/securite.yml" | grep 'uses:') ]] || echoue "securite.yml : le job de l'issue lance une action"
 grep -qF 'package-ecosystem: github-actions' "$tmp/p/.github/dependabot.yml" || echoue "dependabot.yml : écosystème"
 
 # Un projet à trois piles et une pile sans gabarit : un audit par composant.

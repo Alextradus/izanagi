@@ -2,7 +2,7 @@
   "name": "izanagi",
   "displayName": "Izanagi",
   "version": "0.6.0",
-  "description": "Cadre de projet : /izanagi:init démarre un projet de toute pile et pose ses conventions et ses vérifications, /izanagi:jalon conduit un jalon du cadrage au tag avec ses propres skills et sous-agents, /izanagi:task et /izanagi:fix conduisent un petit changement et un correctif, et trois hooks appliquent les règles du cadre.",
+  "description": "Cadre de projet : /izanagi:init démarre un projet de toute pile et pose ses conventions et ses vérifications, /izanagi:jalon conduit un jalon du cadrage au tag avec ses propres skills et sous-agents, /izanagi:task et /izanagi:fix conduisent un petit changement et un correctif, /izanagi:retro tire les leçons d'un flux, et quatre hooks appliquent les règles du cadre.",
   "author": {
     "name": "Alextradus"
   },
