@@ -257,6 +257,50 @@ lancer_fx windows,linux --host >/dev/null || echoue "windows,linux --host : éch
 lancer_fx windows,linux >/dev/null || echoue "windows,linux : échec"
 [[ -e $tmp/hc/lance && -e $tmp/fx/appels ]] || echoue "windows,linux : Windows et WSL attendus"
 
+# --- arguments de check.sh : --host, --complet, --clean ---
+# Faux cargo et npm : ils notent leurs arguments dans `journal` et réussissent.
+mkdir "$tmp/ar" "$tmp/ar/bin" "$tmp/ar/web"
+git -C "$tmp/ar" init -q
+for outil in cargo npm gitleaks; do
+  printf '#!/bin/sh\necho "%s $*" >>"%s/journal"\n' "$outil" "$tmp/ar" >"$tmp/ar/bin/$outil"
+  chmod +x "$tmp/ar/bin/$outil"
+done
+printf '%s\n' 'composant=cli|.|rust|' 'composant=web|web|typescript|' systemes=windows,linux,macos "${base[@]}" >"$tmp/arv"
+"$install" "$tmp/ar" "$tmp/arv" >/dev/null
+bash -n "$tmp/ar/scripts/check.sh" || echoue "check.sh à deux composants invalide"
+# lancer_ar [arguments] : code de sortie dans `code_ar`, sortie dans `sortie_ar`.
+lancer_ar() {
+  rm -f "$tmp/ar/journal"
+  set +e
+  sortie_ar="$(cd "$tmp/ar" && PATH="$tmp/ar/bin:$PATH" bash scripts/check.sh "$@" 2>&1)"
+  code_ar=$?
+  set -e
+}
+for args in "--host" "--host --complet" "--complet --host"; do
+  # shellcheck disable=SC2086
+  lancer_ar $args
+  [[ $code_ar -eq 0 ]] || echoue "check.sh $args : code $code_ar : $sortie_ar"
+  grep -qxF 'cargo test --workspace --locked' "$tmp/ar/journal" || echoue "check.sh $args : cargo non lancé"
+  grep -qxF 'npm test' "$tmp/ar/journal" || echoue "check.sh $args : npm non lancé"
+  if [[ $args == *--complet* ]]; then
+    grep -qE ' : tout passe \(complet\)$' <<<"$sortie_ar" || echoue "check.sh $args : fin sans (complet) : $sortie_ar"
+  else
+    grep -qE ' : tout passe$' <<<"$sortie_ar" || echoue "check.sh $args : fin de sortie : $sortie_ar"
+  fi
+done
+for args in "--clean --complet" "--complet --clean" "--inconnu" "--host --inconnu" "--clean --host"; do
+  # shellcheck disable=SC2086
+  lancer_ar $args
+  [[ $code_ar -eq 2 ]] || echoue "check.sh $args : code $code_ar au lieu de 2"
+  [[ -e $tmp/ar/journal ]] && echoue "check.sh $args : un outil a tourné"
+  [[ $sortie_ar == 'usage : scripts/check.sh [--host] [--complet] | --clean' ]] || echoue "check.sh $args : usage : $sortie_ar"
+done
+# Sous le faux Windows, la copie WSL reçoit `--complet` quand il est demandé.
+sortie="$(lancer_fx linux "--host --complet")" || echoue "wsl --complet : échec : $sortie"
+grep -qE -- 'essai-wsl --complet$' "$tmp/fx/appels" || echoue "wsl --complet : option non transmise : $(cat "$tmp/fx/appels")"
+sortie="$(lancer_fx linux --host)" || echoue "wsl sans --complet : échec : $sortie"
+grep -qE -- 'essai-wsl --complet$' "$tmp/fx/appels" && echoue "wsl sans --complet : option transmise"
+
 # --- piles TypeScript et Python, dev.sh ---
 mkdir "$tmp/t1"
 printf '%s

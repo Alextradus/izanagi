@@ -4,7 +4,9 @@
 #   scripts/check.sh            systèmes cibles atteignables (WSL sous Windows)
 #   scripts/check.sh --host     système courant s'il est une cible, sinon la
 #                               copie WSL sous Windows (hook pre-push, CI)
-#   scripts/check.sh --clean    vide les caches de vérification
+#   scripts/check.sh --complet  ajoute les étapes fonctionnelles (options combinables
+#                               avec --host, dans tout ordre)
+#   scripts/check.sh --clean    vide les caches de vérification (seul)
 #
 # Sort en erreur au premier échec.
 set -euo pipefail
@@ -23,23 +25,33 @@ case "$(uname -s)" in
 esac
 
 host_only=false
-case "${1:-}" in
-  --host) host_only=true ;;
-  "") ;;
-  --clean)
-    if [[ $systeme != windows ]]; then
-      echo "rien à vider"
-    elif ! command -v wsl.exe >/dev/null; then
-      echo "wsl : absent, rien à vider"
-    else
-      # `--exec` ne développe pas $HOME : le shell de WSL s'en charge.
-      wsl.exe --exec bash -c 'rm -rf "$HOME/$0"' "$cache_wsl"
-      echo "cache WSL vidé"
-    fi
-    exit 0
-    ;;
-  *) echo "usage : scripts/check.sh [--host|--clean]" >&2; exit 2 ;;
-esac
+complet=false
+nettoyer=false
+for argument in "$@"; do
+  case "$argument" in
+    --host) host_only=true ;;
+    --complet) complet=true ;;
+    --clean) nettoyer=true ;;
+    *) usage_faux=true ;;
+  esac
+done
+# `--clean` ne se combine avec rien : ni avec une autre option, ni avec lui-même.
+if [[ ${usage_faux:-false} == true ]] || { $nettoyer && [[ $# -ne 1 ]]; }; then
+  echo "usage : scripts/check.sh [--host] [--complet] | --clean" >&2
+  exit 2
+fi
+if $nettoyer; then
+  if [[ $systeme != windows ]]; then
+    echo "rien à vider"
+  elif ! command -v wsl.exe >/dev/null; then
+    echo "wsl : absent, rien à vider"
+  else
+    # `--exec` ne développe pas $HOME : le shell de WSL s'en charge.
+    wsl.exe --exec bash -c 'rm -rf "$HOME/$0"' "$cache_wsl"
+    echo "cache WSL vidé"
+  fi
+  exit 0
+fi
 
 # Cherche des secrets dans les commits de la branche absents de la branche principale,
 # avec gitleaks et .gitleaks.toml. Ne dépend pas du système : tourne une fois, sur le
@@ -74,6 +86,13 @@ verifier_tout() {
 {{appels}}
 }
 
+# Étapes de l'option `--complet`, après celles de `verifier_tout`. Les appels
+# viennent des fonctions `verifier_<id>_fonctionnelle` des composants et de
+# `verifier_projet_fonctionnelle`, quand le projet en a.
+verifier_tout_complet() {
+{{appels_complets}}
+}
+
 # Copie le dépôt dans WSL, hors de /mnt/c où les I/O sont lentes, et y lance
 # `check.sh --host`. La copie contient les fichiers suivis et les fichiers non
 # suivis non ignorés. Les dépendances installées (node_modules, .venv, target)
@@ -90,6 +109,9 @@ lister_fichiers() {
 }
 
 verifier_wsl() {
+  # Options transmises à la copie : `--host`, plus `--complet` si demandé.
+  local options_wsl=()
+  if $complet; then options_wsl+=(--complet); fi
   if ! command -v wsl.exe >/dev/null; then
     echo "wsl : absent, étape sautée"
     return 0
@@ -128,8 +150,8 @@ verifier_wsl() {
         . "$HOME/.nvm/nvm.sh"
         set -eu
       fi
-      exec bash scripts/check.sh --host
-    ' "$cache_wsl"
+      exec bash scripts/check.sh --host "$@"
+    ' "$cache_wsl" ${options_wsl[@]+"${options_wsl[@]}"}
 }
 
 # Le script ne vérifie le système courant que s'il est une cible. Sous Windows,
@@ -145,7 +167,12 @@ verifier_secrets
 if $hote_cible; then
   echo "== $systeme"
   verifier_tout
-  echo "$systeme : tout passe"
+  if $complet; then
+    verifier_tout_complet
+    echo "$systeme : tout passe (complet)"
+  else
+    echo "$systeme : tout passe"
+  fi
 elif ! $host_only || ! $wsl_cible; then
   echo "$systeme : hors des cibles, sauté"
 fi

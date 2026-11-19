@@ -104,7 +104,7 @@ rm -rf "$tmp/sl"
 
 # Cas entre guillemets : `"--host")` et `'--clean')` sont reconnus.
 cp -r "$tmp/ok" "$tmp/gu"
-sed -i -e 's/^  --host)/  "--host")/' -e "s/^  --clean)/  '--clean')/" "$tmp/gu/scripts/check.sh"
+sed -i -e 's/^\( *\)--host)/\1"--host")/' -e "s/^\\( *\\)--clean)/\\1'--clean')/" "$tmp/gu/scripts/check.sh"
 grep -qF '"--host")' "$tmp/gu/scripts/check.sh" && grep -qF "'--clean')" "$tmp/gu/scripts/check.sh" || echoue "guillemets : sed sans effet"
 sortie="$("$contrat" "$tmp/gu")" || echoue "cas entre guillemets refusés : $sortie"
 rm -rf "$tmp/gu"
