@@ -500,6 +500,13 @@ mkdir "$tmp/pw/chromium-1234"
 diagnostic
 grep -qxF 'ok      navigateurs Playwright' <<<"$sortie" || echoue "doctor : navigateurs présents refusés : $sortie"
 rmdir "$tmp/pw/chromium-1234"
+# Chemin de style Windows (antislash) : le cache est trouvé quand même.
+if command -v cygpath >/dev/null 2>&1; then
+  mkdir "$tmp/pw/chromium-1234"
+  PLAYWRIGHT_BROWSERS_PATH="$(cygpath -w "$tmp/pw")" diagnostic
+  grep -qxF 'ok      navigateurs Playwright' <<<"$sortie" || echoue "doctor : chemin Windows du cache refusé : $sortie"
+  rmdir "$tmp/pw/chromium-1234"
+fi
 # Sans couche fonctionnelle, navigateur=oui ne contrôle rien.
 cp "$tmp/dr-harness" "$harness_dr"
 diagnostic

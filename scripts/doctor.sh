@@ -70,7 +70,6 @@ for pile in $piles; do
   esac
 done
 
-
 # Navigateurs Playwright et outils de mutation. `navigateur` et `mutation` se lisent
 # dans config.env ; une clé absente vaut `non`, sans contrôle ni écart.
 # Faits lus le 2026-11-19 :
@@ -85,6 +84,11 @@ trim() { # trim <texte> : sans espaces de bord
   t="${t#"${t%%[![:space:]]*}"}"
   printf '%s' "${t%"${t##*[![:space:]]}"}"
 }
+cache_present() { # cache_present <dossier> : un chromium-* s'y trouve (préfixe entre guillemets, donc littéral : un antislash Windows ne s'interprète pas)
+  local d
+  for d in "$1"/chromium-*; do [[ -d $d ]] && return 0; done
+  return 1
+}
 couche_fonctionnelle=0
 [[ -f $harness ]] && grep -qE '^- couche : [^|]*\| *fonctionnelle *\|' "$harness" && couche_fonctionnelle=1
 if [[ $couche_fonctionnelle -eq 1 && $(kv_get "$config" navigateur 2>/dev/null || true) == oui ]]; then
@@ -97,7 +101,7 @@ if [[ $couche_fonctionnelle -eq 1 && $(kv_get "$config" navigateur 2>/dev/null |
     esac
   fi
   commande_pw="npx playwright install chromium"
-  if compgen -G "$cache_poste/chromium-*" >/dev/null; then
+  if cache_present "$cache_poste"; then
     ok "navigateurs Playwright"
   else
     ecart "navigateurs Playwright" "absents : $commande_pw"
