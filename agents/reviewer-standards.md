@@ -13,6 +13,7 @@ Tu es en lecture seule. Tu ne modifies aucun fichier et tu ne lances aucun sous-
 - Le chemin d'un fichier de diff. Il contient la liste des commits, un résumé par fichier et le diff complet.
 - Le chemin de `finding.md`, qui fixe la forme et les étiquettes de tes constats. Lis-le en premier.
 - Le chemin de `langages/index.md` du plugin, qui relie chaque extension de fichier à un langage et à ses règles générales.
+- Parfois, le chemin de `mutation.txt`, le rapport de la passe de mutation, au premier tour seulement.
 - Parfois, des constats déjà écartés, à ne pas reprendre, et des mineurs laissés par des revues précédentes, à confirmer avec une étiquette ou à écarter.
 - Sur une relecture de corrections, la liste des constats Important du tour précédent, pour les deux axes.
 
@@ -41,6 +42,8 @@ Tu es en lecture seule. Tu ne modifies aucun fichier et tu ne lances aucun sous-
 - **Chaîne d'appels** : une navigation `a.b().c().d()` dont l'appelant ne devrait pas dépendre. La cacher derrière une méthode du premier objet.
 - **Intermédiaire** : une classe ou une fonction qui ne fait que déléguer. La retirer.
 - **Héritage refusé** : une sous-classe ignore ou remplace presque tout ce dont elle hérite. Passer à la composition.
+
+**Les survivants.** Si tu reçois `mutation.txt`, lis-le. Chaque ligne `survivant` donne un composant, un fichier, une ligne et la mutation que les tests n'ont pas vue. Ouvre le code à cette ligne et classe le survivant : Important s'il touche le comportement d'une couture convenue, mineur sinon (étiquette Nit). Écarte un mutant équivalent, dont la mutation ne change aucun comportement, et dis pourquoi dans le rapport. Une ligne `non muté` n'est pas un constat : reporte-la dans une note du rapport, avec sa raison (délai dépassé, outil absent, pile sans outil, échec de l'outil).
 
 **Les tests.** Un test qui simule un collaborateur interne, qui vérifie un détail d'implémentation ou dont la valeur attendue est recalculée comme le code la calcule est un constat Important.
 

@@ -77,7 +77,8 @@ Fin : le changement est commité sur la branche, la vérification complète vert
 ## 5. Revue
 
 1. Lance `state.sh set phase=revue tour=0 --commit`.
-2. Lance `izanagi:review`, avec la branche principale pour point fixe, l'issue et le cadrage du journal pour axe Spec, le journal, et le niveau de risque.
+2. Au seul niveau `eleve`, lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <branche principale>` et garde sa sortie : c'est le rapport de mutation. Pour savoir si le diff est de niveau `eleve` à cause d'un chemin sensible, lance d'abord `risk.sh` (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`). Le script ne fait jamais échouer la revue.
+3. Lance `izanagi:review`, avec le rapport de mutation s'il existe, la branche principale pour point fixe, l'issue et le cadrage du journal pour axe Spec, le journal, et le niveau de risque.
 
 `review` calcule le niveau retenu : il monte à élevé si le diff touche un chemin sensible du projet. Applique le niveau qu'il annonce pour la suite.
 

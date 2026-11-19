@@ -22,6 +22,7 @@ La phase qui t'appelle fournit :
 - le **point fixe** : la branche ou le commit d'où part le diff ;
 - l'**axe Spec** : un texte ou un chemin (une tranche du plan, des sections de la spec, une issue, la description d'une PR) ;
 - le **journal** du jalon, s'il existe ;
+- le **rapport de mutation**, facultatif : la sortie de `mutation.sh` que la phase a lancé avant la revue ;
 - le **niveau de risque** déclaré : `faible`, `normal` ou `eleve`. Sans niveau donné, prends `normal`. Un plan écrit « élevé » : passe `eleve` aux scripts, qui refusent l'accent.
 
 Lis `.izanagi/config.env` : la clé `verification` donne la vérification, la clé `branche` la branche principale.
@@ -39,6 +40,8 @@ Les relecteurs n'ont pas d'outil pour lancer git. Écris-leur le diff dans un fi
 ```
 
 Les trois points comparent à l'ancêtre commun. Pour un jalon, le fichier va dans le dossier du plan, `.izanagi/journal/<nom du plan sans extension>/`. Hors jalon, il va dans `.izanagi/journal/hors-jalon/`. Git ignore ces deux dossiers (`.izanagi/.gitignore`). Dans un dépôt sans `.izanagi/`, écris le fichier dans `.git/izanagi-review/`, que git ne suit jamais. Les relecteurs lisent ainsi le diff dans le dépôt.
+
+**Rapport de mutation.** Si la phase en fournit un, écris-le à côté du diff, dans le même dossier, sous le nom `mutation.txt`. Le rapport liste les lignes `survivant`, les lignes `non muté` et un compte final. Sur TypeScript, Stryker lance toute la configuration Vitest : la couche fonctionnelle peut aussi tuer des mutants, et le nombre de survivants peut donc être plus bas que les couches unitaire et d'intégration seules ne le donneraient.
 
 ## 2. Niveau de risque
 
@@ -65,6 +68,7 @@ Si l'utilisateur change le niveau pendant la revue, applique le nouveau niveau �
 Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en parallèle. Au niveau `eleve`, lance aussi `izanagi:reviewer-security`, en parallèle des deux autres. Au niveau `faible`, lance le seul `izanagi:reviewer-standards`, et saute ce que ce skill dit du relecteur Spec. Passe à chacun :
 
 - le chemin du fichier de diff ;
+- au seul `izanagi:reviewer-standards`, et au premier tour seulement, le chemin de `mutation.txt` s'il existe ;
 - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/finding.md`, qui fixe la forme et les étiquettes de ses constats ;
 - les constats écartés notés au journal pour ce jalon, pour qu'il ne les reprenne pas ;
 - les mineurs que les revues de tâche ont laissés au journal, à confirmer avec une étiquette ou à écarter.
@@ -96,7 +100,7 @@ Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commit�
 
 **Niveau `faible` : pas de tour suivant.** Les constats Important du tour unique se corrigent, la vérification passe, et la revue s'arrête là. Dis à l'utilisateur que les corrections n'ont pas été relues, et qu'il peut monter le niveau à `normal` pour qu'elles le soient.
 
-Aux niveaux `normal` et `eleve`, relance les relecteurs du premier tour avec les mêmes pièces, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va à chaque relecteur, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
+Aux niveaux `normal` et `eleve`, relance les relecteurs du premier tour avec les mêmes pièces, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va à chaque relecteur, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier. Ne relance pas la mutation et ne passe plus `mutation.txt`.
 
 La revue a convergé quand un tour ne rend aucun Important.
 

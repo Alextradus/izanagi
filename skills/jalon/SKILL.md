@@ -116,7 +116,7 @@ Fin de phase : toutes les tranches fusionnées dans la branche du jalon, la vér
 Les tranches ont déjà passé leur revue. Celle-ci cherche ce qu'elles ne voyaient pas une à une : les écarts à la spec sur l'ensemble du jalon et les défauts entre tranches.
 
 1. Sur la branche du jalon, lance `state.sh set phase=revue tour=0 --commit`.
-2. Lance `izanagi:review`, avec la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut parmi ceux des lignes `Tranche N : fusionnée` et `Correctif <nom> : niveau` du journal. Si une de ces lignes n'a pas de niveau, prends le plus haut des lignes `**Risque :**` du plan.
+2. Lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <branche principale>` et garde sa sortie : c'est le rapport de mutation. Le script ne fait jamais échouer la revue. Puis lance `izanagi:review`, avec le rapport de mutation, la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut parmi ceux des lignes `Tranche N : fusionnée` et `Correctif <nom> : niveau` du journal. Si une de ces lignes n'a pas de niveau, prends le plus haut des lignes `**Risque :**` du plan.
 3. Lance la vérification sur la branche du jalon. Elle doit passer avant la PR.
 4. Pousse la branche du jalon, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps résume le jalon tranche par tranche, dit comment l'essayer et colle la sortie de la vérification.
 5. Lance `state.sh set phase=test --commit` et pousse.

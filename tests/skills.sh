@@ -229,6 +229,16 @@ grep -qF -- '- couche :' agents/reviewer-spec.md || echoue "reviewer-spec ne lit
 grep -qF 'couche la plus basse' agents/diagnostician.md || echoue "diagnostician ne nomme pas la couche la plus basse"
 grep -qF 'couche de ta couture' agents/implementer.md || echoue "implementer ne lit pas la couche de sa couture"
 
+# Mutation dans la revue (0.7).
+grep -qF 'mutation.txt' skills/review/SKILL.md || echoue "review ne nomme pas mutation.txt"
+grep -qF 'Stryker' skills/review/SKILL.md || echoue "review ne dit pas que Stryker lance toute la configuration Vitest"
+for s in jalon task fix; do
+  grep -qF 'mutation.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne lance pas mutation.sh"
+done
+grep -qF 'survivant' agents/reviewer-standards.md || echoue "reviewer-standards ne nomme pas les survivants"
+grep -qF 'non muté' agents/reviewer-standards.md || echoue "reviewer-standards ne traite pas les lignes « non muté »"
+grep -qF 'mutation' references/risk.md || echoue "risk.md ne place pas la mutation au niveau élevé"
+
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
   grep -qF "$mot" NOTICE || echoue "NOTICE ne cite pas « $mot »"
