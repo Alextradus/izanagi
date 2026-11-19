@@ -4,9 +4,11 @@
 #   install.sh <projet> <fichier-valeurs>
 #
 # Le fichier de valeurs porte une valeur par ligne (`clé=valeur`), dont
-# `composant=<nom>|<chemin>|<pile>|<lancement>|<couches>` (répétable, un par
-# composant ; `<couches>` pris dans `unitaire,integration,fonctionnelle`, vide
-# vaut `unitaire`), `fonctionnel_projet=<dossier>|<commande>` (facultatif),
+# `composant=<nom>|<chemin>|<pile>|<lancement>|<couches>[|<ancienne>]` (répétable,
+# un par composant ; `<couches>` pris dans `unitaire,integration,fonctionnelle`, vide
+# vaut `unitaire` ; `<ancienne>`, que donne upgrade, est l'ancienne commande de
+# tests : l'étape unitaire la garde tant que la couche unitaire du gabarit ne peut
+# pas tourner, voir unitaire_prete), `fonctionnel_projet=<dossier>|<commande>` (facultatif),
 # `navigateur` (`oui` quand une couche fonctionnelle emploie Playwright,
 # `non` par défaut) et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
 # `composant=`, `pile=<p>` (autre que `aucune`) crée le composant `<p>|.|<p>|`.
@@ -80,7 +82,7 @@ declare -A noms_vus=()
 # Caractères qui casseraient le `cd "chemin"` de check.sh.
 chemin_interdit='["$`\]'
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches c_ancienne <<<"$entree"
   if [[ ! $c_nom =~ ^[a-z0-9-]+$ ]]; then
     echo "install.sh : composant « $c_nom » refusé : le nom suit [a-z0-9-]+" >&2
     exit 2
@@ -130,6 +132,18 @@ if [[ -n $fonctionnel_projet && -n ${noms_vus[projet]:-} ]]; then
   echo "install.sh : composant « projet » refusé : le nom désigne l'entrée fonctionnel_projet" >&2
   exit 2
 fi
+
+# unitaire_prete <pile> <dossier du composant> : rend 0 si la couche unitaire du
+# gabarit peut tourner dans le dossier. Python : un test dans tests/unitaires/.
+# TypeScript : un script `test:unitaire` dans package.json. Les autres piles
+# ne dépendent pas d'un dossier ou n'ont pas de gabarit : 0.
+unitaire_prete() {
+  case "$1" in
+    python) [[ -n $(find "$2/tests/unitaires" -type f \( -name 'test_*.py' -o -name '*_test.py' \) 2>/dev/null | head -1) ]] ;;
+    typescript) grep -qF '"test:unitaire"' "$2/package.json" 2>/dev/null ;;
+    *) return 0 ;;
+  esac
+}
 
 # Systèmes de la CI et de check.sh.
 systemes_demandes="$(grep -E '^systemes=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
@@ -351,7 +365,7 @@ ci_audit=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches c_ancienne <<<"$entree"
   c_id="${c_nom//-/_}"
   cles=("composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")
   # Une étape par couche déclarée : unitaire et integration dans la section,
@@ -359,14 +373,24 @@ for entree in "${composants[@]}"; do
   etapes=""
   fonctionnelle=""
   declarees=" $(couches_de "$c_couches") "
+  # Ancienne commande de tests (sixième champ) : l'étape unitaire la garde tant
+  # que la couche unitaire du gabarit ne peut pas tourner dans le projet.
+  ancienne=""
+  [[ -n ${c_ancienne:-} ]] && ! unitaire_prete "$c_pile" "$cible/$c_chemin" && ancienne="$c_ancienne"
   for couche in unitaire integration fonctionnelle; do
     declaree=0
     [[ $declarees == *" $couche "* ]] && declaree=1
-    rendre_couche "$c_nom" "$c_chemin" "$c_pile" "$couche" "$declaree"
+    commande_couche=""
+    [[ $couche == unitaire ]] && commande_couche="$ancienne"
+    rendre_couche "$c_nom" "$c_chemin" "$c_pile" "$couche" "$declaree" "$commande_couche"
     tableau_couches+="${tableau_couches:+$'\n'}$couche_rang"
     [[ $declaree -eq 1 ]] || continue
     lignes_couches+="${lignes_couches:+$'\n'}$couche_ligne"
-    etape="$(rendre_fragment "$(fragment "test-$couche.sh" "$c_pile")" "${cles[@]}")"
+    if [[ -n $commande_couche ]]; then
+      etape="    # Ancienne commande du projet : la couche unitaire du gabarit n'a pas encore ses tests."$'\n'"    echo \"-- $c_nom : unitaire\""$'\n'"    $commande_couche"
+    else
+      etape="$(rendre_fragment "$(fragment "test-$couche.sh" "$c_pile")" "${cles[@]}")"
+    fi
     if [[ $couche == fonctionnelle ]]; then
       # TypeScript : la couche fonctionnelle peut employer Playwright.
       if [[ ${valeurs[navigateur]} == oui && $c_pile == typescript ]]; then
@@ -483,7 +507,7 @@ $manque && exit 1
 # rendu depuis le fragment, puis comparé comme les autres gabarits.
 declare -A langages_vus=()
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches c_ancienne <<<"$entree"
   [[ -n ${langages_vus[$c_pile]:-} ]] && continue
   langages_vus[$c_pile]=1
   if [[ -f $racine/references/langages/$c_pile.md ]]; then

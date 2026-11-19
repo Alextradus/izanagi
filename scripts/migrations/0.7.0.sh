@@ -12,7 +12,8 @@
 #   du gabarit (décision 101). Chaque composant reçoit la couche `unitaire`, avec
 #   la commande de l'étape `tests` de sa section de scripts/check.sh. Une couche
 #   `integration` ou `fonctionnelle` s'ajoute seulement si son dossier contient
-#   déjà des tests.
+#   déjà des tests et que la commande du gabarit peut les lancer (scripts npm
+#   `test:integration` et `test:fonctionnel`, feature Cargo `fonctionnel`).
 # - Affiche `à ranger   <chemin>` pour chaque fichier de test qu'elle ne range dans
 #   aucune couche. Elle ne déplace aucun test (décision 114).
 #
@@ -181,7 +182,11 @@ tests_dans() {
 }
 
 # Couches détectées d'un composant : `integration` et `fonctionnelle` quand leur
-# dossier contient déjà des tests. Remplit `detectees` et `rangees` (fichiers rangés).
+# dossier contient déjà des tests et que la commande du gabarit peut les lancer :
+# la feature `fonctionnel` dans Cargo.toml pour `tests/fonctionnel_*.rs`, les
+# scripts `test:integration` et `test:fonctionnel` dans package.json pour
+# TypeScript. Remplit `detectees` et `rangees` (fichiers rangés). Un test
+# fonctionnel Rust sans la feature va dans `a_ranger`.
 detecter() {
   local dir="$1" pile="$2" f
   detectees=" unitaire "
@@ -189,19 +194,27 @@ detecter() {
   case "$pile" in
     rust)
       while IFS= read -r f; do
-        rangees+="$f"$'\n'
         if [[ $(basename "$f") == fonctionnel_* ]]; then
-          detectees+="fonctionnelle "
+          if grep -qE '^[[:space:]]*fonctionnel[[:space:]]*=' "$dir/Cargo.toml" 2>/dev/null; then
+            detectees+="fonctionnelle "
+            rangees+="$f"$'\n'
+          else
+            a_ranger+="${f#"$cible"/}"$'\n'
+          fi
         else
           detectees+="integration "
+          rangees+="$f"$'\n'
         fi
       done < <(tests_dans "$dir/tests" rust 1)
       ;;
     *)
-      local couche sous
+      local couche sous script
       for couche in integration fonctionnelle; do
-        sous=integration
-        [[ $couche == fonctionnelle ]] && sous=fonctionnels
+        sous=integration script=test:integration
+        [[ $couche == fonctionnelle ]] && sous=fonctionnels script=test:fonctionnel
+        if [[ $pile == typescript ]] && ! grep -qF "\"$script\"" "$dir/package.json" 2>/dev/null; then
+          continue
+        fi
         f="$(tests_dans "$dir/tests/$sous" "$pile")"
         if [[ -n $f ]]; then
           detectees+="$couche "

@@ -257,16 +257,22 @@ migration07="$racine/scripts/migrations/0.7.0.sh"
 
 # valeurs_upgrade <projet> : le fichier de valeurs que la section 3 d'upgrade écrit,
 # fait des clés de config.env et des lignes de harness.md. Le cinquième champ de
-# `composant=` vient des lignes `- couche :`.
+# `composant=` vient des lignes `- couche :`, le sixième de la commande unitaire.
 valeurs_upgrade() {
-  local ligne nom chemin pile lancement couches
+  local ligne nom chemin pile lancement couches ancienne
   valeurs_de "$1"
   while IFS= read -r ligne; do
     IFS='|' read -r nom chemin pile lancement <<<"${ligne#- composant : }"
     nom="${nom// /}" chemin="${chemin// /}" pile="${pile// /}"
     lancement="${lancement# }"
     couches="$(sed -n "s/^- couche : $nom | \([a-z]*\) |.*/\1/p" "$1/docs/agents/harness.md" | paste -sd, -)"
-    printf 'composant=%s|%s|%s|%s|%s\n' "$nom" "$chemin" "$pile" "$lancement" "$couches"
+    # Python et TypeScript : la commande unitaire de harness.md en sixième champ.
+    # Jamais pour Rust, dont la colonne commande est une phrase.
+    ancienne=""
+    if [[ $pile == python || $pile == typescript ]]; then
+      ancienne="$(sed -n "s/^- couche : $nom | unitaire | [^|]* | \(.*\)$/\1/p" "$1/docs/agents/harness.md" | tr -d '\r')"
+    fi
+    printf 'composant=%s|%s|%s|%s|%s|%s\n' "$nom" "$chemin" "$pile" "$lancement" "$couches" "$ancienne"
   done < <(grep -E '^- composant : ' "$1/docs/agents/harness.md" | tr -d '\r')
   sed -n 's/^- \*\*Systèmes cibles\*\* : \(.*\)\.$/systemes=\1/p; s/^- \*\*Type\*\* : \(.*\)\.$/type=\1/p' "$1/docs/agents/harness.md"
 }
@@ -308,7 +314,7 @@ git -C "$tmp/r06" add -A && git -C "$tmp/r06" commit -q -m migration
 # La pose d'upgrade : config.env identique, harness.md ne diffère que par la commande
 # unitaire, check.sh et ci.yml diffèrent. Repris, ils passent le contrat.
 valeurs_upgrade "$tmp/r06" >"$tmp/r06v7"
-grep -qxF 'composant=outil|.|rust|cargo run|unitaire,integration' "$tmp/r06v7" || echoue "upgrade 0.7 : composant : $(cat "$tmp/r06v7")"
+grep -qxF 'composant=outil|.|rust|cargo run|unitaire,integration|' "$tmp/r06v7" || echoue "upgrade 0.7 : composant : $(cat "$tmp/r06v7")"
 sortie="$("$install" "$tmp/r06" "$tmp/r06v7")"
 grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "migration 0.7.0 : config.env différent du gabarit : $sortie"
 for f in scripts/check.sh .github/workflows/ci.yml docs/agents/harness.md; do
@@ -346,14 +352,20 @@ grep -qxF -- '- couche : app | unitaire | tests/unitaires | uv run pytest' "$har
 [[ $(kv_get "$tmp/y06/.izanagi/config.env" mutation) == oui ]] || echoue "migration 0.7.0 python : mutation"
 # Rien n'est déplacé.
 [[ -f $tmp/y06/tests/test_calc.py && ! -e $tmp/y06/tests/unitaires ]] || echoue "migration 0.7.0 : un test a été déplacé"
-# La pose d'upgrade reprend check.sh et ci.yml : la vérification passe, avec une
-# étape unitaire et sans étape d'intégration. Des faux uv et gitleaks rendent 0.
+# La pose d'upgrade reprend check.sh et ci.yml. Tant que tests/unitaires/ n'a pas de
+# test, l'étape unitaire garde l'ancienne commande du projet (`uv run pytest`), et
+# harness.md reste tel que la migration l'a écrit. Des faux uv et gitleaks rendent 0.
 valeurs_upgrade "$tmp/y06" >"$tmp/y06v7"
+grep -qxF 'composant=app|.|python||unitaire|uv run pytest' "$tmp/y06v7" || echoue "upgrade 0.7 python : composant : $(cat "$tmp/y06v7")"
 sortie="$("$install" "$tmp/y06" "$tmp/y06v7")"
+grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 python : harness.md réécrit : $sortie"
 rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 for f in scripts/check.sh .github/workflows/ci.yml; do
   cp "$rapport07/rendu/$f" "$tmp/y06/$f"
 done
+grep -A1 -F 'echo "-- app : unitaire"' "$tmp/y06/scripts/check.sh" | grep -qxF '    uv run pytest' ||
+  echoue "upgrade 0.7 python : l'étape unitaire ne lance pas l'ancienne commande : $(cat "$tmp/y06/scripts/check.sh")"
+grep -qF 'pytest tests/unitaires' "$tmp/y06/scripts/check.sh" && echoue "upgrade 0.7 python : check.sh lance tests/unitaires, vide"
 sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/y06" 2>&1)" || echoue "upgrade 0.7 python : contrat après la pose : $sortie"
 mkdir -p "$tmp/y06f"
 printf '#!/bin/sh\necho "$*" >>"%s/uv.args"\nexit 0\n' "$tmp/y06f" >"$tmp/y06f/uv"
@@ -364,8 +376,43 @@ sortie="$(cd "$tmp/y06" && PATH="$tmp/y06f:$PATH" bash scripts/check.sh --host -
 [[ $code -eq 0 ]] || echoue "upgrade 0.7 python : vérification en échec : $sortie"
 grep -qxF -- '-- app : unitaire' <<<"$sortie" || echoue "upgrade 0.7 python : pas d'étape unitaire : $sortie"
 grep -qF -- '-- app : integration' <<<"$sortie" && echoue "upgrade 0.7 python : étape d'intégration sans test : $sortie"
-grep -qxF 'run pytest tests/unitaires' "$tmp/y06f/uv.args" || echoue "upgrade 0.7 python : commande unitaire : $(cat "$tmp/y06f/uv.args")"
+grep -qxF 'run pytest' "$tmp/y06f/uv.args" || echoue "upgrade 0.7 python : commande unitaire : $(cat "$tmp/y06f/uv.args")"
 git -C "$tmp/y06" checkout -q -- scripts .github
+# Une fois un test rangé dans tests/unitaires/, la pose reprend la commande du gabarit.
+mkdir -p "$tmp/y06/tests/unitaires"
+printf 'def test_somme():\n    pass\n' >"$tmp/y06/tests/unitaires/test_calc.py"
+sortie="$("$install" "$tmp/y06" "$tmp/y06v7")"
+rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+grep -A10 -F 'echo "-- app : unitaire"' "$rapport07/rendu/scripts/check.sh" | grep -qF 'uv run pytest tests/unitaires' ||
+  echoue "upgrade 0.7 python : tests rangés, commande du gabarit absente : $(cat "$rapport07/rendu/scripts/check.sh")"
+grep -qxF -- '- couche : app | unitaire | tests/unitaires | uv run pytest tests/unitaires' "$rapport07/rendu/docs/agents/harness.md" ||
+  echoue "upgrade 0.7 python : tests rangés, harness.md : $(cat "$rapport07/rendu/docs/agents/harness.md")"
+rm -rf "$tmp/y06/tests/unitaires"
+
+# --- Projet TypeScript posé par la 0.6.0, sans les scripts npm des couches ---
+mkdir -p "$tmp/w06/src" "$tmp/w06/tests/integration"
+printf 'composant=web|.|typescript|npm run dev\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntest_manuel=npm run dev\ntype=web-frontend\nsystemes=%s\n' "$ici" >"$tmp/w06v"
+bash "$tmp/v06/scripts/install.sh" "$tmp/w06" "$tmp/w06v" >/dev/null
+printf '{\n  "scripts": {\n    "test": "vitest run"\n  }\n}\n' >"$tmp/w06/package.json"
+echo 'x' >"$tmp/w06/src/a.test.ts"
+echo 'x' >"$tmp/w06/tests/integration/b.test.ts"
+depot "$tmp/w06"
+sortie="$(bash "$migration07" "$tmp/w06")"
+# Sans script test:integration, le dossier d'intégration ne fait pas une couche : ses tests sont à ranger.
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md\nà ranger   tests/integration/b.test.ts' ]] ||
+  echoue "migration 0.7.0 typescript 0.6 : $sortie"
+grep -qxF -- '- couche : web | unitaire | src | npm test' "$tmp/w06/docs/agents/harness.md" || echoue "migration 0.7.0 typescript 0.6 : $(cat "$tmp/w06/docs/agents/harness.md")"
+grep -q '^- couche : web | integration' "$tmp/w06/docs/agents/harness.md" && echoue "migration 0.7.0 typescript 0.6 : intégration sans script npm"
+valeurs_upgrade "$tmp/w06" >"$tmp/w06v7"
+sortie="$("$install" "$tmp/w06" "$tmp/w06v7")"
+rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 typescript : harness.md réécrit : $sortie"
+grep -A1 -F 'echo "-- web : unitaire"' "$rapport07/rendu/scripts/check.sh" | grep -qxF '    npm test' ||
+  echoue "upgrade 0.7 typescript : l'étape unitaire ne lance pas npm test : $(cat "$rapport07/rendu/scripts/check.sh")"
+grep -qF 'test:unitaire' "$rapport07/rendu/scripts/check.sh" && echoue "upgrade 0.7 typescript : check.sh lance test:unitaire, absent de package.json"
+cp "$rapport07/rendu/scripts/check.sh" "$tmp/w06/scripts/check.sh"
+cp "$rapport07/rendu/.github/workflows/ci.yml" "$tmp/w06/.github/workflows/ci.yml"
+sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/w06" 2>&1)" || echoue "upgrade 0.7 typescript : contrat après la pose : $sortie"
 
 # --- Projet à la main : TypeScript avec Playwright, et une pile sans gabarit ---
 pt="$tmp/t06"
@@ -376,6 +423,7 @@ printf -- '# Harnais\n\n- **Couches de test** : à préciser.\n\n## Composants\n
   >"$pt/docs/agents/harness.md"
 printf '# --- composant web (typescript) ---\nverifier_web() {\n  (\n    cd "web"\n    echo "-- web : tests"\n    npx vitest run\n  )\n}\n' \
   >"$pt/scripts/check.sh"
+printf '{\n  "scripts": {\n    "test:integration": "vitest run --project integration"\n  }\n}\n' >"$pt/web/package.json"
 for f in src/a.test.ts tests/integration/b.test.ts e2e/c.spec.ts node_modules/x/d.test.js playwright.config.ts; do
   echo 'x' >"$pt/web/$f"
 done
