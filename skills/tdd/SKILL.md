@@ -26,6 +26,46 @@ Si ta tâche ne nomme aucune couture, les tests qu'elle cite en tiennent lieu. S
 
 Si le travail montre qu'une couture convenue ne permet pas d'observer le comportement demandé, ne la déplace pas de toi-même. Signale-le : le choix d'une couture revient à l'utilisateur.
 
+## Couches
+
+Un projet a trois couches de test. Chacune se définit par ce que le test traverse, pas par l'outil.
+
+- **Unitaire.** Le test reste dans le processus, sans réseau, disque ni base. Il vise un module ou une fonction publique.
+- **Intégration.** Le test vise le composant avec ses vraies dépendances (base de test, système de fichiers, HTTP local), appelé par son interface de code ou ses routes.
+- **Fonctionnelle.** Le test vise le produit tel que l'utilisateur le touche (binaire lancé, service HTTP lancé, navigateur), sans accès à l'intérieur. C'est ce que d'autres appellent e2e.
+
+Un test va à la couche de sa couture, dans le dossier de cette couche. Le plan donne la couche de chaque couture, et `harness.md` donne le dossier et la commande dans les lignes `- couche : <composant> | <couche> | <dossier> | <commande>`. Par défaut :
+
+- Rust : `#[cfg(test)]` pour l'unitaire, `tests/` pour l'intégration, `tests/fonctionnel_*.rs` avec la feature `fonctionnel` pour la fonctionnelle.
+- TypeScript : un projet Vitest par couche, et `tests/fonctionnels` pour la fonctionnelle (Playwright pour un front).
+- Python : `tests/unitaires`, `tests/integration` et `tests/fonctionnels`.
+
+Ne mets pas un test d'intégration dans le dossier des tests unitaires pour qu'il passe plus vite. Si la couche du plan ne convient pas à la couture, signale-le comme pour une couture : la couche revient à l'utilisateur.
+
+## Double boucle
+
+Quand la tâche porte le scénario d'acceptation de sa tranche (ligne `**Acceptation :**` du plan), la boucle a deux niveaux.
+
+1. Écris le scénario en premier, à la couche fonctionnelle.
+2. Lance-le avec la vérification complète, `bash scripts/check.sh --complet`, parce que la vérification ordinaire n'exécute pas la couche fonctionnelle. Il doit échouer pour la raison attendue : le comportement manque, pas une erreur de décor ou de commande.
+3. Fais les cycles rouge puis vert des couches plus basses, couture par couture, comme d'habitude.
+4. Relance le scénario à la fin de la tranche. Il doit passer. S'il échoue encore, une couture manque : retourne aux cycles bas, ne change pas le scénario.
+
+Une tâche qui ne porte pas le scénario suit la boucle simple, avec `bash scripts/check.sh`.
+
+## Propriétés
+
+Un test de propriété énonce une règle qui vaut pour toute entrée d'un domaine, et la bibliothèque génère les entrées. Préfère-le à des exemples dans ces cas :
+
+- un invariant (le tri garde la longueur, un total ne devient jamais négatif) ;
+- un aller-retour (`decode(encode(x)) == x`) ;
+- un parseur, qui reçoit des entrées que tu n'imagines pas ;
+- un calcul sur un domaine large, où quelques exemples laissent des trous.
+
+Garde les exemples pour un comportement précis dont la valeur attendue vient de la spec. Une propriété ne recalcule pas le résultat comme le code le fait : c'est le test tautologique.
+
+La bibliothèque dépend de la pile : `proptest` en Rust, `fast-check` en TypeScript, `hypothesis` en Python. `init` ne l'installe pas. Ajoute-la au premier besoin, comme dépendance de développement, dans le commit du premier test de propriété.
+
 ## Anti-motifs
 
 - **Test couplé à l'implémentation.** Il simule un collaborateur interne, teste une méthode privée ou vérifie par un canal détourné, par exemple en interrogeant la base au lieu de passer par l'interface. Le signe : le test casse pendant une refonte alors que le comportement n'a pas changé.

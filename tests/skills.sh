@@ -205,6 +205,21 @@ while IFS= read -r nom; do
   [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"
 done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u)
 
+# Couches de test (0.7) : le plan donne une couche à chaque couture et une ligne
+# d'acceptation à la couche fonctionnelle ; `tdd` décrit les couches, la double boucle
+# et les propriétés.
+for mot in '- couche :' '<interface> (<couche>)' '**Acceptation :**' 'fonctionnelle' 'harness.md'; do
+  grep -qF -- "$mot" skills/planning/SKILL.md || echoue "skills/planning ne nomme pas « $mot »"
+done
+grep -qF 'couche de chaque couture' skills/planning/SKILL.md || echoue "la relecture du plan ne contrôle pas la couche de chaque couture"
+grep -qF 'couche à chaque couture' skills/jalon/SKILL.md || echoue "la phase plan de jalon n'exige pas une couche à chaque couture"
+for titre in '## Couches' '## Double boucle' '## Propriétés'; do
+  grep -qxF -- "$titre" skills/tdd/SKILL.md || echoue "skills/tdd n'a pas la section « $titre »"
+done
+for mot in 'check.sh --complet' 'proptest' 'fast-check' 'hypothesis' 'tests/fonctionnels' 'premier besoin'; do
+  grep -qF -- "$mot" skills/tdd/SKILL.md || echoue "skills/tdd ne nomme pas « $mot »"
+done
+
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
   grep -qF "$mot" NOTICE || echoue "NOTICE ne cite pas « $mot »"

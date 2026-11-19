@@ -96,7 +96,7 @@ Une fois le plan validé :
 3. Lance `state.sh start jalon <nom court>`, puis `state.sh set plan=<chemin du plan> phase=tranches --commit`.
 4. Pousse la branche du jalon.
 
-Fin de phase : coutures et tranches validées, plan fusionné dans la branche principale, branche du jalon créée avec son état et poussée.
+Fin de phase : coutures (avec une couche à chaque couture) et tranches validées, plan fusionné dans la branche principale, branche du jalon créée avec son état et poussée.
 
 ## 4. Tranches
 
