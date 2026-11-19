@@ -4,7 +4,9 @@
 #   install.sh <projet> <fichier-valeurs>
 #
 # Le fichier de valeurs porte une valeur par ligne (`clé=valeur`), dont
-# `composant=<nom>|<chemin>|<pile>|<lancement>` (répétable, un par composant)
+# `composant=<nom>|<chemin>|<pile>|<lancement>|<couches>` (répétable, un par
+# composant ; `<couches>` pris dans `unitaire,integration,fonctionnelle`, vide
+# vaut `unitaire`), `fonctionnel_projet=<dossier>|<commande>` (facultatif)
 # et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
 # `composant=`, `pile=<p>` (autre que `aucune`) crée le composant `<p>|.|<p>|`.
 # Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
@@ -60,7 +62,7 @@ if [[ $pile != aucune && ! -d $racine/templates/$pile ]]; then
   exit 2
 fi
 
-# Composants : `nom|chemin|pile|lancement`, dans l'ordre du fichier.
+# Composants : `nom|chemin|pile|lancement|couches`, dans l'ordre du fichier.
 declare -a composants=()
 while IFS= read -r ligne; do
   composants+=("${ligne%$'\r'}")
@@ -75,7 +77,7 @@ declare -A noms_vus=()
 # Caractères qui casseraient le `cd "chemin"` de check.sh.
 chemin_interdit='["$`\]'
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches <<<"$entree"
   if [[ ! $c_nom =~ ^[a-z0-9-]+$ ]]; then
     echo "install.sh : composant « $c_nom » refusé : le nom suit [a-z0-9-]+" >&2
     exit 2
@@ -93,7 +95,55 @@ for entree in "${composants[@]}"; do
     echo "install.sh : pile « $c_pile » du composant $c_nom refusée" >&2
     exit 2
   fi
+  IFS=',' read -r -a liste_couches <<<"$c_couches"
+  for c in "${liste_couches[@]}"; do
+    c="${c// /}"
+    if [[ -n $c && ! $c =~ ^(unitaire|integration|fonctionnelle)$ ]]; then
+      echo "install.sh : couche « $c » du composant $c_nom refusée" >&2
+      exit 1
+    fi
+  done
 done
+
+# Couches déclarées d'un composant, dans l'ordre unitaire, integration,
+# fonctionnelle, séparées par des espaces. Prend le cinquième champ de
+# `composant=` ; vide, il vaut `unitaire`.
+couches_de() {
+  local champ=",${1// /}," c sortie=""
+  for c in unitaire integration fonctionnelle; do
+    [[ $champ == *",$c,"* ]] && sortie+="${sortie:+ }$c"
+  done
+  printf '%s' "${sortie:-unitaire}"
+}
+
+# Entrée fonctionnelle du projet : `dossier|commande`, la commande à la racine.
+fonctionnel_projet="$(grep -E '^fonctionnel_projet=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
+if [[ -n $fonctionnel_projet && ( $fonctionnel_projet != *'|'* || -z ${fonctionnel_projet%%|*} || -z ${fonctionnel_projet#*|} ) ]]; then
+  echo "install.sh : fonctionnel_projet « $fonctionnel_projet » refusé : <dossier>|<commande>" >&2
+  exit 2
+fi
+# `verifier_projet_fonctionnelle` et la ligne `- couche : projet` sont à l'entrée du projet.
+if [[ -n $fonctionnel_projet && -n ${noms_vus[projet]:-} ]]; then
+  echo "install.sh : composant « projet » refusé : le nom désigne l'entrée fonctionnel_projet" >&2
+  exit 2
+fi
+
+# Dossier, relatif au composant, et commande d'une couche, pour harness.md
+# (décision 94). Les commandes sont celles des fragments `test-<couche>.sh`.
+info_couche() {
+  case "$1:$2" in
+    rust:unitaire) printf '%s' 'src|cargo test --workspace --locked --lib --bins, puis --doc' ;;
+    rust:integration) printf '%s' 'tests|cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*' ;;
+    rust:fonctionnelle) printf '%s' "tests/fonctionnel_*.rs|cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" ;;
+    typescript:unitaire) printf '%s' 'src|npm run test:unitaire' ;;
+    typescript:integration) printf '%s' 'tests/integration|npm run test:integration' ;;
+    typescript:fonctionnelle) printf '%s' 'tests/fonctionnels|npm run test:fonctionnel' ;;
+    python:unitaire) printf '%s' 'tests/unitaires|uv run pytest tests/unitaires' ;;
+    python:integration) printf '%s' 'tests/integration|uv run pytest tests/integration' ;;
+    python:fonctionnelle) printf '%s' 'tests/fonctionnels|uv run pytest tests/fonctionnels' ;;
+    *) printf '%s' 'à préciser|à préciser' ;;
+  esac
+}
 
 # Systèmes de la CI et de check.sh.
 systemes_demandes="$(grep -E '^systemes=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
@@ -245,15 +295,47 @@ appels_complets=""
 lancements=""
 tableau=""
 lignes_composants=""
+tableau_couches=""
+lignes_couches=""
 ci_setup=""
 ci_audit=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches <<<"$entree"
   c_id="${c_nom//-/_}"
-  sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
-    "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
+  cles=("composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")
+  # Une étape par couche déclarée : unitaire et integration dans la section,
+  # fonctionnelle dans une fonction à part, que seul `--complet` appelle.
+  etapes=""
+  fonctionnelle=""
+  declarees=" $(couches_de "$c_couches") "
+  for couche in unitaire integration fonctionnelle; do
+    info="$(info_couche "$c_pile" "$couche")"
+    dossier="${info%%|*}"
+    commande="${info#*|}"
+    [[ $c_chemin != . && $dossier != 'à préciser' ]] && dossier="$c_chemin/$dossier"
+    libelle="${couche/integration/intégration}"
+    if [[ $declarees != *" $couche "* ]]; then
+      tableau_couches+="${tableau_couches:+$'\n'}| $c_nom | $libelle | sans objet | sans objet |"
+      continue
+    fi
+    if [[ $dossier == 'à préciser' ]]; then
+      tableau_couches+="${tableau_couches:+$'\n'}| $c_nom | $libelle | à préciser | à préciser |"
+    else
+      tableau_couches+="${tableau_couches:+$'\n'}| $c_nom | $libelle | \`$dossier\` | \`$commande\` |"
+    fi
+    lignes_couches+="${lignes_couches:+$'\n'}- couche : $c_nom | $couche | $dossier | $commande"
+    etape="$(rendre_fragment "$(fragment "test-$couche.sh" "$c_pile")" "${cles[@]}")"
+    if [[ $couche == fonctionnelle ]]; then
+      fonctionnelle="verifier_${c_id}_fonctionnelle() {"$'\n'"  ("$'\n'"    cd \"$c_chemin\""$'\n'"$etape"$'\n'"  )"$'\n'"}"
+      appels_complets+="${appels_complets:+$'\n'}  verifier_${c_id}_fonctionnelle"
+    else
+      etapes+="${etapes:+$'\n'}$etape"
+    fi
+  done
+  sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" "etapes=$etapes" "${cles[@]}")"
+  [[ -n $fonctionnelle ]] && sections+=$'\n\n'"$fonctionnelle"
   tableau+="${tableau:+$'\n'}| $c_nom | \`$c_chemin\` | $c_pile | ${c_lancement:+\`$c_lancement\`} |"
   lignes_composants+="${lignes_composants:+$'\n'}- composant : $c_nom | $c_chemin | $c_pile |${c_lancement:+ $c_lancement}"
   [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"$'\n''pids+=("$!")'
@@ -273,6 +355,23 @@ if [[ -n $tableau ]]; then
 else
   tableau="Aucun composant pour l'instant : \`/izanagi:init\` en ajoute."
 fi
+# Entrée fonctionnelle du projet (décision 97) : lancée à la racine, après les
+# composants, par `--complet`.
+if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
+  p_dossier="${fonctionnel_projet%%|*}"
+  p_commande="${fonctionnel_projet#*|}"
+  sections+=$'\n\n'"# --- entrée fonctionnelle du projet ---"$'\n'"verifier_projet_fonctionnelle() {"$'\n'"  ("$'\n'"    echo \"-- projet : fonctionnelle\""$'\n'"    $p_commande"$'\n'"  )"$'\n'"}"
+  appels_complets+="${appels_complets:+$'\n'}  verifier_projet_fonctionnelle"
+  tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
+  lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"
+fi
+if [[ -n $tableau_couches ]]; then
+  tableau_couches=$'| Composant | Couche | Dossier | Commande |\n| --- | --- | --- | --- |\n'"$tableau_couches"
+else
+  tableau_couches="Aucune couche sans composant."
+fi
+valeurs[tableau_couches]="$tableau_couches"
+valeurs[lignes_couches]="$lignes_couches"
 valeurs[tableau_composants]="$tableau"
 valeurs[lignes_composants]="$lignes_composants"
 valeurs[sections]="$sections"
@@ -302,7 +401,7 @@ $manque && exit 1
 # rendu depuis le fragment, puis comparé comme les autres gabarits.
 declare -A langages_vus=()
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches <<<"$entree"
   [[ -n ${langages_vus[$c_pile]:-} ]] && continue
   langages_vus[$c_pile]=1
   if [[ -f $racine/references/langages/$c_pile.md ]]; then

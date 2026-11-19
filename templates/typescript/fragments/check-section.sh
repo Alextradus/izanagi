@@ -8,7 +8,6 @@ verifier_{{id}}() {
     npm run format:check
     echo "-- {{composant}} : lint"
     npm run lint
-    echo "-- {{composant}} : tests"
-    npm test
+{{etapes}}
   )
 }

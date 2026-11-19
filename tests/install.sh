@@ -259,13 +259,19 @@ lancer_fx windows,linux >/dev/null || echoue "windows,linux : échec"
 
 # --- arguments de check.sh : --host, --complet, --clean ---
 # Faux cargo et npm : ils notent leurs arguments dans `journal` et réussissent.
+# `cargo metadata` affiche le contenu de `meta` : une bibliothèque, un test
+# d'intégration `integ` et un test fonctionnel `fonctionnel_cli`.
 mkdir "$tmp/ar" "$tmp/ar/bin" "$tmp/ar/web"
 git -C "$tmp/ar" init -q
 for outil in cargo npm gitleaks; do
   printf '#!/bin/sh\necho "%s $*" >>"%s/journal"\n' "$outil" "$tmp/ar" >"$tmp/ar/bin/$outil"
   chmod +x "$tmp/ar/bin/$outil"
 done
-printf '%s\n' 'composant=cli|.|rust|' 'composant=web|web|typescript|' systemes=windows,linux,macos "${base[@]}" >"$tmp/arv"
+printf '[ "$1" = metadata ] && cat "%s/meta"\nexit 0\n' "$tmp/ar" >>"$tmp/ar/bin/cargo"
+meta_complet='{"packages":[{"name":"cli","targets":[{"kind":["lib"],"crate_types":["lib"],"name":"cli"},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli","required-features":["fonctionnel"]},{"kind":["test"],"crate_types":["bin"],"name":"integ"}]}]}'
+printf '%s\n' "$meta_complet" >"$tmp/ar/meta"
+printf '%s\n' 'composant=cli|.|rust||unitaire,integration,fonctionnelle' 'composant=web|web|typescript|' \
+  'fonctionnel_projet=tests/fonctionnels|npm run test:projet' systemes=windows,linux,macos "${base[@]}" >"$tmp/arv"
 "$install" "$tmp/ar" "$tmp/arv" >/dev/null
 bash -n "$tmp/ar/scripts/check.sh" || echoue "check.sh à deux composants invalide"
 # lancer_ar [arguments] : code de sortie dans `code_ar`, sortie dans `sortie_ar`.
@@ -280,14 +286,31 @@ for args in "--host" "--host --complet" "--complet --host"; do
   # shellcheck disable=SC2086
   lancer_ar $args
   [[ $code_ar -eq 0 ]] || echoue "check.sh $args : code $code_ar : $sortie_ar"
-  grep -qxF 'cargo test --workspace --locked' "$tmp/ar/journal" || echoue "check.sh $args : cargo non lancé"
-  grep -qxF 'npm test' "$tmp/ar/journal" || echoue "check.sh $args : npm non lancé"
+  attendu=$'cargo test --workspace --locked --lib --bins\ncargo test --workspace --locked --doc\ncargo test --workspace --locked --test integ\nnpm run test:unitaire'
+  if [[ $args == *--complet* ]]; then
+    attendu+=$'\ncargo test --workspace --locked --features fonctionnel --test fonctionnel_*\nnpm run test:projet'
+  fi
+  [[ $(grep -vE '^(cargo (fmt|clippy|metadata)|npm (ci|run (format:check|lint))|gitleaks)' "$tmp/ar/journal") == "$attendu" ]] ||
+    echoue "check.sh $args : étapes de test : $(cat "$tmp/ar/journal")"
   if [[ $args == *--complet* ]]; then
     grep -qE ' : tout passe \(complet\)$' <<<"$sortie_ar" || echoue "check.sh $args : fin sans (complet) : $sortie_ar"
   else
     grep -qE ' : tout passe$' <<<"$sortie_ar" || echoue "check.sh $args : fin de sortie : $sortie_ar"
   fi
 done
+# Sans bibliothèque : ni `--lib` ni `--doc`, qui échoueraient.
+cible_lib='{"kind":["lib"],"crate_types":["lib"],"name":"cli"},'
+printf '%s\n' "${meta_complet/"$cible_lib"/}" >"$tmp/ar/meta"
+lancer_ar --host
+[[ $code_ar -eq 0 ]] || echoue "sans bibliothèque : code $code_ar : $sortie_ar"
+grep -qxF 'cargo test --workspace --locked --bins' "$tmp/ar/journal" || echoue "sans bibliothèque : --bins seul attendu : $(cat "$tmp/ar/journal")"
+grep -qE -- '--lib|--doc' "$tmp/ar/journal" && echoue "sans bibliothèque : --lib ou --doc lancé"
+# Sans test d'intégration : l'étape échoue, une couche ne tolère pas un dossier vide.
+printf '%s\n' '{"packages":[{"name":"cli","targets":[{"kind":["bin"],"crate_types":["bin"],"name":"cli"},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli"}]}]}' >"$tmp/ar/meta"
+lancer_ar --host
+[[ $code_ar -ne 0 ]] || echoue "sans test d'intégration : l'étape réussit"
+grep -qF "aucun test d'intégration" <<<"$sortie_ar" || echoue "sans test d'intégration : message : $sortie_ar"
+printf '%s\n' "$meta_complet" >"$tmp/ar/meta"
 for args in "--clean --complet" "--complet --clean" "--inconnu" "--host --inconnu" "--clean --host"; do
   # shellcheck disable=SC2086
   lancer_ar $args
@@ -363,7 +386,8 @@ mkdir "$tmp/m3"
 printf '%s\n' 'composant=outil|.|zig|' "${base[@]}" >"$tmp/m3v"
 sortie="$("$install" "$tmp/m3" "$tmp/m3v")"
 grep -qxF 'à écrire   outil (zig)' <<<"$sortie" || echoue "à écrire : $sortie"
-grep -qxF '    # À ÉCRIRE : outil (zig), format, lint, tests' "$tmp/m3/scripts/check.sh" || echoue "section à écrire"
+grep -qxF '    # À ÉCRIRE : outil (zig), format, lint' "$tmp/m3/scripts/check.sh" || echoue "section à écrire"
+grep -qxF '    # À ÉCRIRE : outil (zig), couche unitaire' "$tmp/m3/scripts/check.sh" || echoue "couche unitaire à écrire"
 sed -i 's/^.*# À ÉCRIRE.*$/    true/' "$tmp/m3/scripts/check.sh"
 (cd "$tmp/m3" && scripts/check.sh --host >/dev/null) || echoue "check.sh --host avec true"
 sed -i 's/^    true$/    false/' "$tmp/m3/scripts/check.sh"
@@ -428,6 +452,95 @@ grep -q '{{' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md garde un {{"
 grep -q '^- composant :' "$tmp/m6/docs/agents/harness.md" && echoue "harness.md : ligne composant sans composant"
 grep -qF 'Aucun composant' "$tmp/m6/docs/agents/harness.md" || echoue "harness.md : note de tableau vide"
 grep -qxF -- '- composant : a | a | typescript |' "$tmp/t4/docs/agents/harness.md" || echoue "harness.md : espace final sans lancement"
+
+# --- couches de test ---
+# Sans cinquième champ, un composant n'a que la couche unitaire.
+grep -qF 'Couches de test** :' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md garde la ligne Couches de test"
+grep -qxF -- '- couche : cli | unitaire | src | cargo test --workspace --locked --lib --bins, puis --doc' "$tmp/m1/docs/agents/harness.md" ||
+  echoue "harness.md : couche unitaire par défaut"
+grep -q -- '- couche : cli | integration' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md : couche integration non déclarée"
+grep -qF 'echo "-- cli : unitaire"' "$tmp/m1/scripts/check.sh" || echoue "check.sh : étape unitaire par défaut"
+grep -qE -- '-- [a-z]+ : tests"' "$tmp/m1/scripts/check.sh" && echoue "check.sh garde l'étape tests"
+grep -qE -- '-- cli : (integration|fonctionnelle)' "$tmp/m1/scripts/check.sh" && echoue "check.sh : couche non déclarée rendue"
+grep -qF 'verifier_cli_fonctionnelle' "$tmp/m1/scripts/check.sh" && echoue "check.sh : fonction fonctionnelle sans la couche"
+[[ $(sed -n '/^verifier_tout_complet() {/,/^}/p' "$tmp/m1/scripts/check.sh") == $'verifier_tout_complet() {\n  :\n}' ]] ||
+  echoue "check.sh : verifier_tout_complet non vide sans couche fonctionnelle"
+grep -q '^couches=' "$racine/templates/core/defaults.env" && echoue "defaults.env garde la clé couches"
+
+# Un composant de chaque pile avec les trois couches, un composant unitaire
+# seul, et l'entrée fonctionnelle du projet.
+mkdir "$tmp/co"
+trois=unitaire,integration,fonctionnelle
+printf '%s\n' "composant=cli|cli|rust||$trois" "composant=web|web|typescript|npm run dev|$trois" \
+  "composant=ml|ml|python||$trois" "composant=outil|outil|zig||$trois" 'composant=noyau|noyau|rust||unitaire' \
+  'fonctionnel_projet=tests/fonctionnels|npx playwright test' "${base[@]}" >"$tmp/cov"
+"$install" "$tmp/co" "$tmp/cov" >/dev/null || echoue "trois couches : install.sh échoue"
+check_co="$tmp/co/scripts/check.sh"
+bash -n "$check_co" || echoue "trois couches : check.sh invalide"
+# fonction <nom> : le corps rendu d'une fonction de check.sh.
+fonction() { sed -n "/^$1() {/,/^}/p" "$check_co"; }
+for ligne in \
+  'verifier_cli|echo "-- cli : unitaire"' \
+  'verifier_cli|cargo test --workspace --locked --lib --bins' \
+  'verifier_cli|cargo test --workspace --locked --doc' \
+  'verifier_cli|echo "-- cli : integration"' \
+  'verifier_cli|cargo test --workspace --locked "${tests_integration[@]}"' \
+  'verifier_cli_fonctionnelle|cd "cli"' \
+  'verifier_cli_fonctionnelle|echo "-- cli : fonctionnelle"' \
+  "verifier_cli_fonctionnelle|cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" \
+  'verifier_web|npm run test:unitaire' \
+  'verifier_web|npm run test:integration' \
+  'verifier_web_fonctionnelle|cd "web"' \
+  'verifier_web_fonctionnelle|npm run test:fonctionnel' \
+  'verifier_ml|uv run pytest tests/unitaires' \
+  'verifier_ml|uv run pytest tests/integration' \
+  'verifier_ml_fonctionnelle|uv run pytest tests/fonctionnels' \
+  'verifier_outil|# À ÉCRIRE : outil (zig), couche unitaire' \
+  'verifier_outil|# À ÉCRIRE : outil (zig), couche integration' \
+  'verifier_outil_fonctionnelle|# À ÉCRIRE : outil (zig), couche fonctionnelle' \
+  'verifier_noyau|echo "-- noyau : unitaire"' \
+  'verifier_projet_fonctionnelle|echo "-- projet : fonctionnelle"' \
+  'verifier_projet_fonctionnelle|npx playwright test'; do
+  fonction "${ligne%%|*}" | grep -qF -- "${ligne#*|}" || echoue "trois couches : ${ligne%%|*} sans « ${ligne#*|} »"
+done
+fonction verifier_cli | grep -qF -- '--features fonctionnel' && echoue "trois couches : verifier_cli lance la couche fonctionnelle"
+fonction verifier_noyau | grep -qF 'integration' && echoue "unitaire seul : étape integration rendue"
+grep -qF 'verifier_noyau_fonctionnelle' "$check_co" && echoue "unitaire seul : fonction fonctionnelle rendue"
+[[ $(fonction verifier_tout_complet) == $'verifier_tout_complet() {\n  verifier_cli_fonctionnelle\n  verifier_web_fonctionnelle\n  verifier_ml_fonctionnelle\n  verifier_outil_fonctionnelle\n  verifier_projet_fonctionnelle\n}' ]] ||
+  echoue "trois couches : verifier_tout_complet : $(fonction verifier_tout_complet)"
+[[ $(grep -c '# --- composant ' "$check_co") -eq 5 ]] || echoue "trois couches : un marqueur de composant par composant"
+grep -qE -- '-- [a-z]+ : tests"' "$check_co" && echoue "trois couches : étape tests restante"
+harness_co="$tmp/co/docs/agents/harness.md"
+grep -qxF '## Couches de test' "$harness_co" || echoue "harness.md : section Couches de test"
+grep -qxF '| Composant | Couche | Dossier | Commande |' "$harness_co" || echoue "harness.md : tableau des couches"
+grep -qxF '| noyau | intégration | sans objet | sans objet |' "$harness_co" || echoue "harness.md : couche sans objet"
+for ligne in \
+  '- couche : cli | unitaire | cli/src | cargo test --workspace --locked --lib --bins, puis --doc' \
+  "- couche : cli | integration | cli/tests | cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*" \
+  "- couche : cli | fonctionnelle | cli/tests/fonctionnel_*.rs | cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" \
+  '- couche : web | unitaire | web/src | npm run test:unitaire' \
+  '- couche : web | integration | web/tests/integration | npm run test:integration' \
+  '- couche : web | fonctionnelle | web/tests/fonctionnels | npm run test:fonctionnel' \
+  '- couche : ml | unitaire | ml/tests/unitaires | uv run pytest tests/unitaires' \
+  '- couche : ml | integration | ml/tests/integration | uv run pytest tests/integration' \
+  '- couche : ml | fonctionnelle | ml/tests/fonctionnels | uv run pytest tests/fonctionnels' \
+  '- couche : outil | unitaire | à préciser | à préciser' \
+  '- couche : noyau | unitaire | noyau/src | cargo test --workspace --locked --lib --bins, puis --doc' \
+  '- couche : projet | fonctionnelle | tests/fonctionnels | npx playwright test'; do
+  grep -qxF -- "$ligne" "$harness_co" || echoue "harness.md : ligne « $ligne » absente"
+done
+[[ $(grep -c '^- couche : ' "$harness_co") -eq 14 ]] || echoue "harness.md : 14 lignes de couche attendues"
+grep -q '^- couche : noyau | integration' "$harness_co" && echoue "harness.md : couche non déclarée listée"
+# Le contrat garde ses lignes de composant.
+grep -qxF -- '- composant : web | web | typescript | npm run dev' "$harness_co" || echoue "harness.md : ligne composant avec couches"
+
+# Couche inconnue : refus avant toute écriture, code 1.
+mkdir "$tmp/ci"
+printf '%s\n' 'composant=cli|.|rust||unitaire,e2e' "${base[@]}" >"$tmp/civ"
+set +e; "$install" "$tmp/ci" "$tmp/civ" >/dev/null 2>"$tmp/err"; code=$?; set -e
+[[ $code -eq 1 ]] || echoue "couche inconnue : code $code au lieu de 1"
+grep -qxF 'install.sh : couche « e2e » du composant cli refusée' "$tmp/err" || echoue "couche inconnue : message : $(cat "$tmp/err")"
+[[ -z $(ls -A "$tmp/ci") ]] || echoue "couche inconnue : écriture malgré le refus"
 
 # Une valeur vide garde sa ligne `clé=` : la ligne suivante ne s'y colle pas.
 mkdir "$tmp/cle-vide"

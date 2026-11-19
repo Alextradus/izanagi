@@ -6,7 +6,6 @@ verifier_{{id}}() {
     cargo fmt --all --check
     echo "-- {{composant}} : clippy"
     cargo clippy --workspace --all-targets --locked -q -- -D warnings
-    echo "-- {{composant}} : tests"
-    cargo test --workspace --locked
+{{etapes}}
   )
 }
