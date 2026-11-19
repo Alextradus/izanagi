@@ -1,0 +1,4 @@
+      # Couverture Vitest : le fournisseur `@vitest/coverage-v8` est une
+      # dépendance de développement du composant, installée par `npm ci` depuis
+      # le verrou (https://vitest.dev/guide/coverage, lu le 2026-11-19). Rien à
+      # installer ici.

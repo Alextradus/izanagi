@@ -8,6 +8,13 @@
 #                               avec --host, dans tout ordre)
 #   scripts/check.sh --clean    vide les caches de vérification (seul)
 #
+# Variables lues :
+#   IZANAGI_COUVERTURE=1   les étapes de test mesurent la couverture, et la fin
+#                          affiche le taux par composant (aussi dans
+#                          $GITHUB_STEP_SUMMARY quand il est défini)
+#   IZANAGI_NAVIGATEUR=non les étapes fonctionnelles qui emploient Playwright
+#                          sont sautées (systèmes de la CI sans navigateur)
+#
 # Sort en erreur au premier échec.
 set -euo pipefail
 
@@ -93,6 +100,38 @@ verifier_tout_complet() {
 {{appels_complets}}
 }
 
+# Couverture, avec IZANAGI_COUVERTURE=1 (job `couverture` de la CI). Les étapes
+# de test mesurent ; `preparer_couverture` efface les mesures d'avant, et
+# `resumer_couverture` affiche le taux de chaque composant à la fin.
+preparer_couverture() {
+{{preparations_couverture}}
+}
+
+# couverture_composant <nom> <pile> <chemin> <commande>... : le résumé d'un
+# composant, en Markdown.
+couverture_composant() {
+  local nom="$1" pile="$2" chemin="$3"
+  shift 3
+  printf '\n### %s (%s)\n\n```text\n' "$nom" "$pile"
+  (cd "$chemin" && "$@")
+  printf '```\n'
+}
+
+resumer_couverture() {
+{{resumes_couverture}}
+}
+
+# Écrit le résumé sur la sortie, et dans le résumé du job GitHub quand
+# GITHUB_STEP_SUMMARY est défini.
+ecrire_couverture() {
+  local resume
+  resume="$(echo "## Couverture des tests"; "$@")"
+  printf '%s\n' "$resume"
+  if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
+    printf '%s\n' "$resume" >>"$GITHUB_STEP_SUMMARY"
+  fi
+}
+
 # Copie le dépôt dans WSL, hors de /mnt/c où les I/O sont lentes, et y lance
 # `check.sh --host`. La copie contient les fichiers suivis et les fichiers non
 # suivis non ignorés. Les dépendances installées (node_modules, .venv, target)
@@ -162,10 +201,14 @@ hote_cible=false
 wsl_cible=false
 [[ $systeme == windows && ",$cibles," == *,linux,* ]] && wsl_cible=true
 
+couverture=false
+[[ ${IZANAGI_COUVERTURE:-} == 1 ]] && couverture=true
+
 verifier_secrets
 
 if $hote_cible; then
   echo "== $systeme"
+  if $couverture; then preparer_couverture; fi
   verifier_tout
   if $complet; then
     verifier_tout_complet
@@ -173,8 +216,10 @@ if $hote_cible; then
   else
     echo "$systeme : tout passe"
   fi
+  if $couverture; then ecrire_couverture resumer_couverture; fi
 elif ! $host_only || ! $wsl_cible; then
   echo "$systeme : hors des cibles, sauté"
+  if $couverture; then ecrire_couverture echo "$systeme : hors des cibles, rien de mesuré"; fi
 fi
 
 if $wsl_cible && { ! $host_only || ! $hote_cible; }; then

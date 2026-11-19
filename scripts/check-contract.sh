@@ -136,9 +136,14 @@ for f in "$check" "$ci" "$dev"; do
   fi
 done
 
-# Règle 7 : la CI lance check.sh --host, sur les systèmes de harness.md.
+# Règle 7 : la CI lance check.sh --host --complet, sur les systèmes de
+# harness.md. La commande occupe seule sa ligne, après `run:` ou dans un bloc
+# `run: |` : la ligne du job couverture, préfixée par IZANAGI_COUVERTURE=1,
+# ne compte pas.
 if [[ -f $projet/$ci ]]; then
-  grep -qF 'bash scripts/check.sh --host' "$projet/$ci" || ecart "$ci" "ne lance pas bash scripts/check.sh --host"
+  sans_commentaires "$projet/$ci" |
+    grep -qE '^[[:space:]]*(-[[:space:]]*)?(run:[[:space:]]*)?bash scripts/check\.sh --host --complet[[:space:]]*$' ||
+    ecart "$ci" "ne lance pas bash scripts/check.sh --host --complet"
   attendu=""
   IFS=',' read -r -a liste <<<"$systemes"
   for s in "${liste[@]}"; do

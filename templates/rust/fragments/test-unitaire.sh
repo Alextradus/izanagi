@@ -13,10 +13,21 @@
     # bibliothèque de tout type (cdylib et staticlib compris) a des tests `--lib`.
     metadonnees="$(cargo metadata --no-deps --format-version 1 --locked)"
     bibliotheque='"kind":\[[^]]*"(lib|rlib|dylib|cdylib|staticlib|proc-macro)"'
+    # Avec IZANAGI_COUVERTURE=1, `cargo llvm-cov --no-report` remplace `cargo test`
+    # et garde ses mesures jusqu'au `cargo llvm-cov report` de la fin.
+    # Fait cargo-llvm-cov, lu le 2026-11-19 : `clean --workspace`, puis plusieurs
+    # `--no-report`, puis `report` fusionne les mesures. Les doctests demandent
+    # Rust nightly (`--doctests`, instable) : ils tournent sans mesure.
+    # https://github.com/taiki-e/cargo-llvm-cov
     if [[ $metadonnees =~ $bibliotheque ]]; then
-      cargo test --workspace --locked --lib --bins
+      cibles_unitaires=(--lib --bins)
     else
-      cargo test --workspace --locked --bins
+      cibles_unitaires=(--bins)
+    fi
+    if [[ ${IZANAGI_COUVERTURE:-} == 1 ]]; then
+      cargo llvm-cov --no-report --workspace --locked "${cibles_unitaires[@]}"
+    else
+      cargo test --workspace --locked "${cibles_unitaires[@]}"
     fi
     if [[ $metadonnees == *'"doctest":true'* ]]; then
       cargo test --workspace --locked --doc

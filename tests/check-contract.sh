@@ -73,6 +73,19 @@ if sortie="$("$contrat" "$tmp/os")"; then echoue "os modifié accepté"; fi
 grep -q 'ci.yml' <<<"$sortie" || echoue "os : $sortie"
 rm -rf "$tmp/os"
 
+# Règle 7 : une CI qui lance encore `--host` seul est refusée, même si le job
+# couverture lance `--host --complet`.
+cp -r "$tmp/ok" "$tmp/r7"
+sed -i 's/^\( *\)run: bash scripts\/check.sh --host --complet$/\1run: bash scripts\/check.sh --host/' "$tmp/r7/.github/workflows/ci.yml"
+grep -qxF '        run: bash scripts/check.sh --host' "$tmp/r7/.github/workflows/ci.yml" || echoue "règle 7 : sed sans effet"
+if sortie="$("$contrat" "$tmp/r7")"; then echoue "CI sans --complet acceptée"; fi
+grep -qxF 'contrat : .github/workflows/ci.yml : ne lance pas bash scripts/check.sh --host --complet' <<<"$sortie" || echoue "règle 7 : $sortie"
+# Dans un bloc `run: |`, la ligne seule passe aussi.
+cp -r "$tmp/ok" "$tmp/r7b"
+sed -i 's/^\( *\)run: bash scripts\/check.sh --host --complet$/\1run: |\n\1  bash scripts\/check.sh --host --complet/' "$tmp/r7b/.github/workflows/ci.yml"
+sortie="$("$contrat" "$tmp/r7b")" || echoue "règle 7 : bloc run: | refusé : $sortie"
+rm -rf "$tmp/r7" "$tmp/r7b"
+
 # Composant sans section dans check.sh.
 cp -r "$tmp/ok" "$tmp/sec"
 sed -i 's/^# --- composant cli (/# --- composant autre (/' "$tmp/sec/scripts/check.sh"

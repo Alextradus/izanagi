@@ -177,8 +177,21 @@ grep -qxF '# --- composant cli (rust) ---' "$tmp/m1/scripts/check.sh" || echoue 
 grep -qx '  verifier_cli' "$tmp/m1/scripts/check.sh" || echoue "appel verifier_cli"
 bash -n "$tmp/m1/scripts/check.sh" || echoue "check.sh invalide"
 grep -qxF '        os: [ubuntu-latest, windows-latest]' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : os"
-grep -qF 'run: bash scripts/check.sh --host' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : run"
-grep -q 'cargo test' "$tmp/m1/.github/workflows/ci.yml" && echoue "ci.yml garde cargo test"
+ci_m1="$tmp/m1/.github/workflows/ci.yml"
+grep -qxF '        run: bash scripts/check.sh --host --complet' "$ci_m1" || echoue "ci.yml : run --host --complet"
+grep -qxF '        run: bash scripts/check.sh --host' "$ci_m1" && echoue "ci.yml : run --host seul"
+grep -q 'cargo test' "$ci_m1" && echoue "ci.yml garde cargo test"
+# Job couverture : Ubuntu seul, jamais bloquant, outils de couverture Rust.
+job_couverture="$(sed -n '/^  couverture:/,/^  [a-z]*:$/p' "$ci_m1")"
+for mot in 'runs-on: ubuntu-latest' 'continue-on-error: true' 'run: IZANAGI_COUVERTURE=1 bash scripts/check.sh --host --complet' \
+  'rustup component add llvm-tools-preview' 'tool: cargo-llvm-cov@' 'taiki-e/install-action@' 'rust-toolchain' 'gitleaks_8.30.1_' 'fetch-depth: 0'; do
+  grep -qF -- "$mot" <<<"$job_couverture" || echoue "job couverture : « $mot » absent"
+done
+sed -n '/^  check:/,/^  couverture:/p' "$ci_m1" | grep -qF 'cargo-llvm-cov' && echoue "job check : outil de couverture installé"
+# Sans navigateur=oui : ni Playwright ni IZANAGI_NAVIGATEUR.
+grep -qE 'playwright|IZANAGI_NAVIGATEUR' "$ci_m1" && echoue "ci.yml : Playwright sans navigateur=oui"
+non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$ci_m1" | grep -vE '@[0-9a-f]{40} # ' || true)"
+[[ -z $non_epinglees ]] || echoue "m1 : actions non épinglées : $non_epinglees"
 grep -qF 'rust-toolchain' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : installation Rust"
 [[ -e $tmp/m1/fragments || -e $tmp/m1/defaults.env ]] && echoue "fragments posés"
 
@@ -333,12 +346,104 @@ grep -qE -- 'essai-wsl --complet$' "$tmp/fx/appels" || echoue "wsl --complet : o
 sortie="$(lancer_fx linux --host)" || echoue "wsl sans --complet : échec : $sortie"
 grep -qE -- 'essai-wsl --complet$' "$tmp/fx/appels" && echoue "wsl sans --complet : option transmise"
 
+# --- couverture : IZANAGI_COUVERTURE=1 ---
+# Faux npx : il note ses arguments comme cargo et npm.
+printf '#!/bin/sh\necho "npx $*" >>"%s/journal"\n' "$tmp/ar" >"$tmp/ar/bin/npx"
+chmod +x "$tmp/ar/bin/npx"
+# Sans la variable, aucune mesure, et le résumé n'est pas écrit.
+export GITHUB_STEP_SUMMARY="$tmp/ar/resume.md"
+lancer_ar --host --complet
+[[ $code_ar -eq 0 ]] || echoue "sans couverture : code $code_ar : $sortie_ar"
+grep -qE 'llvm-cov|--coverage|merge-reports' "$tmp/ar/journal" && echoue "sans couverture : une mesure a tourné : $(cat "$tmp/ar/journal")"
+[[ -e $tmp/ar/resume.md ]] && echoue "sans couverture : résumé écrit"
+# Avec la variable : les commandes de mesure, puis un résumé par composant.
+export IZANAGI_COUVERTURE=1
+lancer_ar --host --complet
+unset IZANAGI_COUVERTURE
+[[ $code_ar -eq 0 ]] || echoue "couverture : code $code_ar : $sortie_ar"
+attendu='cargo llvm-cov clean --workspace
+cargo llvm-cov --no-report --workspace --locked --lib --bins
+cargo test --workspace --locked --doc
+cargo llvm-cov --no-report --workspace --locked --test integ
+npm run test:unitaire -- --coverage --coverage.reportsDirectory=node_modules/.izanagi-couverture/unitaire --reporter=default --reporter=blob --outputFile.blob=node_modules/.izanagi-couverture/blob/unitaire.json
+cargo llvm-cov --no-report --workspace --locked --features fonctionnel --test fonctionnel_*
+npm run test:projet
+cargo llvm-cov report
+npx vitest run --merge-reports=node_modules/.izanagi-couverture/blob --coverage --coverage.reporter=text-summary --coverage.reportsDirectory=node_modules/.izanagi-couverture/rapport'
+[[ $(grep -vE '^(cargo (fmt|clippy|metadata)|npm (ci|run (format:check|lint))|gitleaks)' "$tmp/ar/journal") == "$attendu" ]] ||
+  echoue "couverture : commandes : $(cat "$tmp/ar/journal")"
+[[ -f $tmp/ar/resume.md ]] || echoue "couverture : résumé non écrit dans GITHUB_STEP_SUMMARY"
+for mot in '## Couverture des tests' '### cli (rust)' '### web (typescript)'; do
+  grep -qxF -- "$mot" "$tmp/ar/resume.md" || echoue "couverture : résumé sans « $mot » : $(cat "$tmp/ar/resume.md")"
+done
+grep -qxF '### projet' "$tmp/ar/resume.md" && echoue "couverture : l'entrée du projet a un résumé"
+unset GITHUB_STEP_SUMMARY
+# Hors des cibles : le résumé le dit au lieu de rester vide.
+sed -i 's/^cibles=.*/cibles="macos"/' "$tmp/ar/scripts/check.sh"
+GITHUB_STEP_SUMMARY="$tmp/ar/resume2.md" IZANAGI_COUVERTURE=1 lancer_ar --host --complet
+[[ $code_ar -eq 0 ]] || echoue "couverture hors cibles : code $code_ar : $sortie_ar"
+grep -qF 'hors des cibles, rien de mesuré' "$tmp/ar/resume2.md" || echoue "couverture hors cibles : résumé : $(cat "$tmp/ar/resume2.md" 2>/dev/null)"
+sed -i 's/^cibles=.*/cibles="windows,linux,macos"/' "$tmp/ar/scripts/check.sh"
+
+# --- navigateur=oui : Playwright sur Ubuntu seulement ---
+mkdir "$tmp/nv" "$tmp/nv/bin"
+git -C "$tmp/nv" init -q
+for outil in npm npx gitleaks; do
+  printf '#!/bin/sh\necho "%s $*" >>"%s/journal"\n' "$outil" "$tmp/nv" >"$tmp/nv/bin/$outil"
+  chmod +x "$tmp/nv/bin/$outil"
+done
+printf '%s\n' 'composant=web|web|typescript||unitaire,fonctionnelle' 'composant=api|api|typescript||unitaire' \
+  'fonctionnel_projet=tests/fonctionnels|npx playwright test' navigateur=oui systemes=linux,windows "${base[@]}" >"$tmp/nvv"
+"$install" "$tmp/nv" "$tmp/nvv" >/dev/null || echoue "navigateur=oui : install.sh échoue"
+mkdir "$tmp/nv/web" "$tmp/nv/api"
+ci_nv="$tmp/nv/.github/workflows/ci.yml"
+job_check="$(sed -n '/^  check:/,/^  couverture:/p' "$ci_nv")"
+job_couverture="$(sed -n '/^  couverture:/,/^  audit:/p' "$ci_nv")"
+for mot in 'npx playwright install --with-deps chromium' "if: matrix.os == 'ubuntu-latest'" 'working-directory: web' 'working-directory: .' \
+  "IZANAGI_NAVIGATEUR: \${{ matrix.os == 'ubuntu-latest' && 'oui' || 'non' }}" 'run: bash scripts/check.sh --host --complet'; do
+  grep -qF -- "$mot" <<<"$job_check" || echoue "navigateur=oui : job check sans « $mot »"
+done
+grep -qF 'working-directory: api' <<<"$job_check" && echoue "navigateur=oui : Playwright pour un composant sans couche fonctionnelle"
+[[ $(grep -c '^ *npx playwright install' <<<"$job_check") -eq 2 ]] || echoue "navigateur=oui : deux installations attendues dans le job check"
+grep -qF 'npx playwright install --with-deps chromium' <<<"$job_couverture" || echoue "navigateur=oui : job couverture sans navigateurs"
+grep -qF 'matrix.os' <<<"$job_couverture" && echoue "navigateur=oui : job couverture conditionné à la matrice"
+bash -n "$tmp/nv/scripts/check.sh" || echoue "navigateur=oui : check.sh invalide"
+lancer_nv() {
+  rm -f "$tmp/nv/journal"
+  set +e
+  sortie_nv="$(cd "$tmp/nv" && PATH="$tmp/nv/bin:$PATH" bash scripts/check.sh --host --complet 2>&1)"
+  code_nv=$?
+  set -e
+}
+# Sans IZANAGI_NAVIGATEUR : les étapes Playwright tournent.
+sed -i 's/^cibles=.*/cibles="windows,linux,macos"/' "$tmp/nv/scripts/check.sh"
+lancer_nv
+[[ $code_nv -eq 0 ]] || echoue "navigateur : code $code_nv : $sortie_nv"
+grep -qxF 'npm run test:fonctionnel' "$tmp/nv/journal" || echoue "navigateur : étape web non lancée : $(cat "$tmp/nv/journal")"
+grep -qxF 'npx playwright test' "$tmp/nv/journal" || echoue "navigateur : entrée du projet non lancée"
+# IZANAGI_NAVIGATEUR=non : les deux étapes sont sautées et rendent 0.
+export IZANAGI_NAVIGATEUR=non
+lancer_nv
+unset IZANAGI_NAVIGATEUR
+[[ $code_nv -eq 0 ]] || echoue "navigateur=non : code $code_nv : $sortie_nv"
+grep -qxF -- '-- web : fonctionnelle : navigateur absent de ce système, sauté' <<<"$sortie_nv" || echoue "navigateur=non : saut web : $sortie_nv"
+grep -qxF -- '-- projet : fonctionnelle : navigateur absent de ce système, sauté' <<<"$sortie_nv" || echoue "navigateur=non : saut projet : $sortie_nv"
+grep -qE 'test:fonctionnel|playwright test' "$tmp/nv/journal" && echoue "navigateur=non : une étape Playwright a tourné"
+grep -qxF 'npm run test:unitaire' "$tmp/nv/journal" || echoue "navigateur=non : l'étape unitaire doit tourner"
+# Valeur fausse : refus avant écriture.
+mkdir "$tmp/nvx"
+printf '%s\n' 'composant=web|web|typescript|' navigateur=peut-etre "${base[@]}" >"$tmp/nvxv"
+set +e; "$install" "$tmp/nvx" "$tmp/nvxv" >/dev/null 2>"$tmp/err"; code=$?; set -e
+[[ $code -eq 2 ]] || echoue "navigateur=peut-etre : code $code au lieu de 2"
+grep -qF 'navigateur « peut-etre » refusé : oui ou non' "$tmp/err" || echoue "navigateur faux : message : $(cat "$tmp/err")"
+[[ -z $(ls -A "$tmp/nvx") ]] || echoue "navigateur faux : écriture avant le refus"
+
 # --- piles TypeScript et Python, dev.sh ---
 mkdir "$tmp/t1"
 printf '%s
 ' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|npm run dev' projet=essai spec=s.md lieu_test=ici >"$tmp/t1v"
 sortie="$("$install" "$tmp/t1" "$tmp/t1v")"
-[[ $(sed '/^  audit:/q' "$tmp/t1/.github/workflows/ci.yml" | grep -c 'actions/setup-node') -eq 1 ]] || echoue "setup-node : un seul attendu dans le job check"
+[[ $(sed -n '/^  check:/,/^  couverture:/p' "$tmp/t1/.github/workflows/ci.yml" | grep -c 'actions/setup-node') -eq 1 ]] || echoue "setup-node : un seul attendu dans le job check"
 grep -qF 'node-version: lts/*' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : node-version"
 grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" && echoue "ci.yml : cache npm sans cache-dependency-path"
 [[ $(grep -c '^# --- composant' "$tmp/t1/scripts/check.sh") -eq 2 ]] || echoue "check.sh : deux sections"
@@ -490,7 +595,8 @@ bash -n "$check_co" || echoue "trois couches : check.sh invalide"
 fonction() { sed -n "/^$1() {/,/^}/p" "$check_co"; }
 for ligne in \
   'verifier_cli|echo "-- cli : unitaire"' \
-  'verifier_cli|cargo test --workspace --locked --lib --bins' \
+  'verifier_cli|cibles_unitaires=(--lib --bins)' \
+  'verifier_cli|cargo test --workspace --locked "${cibles_unitaires[@]}"' \
   'verifier_cli|cargo test --workspace --locked --doc' \
   'verifier_cli|echo "-- cli : integration"' \
   'verifier_cli|cargo test --workspace --locked "${tests_integration[@]}"' \
@@ -518,6 +624,22 @@ grep -qF 'verifier_noyau_fonctionnelle' "$check_co" && echoue "unitaire seul : f
 [[ $(fonction verifier_tout_complet) == $'verifier_tout_complet() {\n  verifier_cli_fonctionnelle\n  verifier_web_fonctionnelle\n  verifier_ml_fonctionnelle\n  verifier_outil_fonctionnelle\n  verifier_projet_fonctionnelle\n}' ]] ||
   echoue "trois couches : verifier_tout_complet : $(fonction verifier_tout_complet)"
 [[ $(grep -c '# --- composant ' "$check_co") -eq 5 ]] || echoue "trois couches : un marqueur de composant par composant"
+# Couverture des piles Python et sans gabarit, et pas de garde de navigateur sans navigateur=oui.
+for ligne in \
+  'verifier_ml|uv run --with pytest-cov==7.1.0 pytest tests/unitaires --cov --cov-append --cov-report=' \
+  'verifier_ml|uv run --with pytest-cov==7.1.0 pytest tests/integration --cov --cov-append --cov-report=' \
+  'verifier_ml_fonctionnelle|uv run --with pytest-cov==7.1.0 pytest tests/fonctionnels --cov --cov-append --cov-report=' \
+  'verifier_web_fonctionnelle|npm run test:fonctionnel' \
+  'preparer_couverture|(cd "cli" && cargo llvm-cov clean --workspace)' \
+  'preparer_couverture|rm -rf "web/node_modules/.izanagi-couverture"' \
+  'preparer_couverture|rm -f "ml/.coverage"' \
+  'resumer_couverture|couverture_composant cli rust "cli" cargo llvm-cov report' \
+  'resumer_couverture|couverture_composant ml python "ml" uv run --with pytest-cov==7.1.0 coverage report' \
+  'resumer_couverture|couverture_composant outil zig "outil" echo "pas de mesure de couverture pour zig"'; do
+  fonction "${ligne%%|*}" | grep -qF -- "${ligne#*|}" || echoue "couverture : ${ligne%%|*} sans « ${ligne#*|} »"
+done
+fonction verifier_web_fonctionnelle | grep -qF -- '--coverage' && echoue "couverture : l'étape fonctionnelle TypeScript mesure (Playwright possible)"
+grep -qF '${IZANAGI_NAVIGATEUR' "$check_co" && echoue "sans navigateur=oui : garde de navigateur rendue"
 grep -qE -- '-- [a-z]+ : tests"' "$check_co" && echoue "trois couches : étape tests restante"
 harness_co="$tmp/co/docs/agents/harness.md"
 grep -qxF '## Couches de test' "$harness_co" || echoue "harness.md : section Couches de test"

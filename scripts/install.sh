@@ -6,8 +6,9 @@
 # Le fichier de valeurs porte une valeur par ligne (`clé=valeur`), dont
 # `composant=<nom>|<chemin>|<pile>|<lancement>|<couches>` (répétable, un par
 # composant ; `<couches>` pris dans `unitaire,integration,fonctionnelle`, vide
-# vaut `unitaire`), `fonctionnel_projet=<dossier>|<commande>` (facultatif)
-# et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
+# vaut `unitaire`), `fonctionnel_projet=<dossier>|<commande>` (facultatif),
+# `navigateur` (`oui` quand une couche fonctionnelle emploie Playwright,
+# `non` par défaut) et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
 # `composant=`, `pile=<p>` (autre que `aucune`) crée le composant `<p>|.|<p>|`.
 # Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
 # templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
@@ -210,6 +211,11 @@ if [[ ! ${valeurs[hook_destructif]:-} =~ ^(demande|bloque|avertit)$ ]]; then
   echo "install.sh : hook_destructif « ${valeurs[hook_destructif]:-} » refusé : demande, bloque ou avertit" >&2
   exit 2
 fi
+# `navigateur=oui` : une couche fonctionnelle emploie Playwright.
+if [[ ! ${valeurs[navigateur]:-} =~ ^(oui|non)$ ]]; then
+  echo "install.sh : navigateur « ${valeurs[navigateur]:-} » refusé : oui ou non" >&2
+  exit 2
+fi
 # Version du cadre posé : celle du plugin, sauf si le fichier de valeurs la donne.
 valeurs[izanagi_version]="${valeurs[izanagi_version]:-$(plugin_version)}"
 # Chemins sensibles : vide si le fichier de valeurs ne les donne pas.
@@ -288,7 +294,65 @@ fragment() {
   fi
 }
 
+# Garde des étapes fonctionnelles qui emploient Playwright, quand
+# `navigateur=oui` : la CI passe IZANAGI_NAVIGATEUR=non aux systèmes sans
+# navigateur. L'étape tourne dans un sous-shell : `exit 0` ne quitte que lui.
+garde_navigateur() {
+  printf '%s\n' \
+    '    if [[ ${IZANAGI_NAVIGATEUR:-} == non ]]; then' \
+    "      echo \"-- $1 : fonctionnelle : navigateur absent de ce système, sauté\"" \
+    '      exit 0' \
+    '    fi'
+}
+
+# Couverture d'un composant selon sa pile : effacement des mesures d'avant
+# (`couv_prep`) et résumé (`couv_resume`), pour preparer_couverture et resumer_couverture
+# de check.sh. Les commandes de mesure sont dans les fragments `test-*.sh`.
+couverture_de() {
+  local nom="$1" chemin="$2" pile="$3" couches=" $4 "
+  couv_prep=""
+  couv_resume=""
+  case "$pile" in
+    rust)
+      couv_prep="  (cd \"$chemin\" && cargo llvm-cov clean --workspace)"
+      couv_resume="  couverture_composant $nom rust \"$chemin\" cargo llvm-cov report"
+      ;;
+    typescript)
+      couv_prep="  rm -rf \"$chemin/node_modules/.izanagi-couverture\""
+      # La couche fonctionnelle ne mesure pas : sans unitaire ni integration,
+      # il n'y a aucun rapport à fusionner.
+      if [[ $couches == *" unitaire "* || $couches == *" integration "* ]]; then
+        couv_resume="  couverture_composant $nom typescript \"$chemin\" npx vitest run --merge-reports=node_modules/.izanagi-couverture/blob --coverage --coverage.reporter=text-summary --coverage.reportsDirectory=node_modules/.izanagi-couverture/rapport"
+      else
+        couv_resume="  couverture_composant $nom typescript \"$chemin\" echo \"pas de mesure : la couche fonctionnelle seule ne mesure pas\""
+      fi
+      ;;
+    python)
+      couv_prep="  rm -f \"$chemin/.coverage\""
+      couv_resume="  couverture_composant $nom python \"$chemin\" uv run --with pytest-cov==7.1.0 coverage report"
+      ;;
+    *)
+      couv_resume="  couverture_composant $nom $pile \"$chemin\" echo \"pas de mesure de couverture pour $pile\""
+      ;;
+  esac
+}
+
 # Valeurs calculées : sections, appels et installation CI des composants.
+preparations_couverture=""
+resumes_couverture=""
+ci_couverture=""
+ci_playwright=""
+declare -A couverture_vus=() playwright_vus=()
+# Ajoute l'installation des navigateurs Playwright pour un dossier, une fois.
+# Les commentaires du fragment ne passent qu'avec la première étape.
+ajouter_playwright() {
+  local etape
+  [[ -n ${playwright_vus[$1]:-} ]] && return 0
+  playwright_vus[$1]=1
+  etape="$(rendre_fragment "$racine/templates/core/fragments/ci-playwright.yml" "chemin=$1")"
+  [[ -n $ci_playwright ]] && etape="$(grep -v '^ *#' <<<"$etape")"
+  ci_playwright+="${ci_playwright:+$'\n'}$etape"
+}
 sections=""
 appels=""
 appels_complets=""
@@ -328,6 +392,11 @@ for entree in "${composants[@]}"; do
     lignes_couches+="${lignes_couches:+$'\n'}- couche : $c_nom | $couche | $dossier | $commande"
     etape="$(rendre_fragment "$(fragment "test-$couche.sh" "$c_pile")" "${cles[@]}")"
     if [[ $couche == fonctionnelle ]]; then
+      # TypeScript : la couche fonctionnelle peut employer Playwright.
+      if [[ ${valeurs[navigateur]} == oui && $c_pile == typescript ]]; then
+        etape="$(garde_navigateur "$c_nom")"$'\n'"$etape"
+        ajouter_playwright "$c_chemin"
+      fi
       fonctionnelle="verifier_${c_id}_fonctionnelle() {"$'\n'"  ("$'\n'"    cd \"$c_chemin\""$'\n'"$etape"$'\n'"  )"$'\n'"}"
       appels_complets+="${appels_complets:+$'\n'}  verifier_${c_id}_fonctionnelle"
     else
@@ -344,6 +413,16 @@ for entree in "${composants[@]}"; do
     setup_vus[$c_pile]=1
     ci_setup+="${ci_setup:+$'\n'}$(rendre_fragment "$(fragment ci-setup.yml "$c_pile")" "pile=$c_pile")"
   fi
+  # Couverture : outils de la pile en CI (une fois par pile), effacement et résumé par composant.
+  if [[ -z ${couverture_vus[$c_pile]:-} ]]; then
+    couverture_vus[$c_pile]=1
+    if [[ -f $racine/templates/$c_pile/fragments/ci-couverture.yml ]]; then
+      ci_couverture+="${ci_couverture:+$'\n'}$(cat "$racine/templates/$c_pile/fragments/ci-couverture.yml")"
+    fi
+  fi
+  couverture_de "$c_nom" "$c_chemin" "$c_pile" "$declarees"
+  [[ -n $couv_prep ]] && preparations_couverture+="${preparations_couverture:+$'\n'}$couv_prep"
+  resumes_couverture+="${resumes_couverture:+$'\n'}$couv_resume"
   # Audit des dépendances : un bloc par composant, dans son dossier.
   ci_audit+="${ci_audit:+$'\n'}$(rendre_fragment "$(fragment ci-audit.yml "$c_pile")" \
     "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
@@ -360,7 +439,13 @@ fi
 if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
   p_dossier="${fonctionnel_projet%%|*}"
   p_commande="${fonctionnel_projet#*|}"
-  sections+=$'\n\n'"# --- entrée fonctionnelle du projet ---"$'\n'"verifier_projet_fonctionnelle() {"$'\n'"  ("$'\n'"    echo \"-- projet : fonctionnelle\""$'\n'"    $p_commande"$'\n'"  )"$'\n'"}"
+  p_garde=""
+  if [[ ${valeurs[navigateur]} == oui ]]; then
+    p_garde="$(garde_navigateur projet)"$'\n'
+    # Une commande Playwright à la racine : les navigateurs s'installent depuis le verrou de la racine.
+    [[ $p_commande == *playwright* ]] && ajouter_playwright .
+  fi
+  sections+=$'\n\n'"# --- entrée fonctionnelle du projet ---"$'\n'"verifier_projet_fonctionnelle() {"$'\n'"  ("$'\n'"$p_garde    echo \"-- projet : fonctionnelle\""$'\n'"    $p_commande"$'\n'"  )"$'\n'"}"
   appels_complets+="${appels_complets:+$'\n'}  verifier_projet_fonctionnelle"
   tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
   lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"
@@ -380,6 +465,18 @@ valeurs[appels_complets]="${appels_complets:-  :}"
 valeurs[ci_setup]="$ci_setup"
 valeurs[ci_audit]="$ci_audit"
 valeurs[ci_gitleaks]="$(cat "$racine/templates/core/fragments/ci-gitleaks.yml")"
+valeurs[preparations_couverture]="${preparations_couverture:-  :}"
+valeurs[resumes_couverture]="${resumes_couverture:-  :}"
+valeurs[ci_couverture]="$ci_couverture"
+# Playwright : dans le job check, Ubuntu seul ; dans le job couverture, qui
+# n'a pas de matrice, sans condition.
+valeurs[ci_playwright]="$ci_playwright"
+valeurs[ci_playwright_couverture]="${ci_playwright//$'\n'"        if: matrix.os == 'ubuntu-latest'"/}"
+if [[ ${valeurs[navigateur]} == oui && ${#composants[@]} -gt 0 ]]; then
+  valeurs[ci_navigateur]="        env:"$'\n'"          IZANAGI_NAVIGATEUR: \${{ matrix.os == 'ubuntu-latest' && 'oui' || 'non' }}"
+else
+  valeurs[ci_navigateur]=""
+fi
 valeurs[lancements]="$lancements"
 
 declare -a fichiers=()

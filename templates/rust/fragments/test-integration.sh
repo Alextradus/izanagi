@@ -29,4 +29,9 @@
       echo "check.sh : {{composant}} : aucun test d'intégration dans tests/" >&2
       exit 1
     fi
-    cargo test --workspace --locked "${tests_integration[@]}"
+    # Avec IZANAGI_COUVERTURE=1 : mesure gardée pour `cargo llvm-cov report`.
+    if [[ ${IZANAGI_COUVERTURE:-} == 1 ]]; then
+      cargo llvm-cov --no-report --workspace --locked "${tests_integration[@]}"
+    else
+      cargo test --workspace --locked "${tests_integration[@]}"
+    fi

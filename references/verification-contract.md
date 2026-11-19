@@ -22,7 +22,11 @@ Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de t
 
 ## CI
 
-Le fichier `.github/workflows/ci.yml` lance `bash scripts/check.sh --host` dans une matrice `os: [...]` qui a un job par système cible : `ubuntu-latest` pour `linux`, `windows-latest` pour `windows`, `macos-latest` pour `macos`. Il ne recopie aucune commande de vérification. Chaque pile ajoute seulement ses étapes d'installation (toolchain Rust, `setup-node`, `setup-uv`). Pour TypeScript, `setup-node` n'active pas le cache npm, car il échoue quand le fichier de verrou n'est pas à la racine.
+Le fichier `.github/workflows/ci.yml` lance `bash scripts/check.sh --host --complet` dans une matrice `os: [...]` qui a un job par système cible : `ubuntu-latest` pour `linux`, `windows-latest` pour `windows`, `macos-latest` pour `macos`. Il ne recopie aucune commande de vérification. Chaque pile ajoute seulement ses étapes d'installation (toolchain Rust, `setup-node`, `setup-uv`). Pour TypeScript, `setup-node` n'active pas le cache npm, car il échoue quand le fichier de verrou n'est pas à la racine.
+
+Avec `navigateur=oui`, le job `check` installe les navigateurs Playwright sur `ubuntu-latest` seulement, dans le dossier de chaque composant TypeScript qui a une couche fonctionnelle, et à la racine quand la commande de l'entrée fonctionnelle du projet emploie Playwright. Il passe `IZANAGI_NAVIGATEUR=non` aux autres systèmes : les étapes fonctionnelles de ces composants et de l'entrée du projet affichent `-- <nom> : fonctionnelle : navigateur absent de ce système, sauté` et rendent 0.
+
+Le job `couverture` tourne sur `ubuntu-latest` et lance `IZANAGI_COUVERTURE=1 bash scripts/check.sh --host --complet`. Avec cette variable, les étapes de test mesurent la couverture (`cargo llvm-cov`, Vitest avec `--coverage`, `pytest-cov`), et `check.sh` écrit à la fin le résumé de chaque composant, aussi dans `$GITHUB_STEP_SUMMARY`. Le job a `continue-on-error: true` : il n'a pas de seuil et ne fait jamais échouer la PR. Une pile sans gabarit n'a pas de mesure, et son résumé le dit.
 
 ## Forme d'une section de composant
 
@@ -67,7 +71,7 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 4. Aucun `À ÉCRIRE` ne reste dans `check.sh`, `ci.yml`, `securite.yml` ni `dev.sh`.
 5. Chaque composant de `harness.md` a sa section `# --- composant <nom> (`.
 6. Aucune installation sans verrou : ni `npm install`, ni `pip install`, ni `uv sync` sans `--locked`, ni `cargo build`, `test` ou `clippy` sans `--locked`.
-7. La CI lance `bash scripts/check.sh --host`, et sa ligne `os: [...]` correspond aux systèmes de `harness.md`.
+7. Le job `check` de la CI lance `bash scripts/check.sh --host --complet`, sur une ligne à lui (après `run:` ou dans un bloc `run: |`), et sa ligne `os: [...]` correspond aux systèmes de `harness.md`.
 8. `docs/agents/harness.md` existe.
 9. `check.sh` lance la recherche de secrets (`gitleaks git`).
 10. Chaque ligne `- couche : <composant> | <couche> | …` de `harness.md` a son étape `-- <composant> : <couche>` dans `check.sh`, et la ligne `projet` demande `-- projet : fonctionnelle`. Un `harness.md` qui a des composants et aucune ligne `- couche :` est un écart.

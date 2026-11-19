@@ -8,4 +8,11 @@
     #   https://doc.rust-lang.org/cargo/reference/features.html
     #   Essayé avec cargo 1.99 : un espace de travail où un seul paquet déclare
     #   la feature `fonctionnel` passe.
-    cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'
+    # Avec IZANAGI_COUVERTURE=1 : mesure gardée pour `cargo llvm-cov report`.
+    # La page de cargo-llvm-cov ne dit pas si `--test` accepte un motif : le
+    # motif passe tel quel à `cargo test`, à vérifier sur la première CI.
+    if [[ ${IZANAGI_COUVERTURE:-} == 1 ]]; then
+      cargo llvm-cov --no-report --workspace --locked --features fonctionnel --test 'fonctionnel_*'
+    else
+      cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'
+    fi

@@ -1,0 +1,14 @@
+      # Faits Playwright, lus le 2026-11-19 :
+      # - En CI, `npm ci` passe avant l'installation des navigateurs, qui prend
+      #   la version de Playwright du verrou. https://playwright.dev/docs/ci
+      # - `npx playwright install --with-deps chromium` installe un seul
+      #   navigateur avec ses dépendances système. https://playwright.dev/docs/browsers
+      # - Le cache des navigateurs ne fait pas gagner de temps : la restauration
+      #   dure autant que le téléchargement. https://playwright.dev/docs/ci
+      - name: Navigateurs Playwright ({{chemin}})
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        working-directory: {{chemin}}
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
