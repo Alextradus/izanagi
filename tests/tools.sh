@@ -730,6 +730,9 @@ printf -- '- composant : web | web | typescript |\n- composant : api | api | pyt
 retablir
 
 printf 'mutation=oui\n' >>"$config"
+# Stryker sans le lanceur Vitest prendrait son lanceur par défaut : écart.
+FAUX_CODE=0 ecart stryker 'absent pour web : npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner'
+mkdir -p "$tmp/dr/web/node_modules/@stryker-mutator/vitest-runner"
 FAUX_CODE=0 diagnostic
 for c in 'cargo-mutants' 'stryker' 'mutmut'; do
   grep -qE "^ok      $c" <<<"$sortie" || echoue "doctor : $c présent refusé : $sortie"
@@ -737,7 +740,7 @@ done
 grep -qF "$tmp/dr/web" "$tmp/fm/npx.cwd" || echoue "doctor : stryker pas lancé dans le dossier du composant"
 export FAUX_CODE=1
 ecart cargo-mutants 'absent pour .* : cargo install cargo-mutants'
-ecart stryker 'absent pour web : npm install --save-dev @stryker-mutator/core'
+ecart stryker 'absent pour web : npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner'
 ecart mutmut 'absent pour api : uv add --dev mutmut'
 unset FAUX_CODE
 export PATH="$path_initial"
@@ -893,6 +896,9 @@ passe "$mu" "$base_mu"
 # Un fichier de code par composant : un survivant par pile.
 sed -i 's/a + b/b + a/' "$mu/rs/src/lib.rs" "$mu/api/src/app/calc.py"
 sed -i 's/a > b ?/b < a ?/' "$mu/web/src/calc.ts"
+# Un nom accentué : git le citerait en octal sans core.quotePath=false.
+git -C "$mu" config core.quotePath true
+printf 'export const e = 1;\n' >"$mu/web/src/éclat.ts"
 printf 'import { max } from "./calc";\n' >"$mu/web/src/calc.test.ts"
 echo '// x' >>"$mu/outils/main.go"
 git -C "$mu" add -A && git -C "$mu" commit -q -m code
@@ -909,7 +915,7 @@ grep -qE '^mutants --in-diff .* --output ' "$FAUX_JOURNAL/cargo.args" || echoue 
 grep -qF -- '+++ b/src/lib.rs' "$FAUX_JOURNAL/cargo.diff" || echoue "mutation : diff de cargo pas relatif au composant : $(cat "$FAUX_JOURNAL/cargo.diff")"
 grep -qF 'main.go' "$FAUX_JOURNAL/cargo.diff" && echoue "mutation : diff de cargo hors du composant"
 grep -qF "$mu/web" "$FAUX_JOURNAL/npx.cwd" || echoue "mutation : stryker pas lancé dans web"
-[[ $(cat "$FAUX_JOURNAL/npx.args") == '--no-install stryker run --mutate src/calc.ts --reporters clear-text' ]] ||
+[[ $(cat "$FAUX_JOURNAL/npx.args") == '--no-install stryker run --testRunner vitest --mutate src/calc.ts,src/éclat.ts --reporters clear-text' ]] ||
   echoue "mutation : arguments stryker : $(cat "$FAUX_JOURNAL/npx.args")"
 grep -qF "$mu/api" "$FAUX_JOURNAL/uv.cwd" || echoue "mutation : mutmut pas lancé dans api"
 [[ $(cat "$FAUX_JOURNAL/uv.args") == 'run mutmut run app.calc.x*' ]] || echoue "mutation : arguments mutmut : $(cat "$FAUX_JOURNAL/uv.args")"

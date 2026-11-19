@@ -48,6 +48,14 @@
 #   lance la configuration Vitest entière, couche fonctionnelle comprise si elle
 #   est un projet Vitest. `vitest.related` (vrai par défaut) limite les tests à ceux
 #   liés aux fichiers mutés. https://stryker-mutator.io/docs/stryker-js/vitest-runner/
+# - Stryker : `--testRunner <nom>` choisit le lanceur de tests, `command` par défaut,
+#   qui lance `npm test` pour chaque mutant. Le lanceur Vitest est le paquet
+#   `@stryker-mutator/vitest-runner`, choisi par `--testRunner vitest`, et Stryker
+#   charge seul les paquets `@stryker-mutator/*` de node_modules. Lu le 2026-11-19 :
+#   https://stryker-mutator.io/docs/stryker-js/configuration/ et
+#   https://stryker-mutator.io/docs/stryker-js/vitest-runner/
+# - git cite un chemin non ASCII entre guillemets, en octal, sauf avec
+#   `core.quotePath=false`. https://git-scm.com/docs/git-config#Documentation/git-config.txt-corequotePath
 # - mutmut : `mutmut run [noms]` filtre les mutants par motif fnmatch. Un nom de
 #   mutant vaut `<module>.<fonction mutée>`, où le module est le chemin du fichier
 #   sans `.py`, les `/` changés en `.` et un préfixe `src.` retiré ; `.__init__.`
@@ -143,7 +151,7 @@ if [[ -f $harness ]]; then
     liste=""
     while IFS= read -r f; do
       [[ -n $f ]] && code_a_muter "$pile" "$f" && liste+="$f"$'\n'
-    done < <(git -C "$cible/$chemin" diff --relative --name-only --diff-filter=d "$point...HEAD" 2>/dev/null)
+    done < <(git -C "$cible/$chemin" -c core.quotePath=false diff --relative --name-only --diff-filter=d "$point...HEAD" 2>/dev/null)
     [[ -n $liste ]] || continue
     noms+=("$nom")
     chemins+=("$chemin")
@@ -284,7 +292,7 @@ for i in "${!noms[@]}"; do
       ;;
     typescript)
       mutate="$(IFS=,; printf '%s' "${liste[*]}")"
-      (cd "$dossier" && lancer "$journal" npx --no-install stryker run --mutate "$mutate" --reporters clear-text) || code=$?
+      (cd "$dossier" && lancer "$journal" npx --no-install stryker run --testRunner vitest --mutate "$mutate" --reporters clear-text) || code=$?
       if [[ $code -ne 0 && $code -ne 124 ]]; then
         echo "non muté | $nom | échec de l'outil (code $code)"
         continue

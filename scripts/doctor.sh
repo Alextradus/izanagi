@@ -134,7 +134,7 @@ if [[ -f $harness && $(kv_get "$config" mutation 2>/dev/null || true) == oui ]];
         ;;
       typescript)
         outil_mut="stryker"
-        install_mut="npm install --save-dev @stryker-mutator/core"
+        install_mut="npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner"
         sonde=(npx --no-install stryker --version)
         ;;
       python)
@@ -144,7 +144,13 @@ if [[ -f $harness && $(kv_get "$config" mutation 2>/dev/null || true) == oui ]];
         ;;
       *) continue ;;
     esac
-    if (cd "$dossier" && "${sonde[@]}" >/dev/null 2>&1); then
+    # mutation.sh lance Stryker avec `--testRunner vitest` : sans le paquet du
+    # lanceur, dans le composant ou à la racine, Stryker échoue.
+    lanceur=1
+    if [[ $pile == typescript && ! -d $dossier/node_modules/@stryker-mutator/vitest-runner && ! -d $cible/node_modules/@stryker-mutator/vitest-runner ]]; then
+      lanceur=0
+    fi
+    if [[ $lanceur -eq 1 ]] && (cd "$dossier" && "${sonde[@]}" >/dev/null 2>&1); then
       ok "$outil_mut ($nom)"
     else
       ecart "$outil_mut" "absent pour $nom : $install_mut"
