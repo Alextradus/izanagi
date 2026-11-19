@@ -4,8 +4,9 @@ Bibliothèque publiée pour d'autres développeurs (crate, paquet npm, paquet Py
 
 ## Couches de test
 
-- Tests unitaires de chaque fonction publique (`cargo test`, `vitest`, `pytest`).
-- Tests d'API publique : un exemple ou un test qui importe la bibliothèque comme un client, sans accès aux éléments privés (`tests/` en Rust, doctests, un projet d'exemple).
+- Unitaire : chaque fonction publique (`cargo test`, `vitest`, `pytest`).
+- Intégration : l'API publique depuis l'extérieur du paquet, comme un client, sans accès aux éléments privés (`tests/` en Rust, doctests, un projet d'exemple).
+- Fonctionnelle : sans objet. Une bibliothèque ne se lance pas, et la couche d'intégration teste déjà ce que le client touche.
 
 ## Test manuel par défaut
 

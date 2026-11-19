@@ -129,12 +129,17 @@ config04="$tmp/p04/.izanagi/config.env"
 [[ $(kv_get "$config04" izanagi_version) == 0.6.0 ]] || echoue "migration 0.6.0 : izanagi_version"
 [[ $(grep -A1 '^hook_verification=' "$config04" | tail -1) == 'hook_destructif=demande' ]] || echoue "migration 0.6.0 : hook_destructif mal placé"
 [[ $(kv_get "$config04" projet) == 'Essai Rapide' ]] || echoue "migration 0.6.0 a perdu une valeur"
-# La pose courante, relancée avec ces valeurs, trouve ces trois fichiers identiques au gabarit.
+# La pose courante, relancée avec ces valeurs, trouve ces fichiers identiques au gabarit.
+# config.env ne diffère que par les clés de la 0.7, que la migration 0.7.0 ajoutera.
 { echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v6"
 sortie="$("$install" "$tmp/p04" "$tmp/p04v6")"
-for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json; do
+for f in .izanagi/.gitignore .claude/settings.json; do
   grep -qxF "identique  $f" <<<"$sortie" || echoue "migration 0.6.0 : $f différent du gabarit : $sortie"
 done
+rapport06="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+ecarts06="$(grep -E '^[-+][^-+]' "$rapport06/diff/.izanagi/config.env.diff" 2>/dev/null || true)"
+[[ $ecarts06 == $'+navigateur=non\n+mutation=oui\n+mutation_delai=15' ]] ||
+  echoue "migration 0.6.0 : config.env diffère du gabarit hors des clés de la 0.7 : $ecarts06"
 [[ $(bash "$migration06" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.6.0 relancée"
 
 # Un .claude/settings.json du projet, avec d'autres réglages, n'est jamais réécrit.
@@ -489,8 +494,11 @@ done
 path_initial="$PATH"
 export PATH="$tmp/fm:$PATH" PLAYWRIGHT_BROWSERS_PATH="$tmp/pw"
 mkdir -p "$tmp/pw"
+# La pose écrit `mutation=oui` pour Rust : le cas de départ remet les deux clés à
+# `non`, et les lignes ajoutées plus bas l'emportent (kv_get lit la dernière).
+sed -i -e 's/^navigateur=.*/navigateur=non/' -e 's/^mutation=.*/mutation=non/' "$config" "$tmp/dr-config"
 
-# Sans clé : aucun contrôle, aucun écart.
+# Clés à `non` : aucun contrôle, aucun écart.
 diagnostic
 grep -qE 'Playwright|mutants|stryker|mutmut' <<<"$sortie" && echoue "doctor : contrôle sans navigateur ni mutation : $sortie"
 

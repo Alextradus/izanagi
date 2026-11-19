@@ -14,7 +14,9 @@
 # templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
 # argument. `izanagi_version` vaut la version du plugin, sauf si le fichier de
 # valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`,
-# `hook_destructif` vaut `demande`, `bloque` ou `avertit`.
+# `hook_destructif` vaut `demande`, `bloque` ou `avertit`. `mutation` vaut `oui`
+# quand toutes les piles des composants ont un gabarit, `non` sinon, sauf si le
+# fichier de valeurs la donne.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -478,6 +480,20 @@ else
   valeurs[ci_navigateur]=""
 fi
 valeurs[lancements]="$lancements"
+# Mutation (décision 111) : `oui` quand toutes les piles des composants ont un
+# gabarit (cargo-mutants, Stryker, mutmut), `non` sinon ou sans composant. Le
+# fichier de valeurs l'emporte : une relance d'upgrade garde le choix du projet.
+if [[ -z ${valeurs[mutation]:-} ]]; then
+  if [[ ${#composants[@]} -gt 0 && ${#a_ecrire[@]} -eq 0 ]]; then
+    valeurs[mutation]=oui
+  else
+    valeurs[mutation]=non
+  fi
+fi
+if [[ ! ${valeurs[mutation]} =~ ^(oui|non)$ ]]; then
+  echo "install.sh : mutation « ${valeurs[mutation]} » refusée : oui ou non" >&2
+  exit 2
+fi
 
 declare -a fichiers=()
 manque=false

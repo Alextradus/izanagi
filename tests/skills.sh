@@ -123,6 +123,25 @@ awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { 
 for t in references/types/*.md; do
   grep -qx '## Sécurité' "$t" || echoue "$t : pas de section ## Sécurité"
 done
+# Couches de test (décision 93) : chaque fiche de type a les trois puces dans sa
+# section, et la couche fonctionnelle d'un front emploie Playwright.
+for t in references/types/*.md; do
+  section="$(awk '/^## / { dedans = ($0 == "## Couches de test") ; next } dedans' "$t")"
+  for couche in Unitaire Intégration Fonctionnelle; do
+    grep -q "^- $couche : " <<<"$section" || echoue "$t : pas de puce « $couche » dans la section Couches de test"
+  done
+done
+grep -qE '^- Fonctionnelle : .*Playwright' references/types/web-frontend.md || echoue "web-frontend : la couche fonctionnelle ne nomme pas Playwright"
+# L'entretien et `init` suivent les couches : plus de clé `couches`, le cinquième
+# champ de `composant=`, la vérification complète à la fin de la pose.
+grep -qF 'couches=' references/interview.md && echoue "references/interview.md garde la clé couches="
+grep -qF '| `couches` |' skills/init/SKILL.md && echoue "skills/init garde la clé couches"
+for mot in '<lancement>|<couches>' 'navigateur=oui' 'fonctionnel_projet=' 'test:unitaire' 'test:integration' 'test:fonctionnel' '@vitest/coverage-v8' 'required-features = ["fonctionnel"]' 'tests/unitaires' 'tests/fonctionnels'; do
+  grep -qF -- "$mot" references/interview.md || echoue "references/interview.md ne nomme pas « $mot »"
+done
+for mot in '`navigateur`' '`fonctionnel_projet`' '<lancement>\|<couches>' 'check.sh --host --complet'; do
+  grep -qF -- "$mot" skills/init/SKILL.md || echoue "skills/init ne nomme pas « $mot »"
+done
 grep -qF 'izanagi:reviewer-security' skills/review/SKILL.md || echoue "skills/review ne lance pas izanagi:reviewer-security"
 grep -qF 'Standards, Spec et Sécurité' references/risk.md || echoue "references/risk.md : pas de relecteur Sécurité au niveau élevé"
 

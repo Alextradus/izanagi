@@ -4,8 +4,9 @@ Outil en ligne de commande.
 
 ## Couches de test
 
-- Tests unitaires de la logique, sans entrée-sortie (`cargo test`, `vitest`, `pytest`).
-- Tests de bout en bout du binaire : lancer la commande avec des arguments et vérifier le code de sortie, stdout et stderr (`assert_cmd` en Rust, `execa` avec vitest en TypeScript, `subprocess` avec pytest en Python).
+- Unitaire : la logique, sans entrée-sortie (`cargo test`, `vitest`, `pytest`).
+- Intégration : les modules avec le vrai système de fichiers, dans un dossier temporaire que le test crée (`cargo test` dans `tests/`, `vitest`, `pytest` avec `tmp_path`).
+- Fonctionnelle : le binaire lancé avec des arguments. Le test vérifie le code de sortie, stdout et stderr (`assert_cmd` en Rust, `execa` avec vitest, `subprocess` avec pytest).
 
 ## Test manuel par défaut
 

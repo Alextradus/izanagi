@@ -40,6 +40,10 @@ config="$tmp/p/.izanagi/config.env"
 grep -q '{{' "$config" && echoue "config.env garde un {{"
 [[ $(cat "$tmp/p/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue ".izanagi/.gitignore"
 [[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "config.env : hook_destructif"
+# Mutation (décision 111) : `oui` quand toutes les piles des composants ont un gabarit.
+[[ $(kv_get "$config" mutation) == oui ]] || echoue "config.env : mutation pour rust"
+[[ $(kv_get "$config" mutation_delai) == 15 ]] || echoue "config.env : mutation_delai"
+[[ $(kv_get "$config" navigateur) == non ]] || echoue "config.env : navigateur par défaut"
 for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(id_ed25519*)' 'Read(id_ecdsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(id_ed25519*)' 'Edit(id_ecdsa*)' 'Edit(credentials*)'; do
   grep -qF "\"$regle\"" "$tmp/p/.claude/settings.json" || echoue ".claude/settings.json : règle $regle absente"
 done
@@ -145,6 +149,7 @@ mkdir "$tmp/nu"
 printf '%s\n' projet=Nu spec=s.md lieu_test=ici test_manuel=x fichier_version=y >"$tmp/nuv"
 "$install" "$tmp/nu" "$tmp/nuv" >/dev/null
 [[ ! -e $tmp/nu/docs/standards ]] || echoue "docs/standards posé sans composant"
+[[ $(kv_get "$tmp/nu/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation sans composant"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"
@@ -395,6 +400,7 @@ done
 printf '%s\n' 'composant=web|web|typescript||unitaire,fonctionnelle' 'composant=api|api|typescript||unitaire' \
   'fonctionnel_projet=tests/fonctionnels|npx playwright test' navigateur=oui systemes=linux,windows "${base[@]}" >"$tmp/nvv"
 "$install" "$tmp/nv" "$tmp/nvv" >/dev/null || echoue "navigateur=oui : install.sh échoue"
+[[ $(kv_get "$tmp/nv/.izanagi/config.env" navigateur) == oui ]] || echoue "config.env : navigateur=oui non rendu"
 mkdir "$tmp/nv/web" "$tmp/nv/api"
 ci_nv="$tmp/nv/.github/workflows/ci.yml"
 job_check="$(sed -n '/^  check:/,/^  couverture:/p' "$ci_nv")"
@@ -472,6 +478,7 @@ printf '%s
 ' 'composant=cli|cli|rust|' 'composant=web|web|typescript|' projet=essai spec=s.md lieu_test=ici >"$tmp/t5v"
 "$install" "$tmp/t5" "$tmp/t5v" >/dev/null
 grep -qF '`Cargo.lock`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : Cargo.lock"
+[[ $(kv_get "$tmp/t5/.izanagi/config.env" mutation) == oui ]] || echoue "config.env : mutation pour rust et typescript"
 grep -qF '`package-lock.json`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : package-lock.json"
 [[ $(grep -o 'docs/plans/' "$tmp/t5/docs/CODING_STANDARDS.md" | wc -l) -eq $(grep -o 'docs/plans/' "$tmp/t1/docs/CODING_STANDARDS.md" | wc -l) ]] || echoue "hors_revue : doublon"
 [[ $(kv_get "$tmp/t1/.izanagi/config.env" test_manuel) == scripts/dev.sh ]] || echoue "config.env : test manuel dev.sh"
@@ -502,6 +509,11 @@ sortie="$("$install" "$tmp/m3" "$tmp/m3v")"
 grep -qxF 'à écrire   outil (zig)' <<<"$sortie" || echoue "à écrire : $sortie"
 grep -qxF '    # À ÉCRIRE : outil (zig), format, lint' "$tmp/m3/scripts/check.sh" || echoue "section à écrire"
 grep -qxF '    # À ÉCRIRE : outil (zig), couche unitaire' "$tmp/m3/scripts/check.sh" || echoue "couche unitaire à écrire"
+[[ $(kv_get "$tmp/m3/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation pour une pile sans gabarit"
+mkdir "$tmp/mx"
+printf '%s\n' 'composant=cli|cli|rust|' 'composant=outil|outil|zig|' "${base[@]}" >"$tmp/mxv"
+"$install" "$tmp/mx" "$tmp/mxv" >/dev/null
+[[ $(kv_get "$tmp/mx/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation avec une pile sans gabarit parmi d'autres"
 sed -i 's/^.*# À ÉCRIRE.*$/    true/' "$tmp/m3/scripts/check.sh"
 (cd "$tmp/m3" && scripts/check.sh --host >/dev/null) || echoue "check.sh --host avec true"
 sed -i 's/^    true$/    false/' "$tmp/m3/scripts/check.sh"

@@ -4,8 +4,9 @@ Jeu vidéo (moteur maison, Bevy, Godot, Unity, Phaser).
 
 ## Couches de test
 
-- Tests unitaires de la logique de jeu, sans rendu : règles, score, déplacements (`cargo test`, `vitest`, `pytest`).
-- Tests de simulation : faire tourner la boucle de jeu sans fenêtre pendant N images, avec une graine aléatoire fixe, et vérifier l'état final.
+- Unitaire : les règles, le score et les déplacements, sans rendu (`cargo test`, `vitest`, `pytest`).
+- Intégration : la boucle de jeu sans fenêtre pendant N images, avec une graine aléatoire fixe. Le test vérifie l'état final, avec les mêmes outils.
+- Fonctionnelle : sans objet par défaut, le test manuel en tient lieu.
 
 ## Test manuel par défaut
 

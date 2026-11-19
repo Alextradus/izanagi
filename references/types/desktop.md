@@ -4,8 +4,9 @@ Application de bureau (Tauri, Electron, Qt, egui, WPF).
 
 ## Couches de test
 
-- Tests unitaires de la logique, hors interface (`cargo test`, `vitest`, `pytest`).
-- Tests de la fenêtre : pilotage de l'interface réelle (Playwright pour Electron, `tauri-driver` pour Tauri). Ils demandent un affichage ; sous Linux, la CI utilise `xvfb-run`.
+- Unitaire : la logique, hors interface (`cargo test`, `vitest`, `pytest`).
+- Intégration : les modules avec leurs vraies dépendances (fichiers, base locale), hors fenêtre (`cargo test` dans `tests/`, `vitest`, `pytest`).
+- Fonctionnelle : sans objet par défaut, le test manuel en tient lieu. Un projet qui veut piloter la fenêtre réelle l'ajoute plus tard (Playwright pour Electron, `tauri-driver` pour Tauri). Ces tests demandent un affichage, et sous Linux la CI emploie `xvfb-run`.
 
 ## Test manuel par défaut
 

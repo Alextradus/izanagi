@@ -4,8 +4,9 @@ Traitement de données, analyse ou apprentissage automatique.
 
 ## Couches de test
 
-- Tests unitaires des fonctions de transformation, sur de petites données écrites dans le test (`pytest`).
-- Tests de bout en bout du traitement sur un jeu d'exemple versionné : lancer le pipeline et comparer la sortie à une sortie attendue, avec une graine fixe.
+- Unitaire : les fonctions de transformation, sur de petites données écrites dans le test (`pytest`).
+- Intégration : le pipeline sur un petit jeu de données figé et versionné. Le test compare la sortie à une sortie attendue, avec une graine fixe (`pytest`).
+- Fonctionnelle : sans objet.
 
 ## Test manuel par défaut
 

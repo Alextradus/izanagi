@@ -4,8 +4,9 @@ Application pour téléphone ou tablette (React Native, Flutter, Kotlin, Swift).
 
 ## Couches de test
 
-- Tests unitaires de la logique (`vitest` ou Jest pour React Native, `flutter test`, JUnit).
-- Tests d'interface sur émulateur ou simulateur (Maestro, Detox, `flutter drive`). Ils sont lents : `scripts/check.sh` ne les lance que si l'émulateur est prévu dans la CI.
+- Unitaire : la logique (`vitest` ou Jest pour React Native, `flutter test`, JUnit).
+- Intégration : les modules avec leurs vraies dépendances (stockage local, client HTTP contre un serveur local), hors émulateur, avec les mêmes outils.
+- Fonctionnelle : sans objet par défaut, le test manuel en tient lieu. Les tests d'interface sur émulateur ou simulateur (Maestro, Detox, `flutter drive`) s'ajoutent plus tard, si la CI prévoit l'émulateur.
 
 ## Test manuel par défaut
 
