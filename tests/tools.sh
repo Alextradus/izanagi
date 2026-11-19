@@ -271,6 +271,7 @@ valeurs_upgrade() {
     ancienne=""
     if [[ $pile == python || $pile == typescript ]]; then
       ancienne="$(sed -n "s/^- couche : $nom | unitaire | [^|]* | \(.*\)$/\1/p" "$1/docs/agents/harness.md" | tr -d '\r')"
+      [[ $ancienne == 'à préciser' ]] && ancienne=""
     fi
     printf 'composant=%s|%s|%s|%s|%s|%s\n' "$nom" "$chemin" "$pile" "$lancement" "$couches" "$ancienne"
   done < <(grep -E '^- composant : ' "$1/docs/agents/harness.md" | tr -d '\r')

@@ -376,7 +376,8 @@ for entree in "${composants[@]}"; do
   # Ancienne commande de tests (sixième champ) : l'étape unitaire la garde tant
   # que la couche unitaire du gabarit ne peut pas tourner dans le projet.
   ancienne=""
-  [[ -n ${c_ancienne:-} ]] && ! unitaire_prete "$c_pile" "$cible/$c_chemin" && ancienne="$c_ancienne"
+  # `à préciser` : la migration 0.7.0 n'a pas trouvé d'étape `tests` dans check.sh.
+  [[ -n ${c_ancienne:-} && $c_ancienne != 'à préciser' ]] && ! unitaire_prete "$c_pile" "$cible/$c_chemin" && ancienne="$c_ancienne"
   for couche in unitaire integration fonctionnelle; do
     declaree=0
     [[ $declarees == *" $couche "* ]] && declaree=1
@@ -445,7 +446,14 @@ if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
     # Une commande Playwright à la racine : les navigateurs s'installent depuis le verrou de la racine.
     [[ $p_commande == *playwright* ]] && ajouter_playwright .
   fi
-  sections+=$'\n\n'"# --- entrée fonctionnelle du projet ---"$'\n'"verifier_projet_fonctionnelle() {"$'\n'"  ("$'\n'"$p_garde    echo \"-- projet : fonctionnelle\""$'\n'"    $p_commande"$'\n'"  )"$'\n'"}"
+  # Le package.json de la racine (Playwright, scénarios) s'installe depuis son verrou,
+  # comme chaque composant TypeScript, après la garde du navigateur.
+  p_installation="$(printf '%s\n' \
+    '    if [[ -f package-lock.json ]]; then' \
+    '      echo "-- projet : installation"' \
+    '      npm ci' \
+    '    fi')"$'\n'
+  sections+=$'\n\n'"# --- entrée fonctionnelle du projet ---"$'\n'"verifier_projet_fonctionnelle() {"$'\n'"  ("$'\n'"$p_garde$p_installation    echo \"-- projet : fonctionnelle\""$'\n'"    $p_commande"$'\n'"  )"$'\n'"}"
   appels_complets+="${appels_complets:+$'\n'}  verifier_projet_fonctionnelle"
   tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
   lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"

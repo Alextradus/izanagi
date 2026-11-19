@@ -80,6 +80,11 @@ mkdir "$tmp/iv"
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nizanagi_version=0.1.0\n' >"$tmp/ivv"
 "$install" "$tmp/iv" "$tmp/ivv" >/dev/null
 [[ $(kv_get "$tmp/iv/.izanagi/config.env" izanagi_version) == 0.1.0 ]] || echoue "izanagi_version des valeurs ignorée"
+# Un délai de mutation choisi par le projet passe dans config.env : upgrade le garde.
+mkdir "$tmp/md"
+printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nmutation_delai=30\n' >"$tmp/mdv"
+"$install" "$tmp/md" "$tmp/mdv" >/dev/null
+[[ $(kv_get "$tmp/md/.izanagi/config.env" mutation_delai) == 30 ]] || echoue "mutation_delai des valeurs ignoré"
 
 # Valeur de hook refusée avant toute écriture.
 mkdir "$tmp/hk"
@@ -317,6 +322,14 @@ for args in "--host" "--host --complet" "--complet --host"; do
     grep -qE ' : tout passe$' <<<"$sortie_ar" || echoue "check.sh $args : fin de sortie : $sortie_ar"
   fi
 done
+# Entrée du projet sans Playwright ni navigateur, avec un verrou à la racine : la
+# racine s'installe aussi.
+touch "$tmp/ar/package-lock.json"
+lancer_ar --host --complet
+[[ $code_ar -eq 0 ]] || echoue "entrée du projet avec verrou : code $code_ar : $sortie_ar"
+[[ $(grep -A1 -xF -- '-- projet : installation' <<<"$sortie_ar" | tail -1) == '-- projet : fonctionnelle' ]] ||
+  echoue "entrée du projet sans Playwright : pas d'installation : $sortie_ar"
+rm "$tmp/ar/package-lock.json"
 # Sans bibliothèque : ni `--lib` ni `--doc`, qui échoueraient.
 cible_lib='{"kind":["lib"],"crate_types":["lib"],"name":"cli","doctest":true},'
 printf '%s\n' "${meta_complet/"$cible_lib"/}" >"$tmp/ar/meta"
@@ -427,6 +440,14 @@ lancer_nv
 [[ $code_nv -eq 0 ]] || echoue "navigateur : code $code_nv : $sortie_nv"
 grep -qxF 'npm run test:fonctionnel' "$tmp/nv/journal" || echoue "navigateur : étape web non lancée : $(cat "$tmp/nv/journal")"
 grep -qxF 'npx playwright test' "$tmp/nv/journal" || echoue "navigateur : entrée du projet non lancée"
+grep -qxF -- '-- projet : installation' <<<"$sortie_nv" && echoue "entrée du projet : installation sans package-lock.json : $sortie_nv"
+# Avec un verrou à la racine, l'entrée du projet installe ses dépendances avant la commande.
+touch "$tmp/nv/package-lock.json"
+lancer_nv
+[[ $code_nv -eq 0 ]] || echoue "entrée du projet avec verrou : code $code_nv : $sortie_nv"
+[[ $(grep -A1 -xF -- '-- projet : installation' <<<"$sortie_nv" | tail -1) == '-- projet : fonctionnelle' ]] ||
+  echoue "entrée du projet : pas d'installation avant la commande : $sortie_nv"
+[[ $(grep -cxF 'npm ci' "$tmp/nv/journal") -eq 3 ]] || echoue "entrée du projet : npm ci de la racine absent : $(cat "$tmp/nv/journal")"
 # IZANAGI_NAVIGATEUR=non : les deux étapes sont sautées et rendent 0.
 export IZANAGI_NAVIGATEUR=non
 lancer_nv
@@ -434,6 +455,7 @@ unset IZANAGI_NAVIGATEUR
 [[ $code_nv -eq 0 ]] || echoue "navigateur=non : code $code_nv : $sortie_nv"
 grep -qxF -- '-- web : fonctionnelle : navigateur absent de ce système, sauté' <<<"$sortie_nv" || echoue "navigateur=non : saut web : $sortie_nv"
 grep -qxF -- '-- projet : fonctionnelle : navigateur absent de ce système, sauté' <<<"$sortie_nv" || echoue "navigateur=non : saut projet : $sortie_nv"
+grep -qxF -- '-- projet : installation' <<<"$sortie_nv" && echoue "navigateur=non : la racine s'installe alors que l'étape est sautée : $sortie_nv"
 grep -qE 'test:fonctionnel|playwright test' "$tmp/nv/journal" && echoue "navigateur=non : une étape Playwright a tourné"
 grep -qxF 'npm run test:unitaire' "$tmp/nv/journal" || echoue "navigateur=non : l'étape unitaire doit tourner"
 # Valeur fausse : refus avant écriture.
@@ -695,6 +717,14 @@ printf 'chemins_sensibles=db/*, src/auth/*\n' >>"$tmp/cle-vide-v"
 mkdir "$tmp/cle-pleine"
 "$install" "$tmp/cle-pleine" "$tmp/cle-vide-v" >/dev/null
 grep -qxF 'chemins_sensibles=db/*, src/auth/*' "$tmp/cle-pleine/.izanagi/config.env" || echoue "chemins_sensibles donné n'est pas rendu"
+
+# Ancienne commande `à préciser` (la migration 0.7.0 l'écrit quand check.sh n'avait
+# pas d'étape `tests`) : ignorée, check.sh ne la lance pas comme une commande.
+mkdir "$tmp/ap"
+printf '%s\n' 'composant=app|.|python||unitaire|à préciser' "${base[@]}" >"$tmp/apv"
+"$install" "$tmp/ap" "$tmp/apv" >/dev/null
+grep -qF 'à préciser' "$tmp/ap/scripts/check.sh" && echoue "ancienne « à préciser » rendue dans check.sh : $(grep -nF 'à préciser' "$tmp/ap/scripts/check.sh")"
+grep -qF 'uv run pytest tests/unitaires' "$tmp/ap/scripts/check.sh" || echoue "ancienne « à préciser » : commande du gabarit absente"
 
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.
