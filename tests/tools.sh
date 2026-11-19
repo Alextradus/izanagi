@@ -605,6 +605,8 @@ while [ $# -gt 0 ]; do
   shift
 done
 mkdir -p "$sortie/mutants.out"
+# FAUX_ECHEC=1 : tests de base en échec, listes vides et code 4.
+[ -n "$FAUX_ECHEC" ] && { : >"$sortie/mutants.out/missed.txt"; exit 4; }
 printf 'src/lib.rs:2:5: replace + with - in somme\n' >"$sortie/mutants.out/missed.txt"
 printf 'src/lib.rs:2:5: replace somme -> i32 with 0\n' >"$sortie/mutants.out/caught.txt"
 exit 2
@@ -705,6 +707,13 @@ grep -qF "$mu/web" "$FAUX_JOURNAL/npx.cwd" || echoue "mutation : stryker pas lan
 grep -qF "$mu/api" "$FAUX_JOURNAL/uv.cwd" || echoue "mutation : mutmut pas lancé dans api"
 [[ $(cat "$FAUX_JOURNAL/uv.args") == 'run mutmut run app.calc.x*' ]] || echoue "mutation : arguments mutmut : $(cat "$FAUX_JOURNAL/uv.args")"
 grep -qF -- '--ignore=tests/fonctionnels' "$FAUX_JOURNAL/uv.addopts" || echoue "mutation : mutmut lance la couche fonctionnelle"
+
+# cargo-mutants en échec (code 4) avec un missed.txt vide : échec signalé, pas
+# « 0 survivant » en silence.
+FAUX_ECHEC=1 passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : échec de cargo : code $code"
+grep -qxF "non muté | rs | échec de l'outil (code 4)" <<<"$sortie" || echoue "mutation : échec de cargo non signalé : $sortie"
+grep -q '^survivant | rs ' <<<"$sortie" && echoue "mutation : survivant rs malgré l'échec : $sortie"
 
 # Un outil absent : le composant n'est pas muté, les autres le sont.
 rm -f "$FAUX_JOURNAL"/*

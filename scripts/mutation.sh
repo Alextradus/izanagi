@@ -29,6 +29,10 @@
 # - cargo-mutants : une ligne de `missed.txt` s'écrit avec `mutant.name(true)`,
 #   par exemple `src/process.rs:213:9: replace ProcessStatus::is_success -> bool with true`
 #   (src/output.rs et ses tests, même dépôt).
+# - cargo-mutants, codes de sortie : 0 tous les mutants pris, 1 usage faux,
+#   2 des mutants manqués, 3 des tests hors délai, 4 tests de base en échec (aucun
+#   mutant testé), 5 diff de `--in-diff` qui ne correspond pas à l'arbre, 6 diff
+#   invalide, 70 erreur interne. https://mutants.rs/exit-codes.html
 # - Stryker : `--mutate` prend une liste de fichiers ou de motifs séparés par des
 #   virgules, `--reporters` une liste de rapporteurs. Le rapporteur `json` écrit
 #   `reports/mutation/mutation.json` sans indentation, que grep et sed ne lisent pas
@@ -262,6 +266,15 @@ for i in "${!noms[@]}"; do
       # unitaire et intégration.
       git -C "$dossier" diff --relative "$point...HEAD" >"$travail/$i.diff" 2>/dev/null
       (cd "$dossier" && lancer "$journal" cargo mutants --in-diff "$(natif "$travail/$i.diff")" --output "$(natif "$travail/$i.out")") || code=$?
+      # 0, 2 et 3 donnent des résultats, et 124 vient de timeout. Les autres codes
+      # sont un échec, même avec un missed.txt (vide après un code 4).
+      case "$code" in
+        0 | 2 | 3 | 124) ;;
+        *)
+          echo "non muté | $nom | échec de l'outil (code $code)"
+          continue
+          ;;
+      esac
       if [[ -f $travail/$i.out/mutants.out/missed.txt ]]; then
         resultats_rust "$travail/$i.out/mutants.out/missed.txt" >"$trouves"
       elif [[ $code -ne 124 ]]; then
