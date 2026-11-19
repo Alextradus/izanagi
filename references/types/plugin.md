@@ -17,6 +17,16 @@ Charger le plugin en mode développement dans l'hôte (touche F5 de VS Code, « 
 - **Manifeste incohérent.** Le manifeste annonce une commande, une permission ou un fichier que le code ne fournit pas, ou l'inverse.
 - **Permission excessive.** Le plugin demande plus d'accès que ses fonctions n'en utilisent.
 
+## Sécurité
+
+Classes de failles que le relecteur sécurité cherche dans le diff, au niveau de risque élevé.
+
+- **Permission excessive.** Le manifeste gagne une permission ou un hôte qu'aucune fonction du diff n'utilise.
+- **Contenu de l'hôte exécuté.** Le plugin évalue ou injecte comme du code un texte lu dans l'hôte (page, document, sortie d'outil).
+- **Commande construite à partir d'une entrée.** Une donnée de l'hôte entre dans une commande système sans échappement.
+- **Secret stocké en clair.** Un jeton est rangé dans les réglages en clair au lieu du stockage de secrets de l'hôte.
+- **Code téléchargé à l'exécution.** Le plugin charge et lance du code distant, hors de la revue de son magasin.
+
 ## Prérequis
 
 L'hôte installé, dans la version minimale que le plugin déclare, et la toolchain de la pile.

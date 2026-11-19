@@ -1,3 +1,5 @@
+# Actions épinglées par SHA, avec l'étiquette en commentaire. Dependabot
+# (.github/dependabot.yml) propose leurs mises à jour.
 name: CI
 
 on:
@@ -21,8 +23,22 @@ jobs:
         os: {{ci_os}}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          # Tout l'historique : la recherche de secrets lit la plage depuis la branche principale.
+          fetch-depth: 0
+{{ci_gitleaks}}
 {{ci_setup}}
       - name: Vérifications
         shell: bash
         run: bash scripts/check.sh --host
+
+  audit:
+    name: audit des dépendances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+{{ci_audit}}

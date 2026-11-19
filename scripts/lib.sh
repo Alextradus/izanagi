@@ -95,3 +95,119 @@ izanagi_root() {
   [[ -f $racine/.izanagi/config.env ]] || return 1
   printf '%s\n' "$racine"
 }
+
+# commandes_simples <commande> <fonction> : découpe une commande Bash en commandes
+# simples et appelle `<fonction> <mot>…` pour chacune, avec ses mots. Rend 0 si au
+# moins un appel de la fonction a rendu 0, et 1 sinon : « une commande est visée ».
+#
+# Hors guillemets, une espace finit un mot, et `;`, `&`, `|`, `(`, `)`, l'accent grave
+# et le saut de ligne finissent une commande simple. Entre guillemets, tout caractère
+# appartient au mot : le `;` d'un message de commit ne coupe rien. Une barre oblique
+# inverse en fin de ligne continue la ligne. Le découpage ne développe ni variable,
+# ni alias, ni `eval` : une commande construite pour le tromper passe.
+# Le temps croît avec le carré de la longueur : limite la commande avant l'appel.
+commandes_simples() {
+  local commande=$1 fonction=$2 c bo n k=0 mot="" dans_mot=0 guillemet="" vise=1
+  local -a mots=()
+  bo=$(printf '%b' '\0134')
+  n=${#commande}
+  while ((k <= n)); do
+    if ((k == n)); then
+      c=$'\n'
+    else
+      c="${commande:k:1}"
+    fi
+    if [[ -n $guillemet ]] && ((k < n)); then
+      if [[ $c == "$guillemet" ]]; then
+        guillemet=""
+      elif [[ $c == "$bo" && $guillemet == '"' ]]; then
+        # Entre guillemets doubles, la barre n'échappe que $, `, ", elle-même et le
+        # saut de ligne. Devant un autre caractère, elle reste dans le mot.
+        case "${commande:k+1:1}" in
+          '$' | '`' | '"' | "$bo")
+            k=$((k + 1))
+            mot+="${commande:k:1}"
+            ;;
+          $'\n') k=$((k + 1)) ;;
+          *) mot+="$c" ;;
+        esac
+      else
+        mot+="$c"
+      fi
+    else
+      case "$c" in
+        '"' | "'")
+          guillemet="$c"
+          dans_mot=1
+          ;;
+        "$bo")
+          k=$((k + 1))
+          if [[ ${commande:k:1} != $'\n' ]]; then
+            mot+="${commande:k:1}"
+            dans_mot=1
+          fi
+          ;;
+        ' ' | $'\t')
+          if ((dans_mot)); then mots+=("$mot"); fi
+          mot=""
+          dans_mot=0
+          ;;
+        ';' | '&' | '|' | '(' | ')' | '`' | $'\n')
+          if ((dans_mot)); then mots+=("$mot"); fi
+          mot=""
+          dans_mot=0
+          if ((${#mots[@]})) && "$fonction" "${mots[@]}"; then vise=0; fi
+          mots=()
+          ;;
+        *)
+          mot+="$c"
+          dans_mot=1
+          ;;
+      esac
+    fi
+    k=$((k + 1))
+  done
+  return "$vise"
+}
+
+# refus_noter <racine> <hook> <motif> : ajoute à .izanagi/refus.log la ligne
+# `<date UTC>|<branche courante>|<hook>|<motif>`, que la rétrospective lit. Les `|` de
+# la branche et du motif, et les sauts de ligne du motif, deviennent des espaces. N'échoue jamais : une écriture
+# ratée ne change pas la décision du hook.
+refus_noter() {
+  local racine=$1 hook=$2 motif=$3 branche
+  branche="$(git -C "$racine" rev-parse --abbrev-ref HEAD 2>/dev/null || echo inconnue)"
+  # git permet `|` dans un nom de branche : il deviendrait un séparateur de champ.
+  branche="${branche//|/ }"
+  motif="${motif//|/ }"
+  motif="${motif//$'\n'/ }"
+  printf '%s|%s|%s|%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$branche" "$hook" "$motif" \
+    >>"$racine/.izanagi/refus.log" 2>/dev/null || true
+}
+
+# regles_deny : affiche une par ligne les règles `permissions.deny` du gabarit
+# templates/core/.claude/settings.json (`Read(.env*)`…).
+regles_deny() {
+  sed -n 's/^ *"\(\(Read\|Edit\)([^"]*)\)",\{0,1\}$/\1/p' \
+    "$izanagi_lib_dir/../templates/core/.claude/settings.json" | tr -d '\r'
+}
+
+# regles_deny_absentes <settings.json> : affiche les règles du gabarit que le fichier
+# ne contient pas, cherchées comme texte entre guillemets, sans décodeur JSON.
+# Fichier absent : toutes.
+regles_deny_absentes() {
+  local regle
+  while IFS= read -r regle; do
+    grep -qF "\"$regle\"" "$1" 2>/dev/null || printf '%s\n' "$regle"
+  done < <(regles_deny)
+}
+
+# json_echappe <texte> : affiche le texte prêt à entrer entre guillemets dans du JSON.
+json_echappe() {
+  local t=$1 bo
+  bo=$(printf '%b' '\0134')
+  t="${t//"$bo"/"$bo$bo"}"
+  t="${t//\"/"$bo"\"}"
+  t="${t//$'\n'/ }"
+  printf '%s' "$t"
+}

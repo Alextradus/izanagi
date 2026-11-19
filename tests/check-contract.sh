@@ -32,15 +32,24 @@ avant="$(cd "$tmp/ok" && find . -type f | sort | xargs cat | cksum)"
 apres="$(cd "$tmp/ok" && find . -type f | sort | xargs cat | cksum)"
 [[ $avant == "$apres" ]] || echoue "check-contract.sh a écrit dans le projet"
 
+# Sans recherche de secrets : refusé.
+cp -r "$tmp/ok" "$tmp/sanssecret"
+sed -i '/gitleaks git/d' "$tmp/sanssecret/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/sanssecret")"; then echoue "check.sh sans gitleaks accepté"; fi
+grep -qF 'contrat : scripts/check.sh : ne lance pas la recherche de secrets (gitleaks git)' <<<"$sortie" || echoue "sans gitleaks : $sortie"
+
 # zig sans rien remplir : À ÉCRIRE dans check.sh et ci.yml.
 poser zig composant='api|.|zig|' systemes=linux,windows
 if sortie="$("$contrat" "$tmp/zig")"; then echoue "zig vide accepté"; fi
 grep -q '^contrat : scripts/check.sh : .*À ÉCRIRE' <<<"$sortie" || echoue "zig : check.sh : $sortie"
 grep -q '^contrat : .github/workflows/ci.yml : .*À ÉCRIRE' <<<"$sortie" || echoue "zig : ci.yml : $sortie"
+grep -q '^contrat : .github/workflows/securite.yml : .*À ÉCRIRE' <<<"$sortie" || echoue "zig : securite.yml : $sortie"
 
 # zig rempli.
 sed -i 's/^\( *\)# À ÉCRIRE : api (zig).*/\1true/' "$tmp/zig/scripts/check.sh"
 sed -i 's/^\( *\)# À ÉCRIRE : installation de zig.*/\1- run: echo zig/' "$tmp/zig/.github/workflows/ci.yml"
+sed -i 's/^\( *\)# À ÉCRIRE : audit des dépendances de api (zig).*/\1- run: echo audit/' \
+  "$tmp/zig/.github/workflows/ci.yml" "$tmp/zig/.github/workflows/securite.yml"
 sortie="$("$contrat" "$tmp/zig")" || echoue "zig rempli refusé : $sortie"
 
 # Installation sans verrou.

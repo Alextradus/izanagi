@@ -2,7 +2,7 @@
 
 - Spec, qui fait foi : `{{spec}}`. Plans par jalon : `{{plans}}`.
 - Vérifier avant de pousser ou de rendre une tâche : `{{verification}}`. Le hook `.githooks/pre-push` lance `scripts/check.sh --host` (activation, une fois par clone : `git config core.hooksPath .githooks`).
-- Relecture : `docs/CODING_STANDARDS.md`.
+- Relecture : `docs/CODING_STANDARDS.md` pour tous les langages, et `docs/standards/<langage>.md` pour chaque langage.
 - Jalons : `/izanagi:jalon`, réglé par `.izanagi/config.env`.
 - Dans ce projet, les skills `izanagi:*` priment sur tout autre skill de même rôle (cadrage, plan, TDD, revue, diagnostic). Ne lance pas à leur place un skill d'un autre plugin.
 {{ligne_vault}}

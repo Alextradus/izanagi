@@ -72,25 +72,12 @@ vise_principale() {
   return 1
 }
 
-vise=1
-mots=()
-mot=""
-dans_mot=0
-guillemet=""
-
-fin_mot() {
-  if ((dans_mot)); then mots+=("$mot"); fi
-  mot=""
-  dans_mot=0
-}
-
-# Examine la commande simple lue dans `mots`, puis la vide. Cherche `git … push` :
-# `push` est le premier mot sans tiret après `git`, une fois sautées les options
-# de git et la valeur de celles qui en prennent une.
-fin_commande() {
-  local i=0 n
-  fin_mot
-  n=${#mots[@]}
+# examine_push <mots> : rend 0 si la commande simple est un `git … push` qui vise la
+# branche principale. `push` est le premier mot sans tiret après `git`, une fois
+# sautées les options de git et la valeur de celles qui en prennent une.
+examine_push() {
+  local -a mots=("$@")
+  local i=0 n=${#mots[@]}
   while ((i < n)) && [[ ${mots[i]} != git ]]; do i=$((i + 1)); done
   i=$((i + 1))
   while ((i < n)); do
@@ -100,56 +87,11 @@ fin_commande() {
       *) break ;;
     esac
   done
-  if ((i < n)) && [[ ${mots[i]} == push ]] && vise_principale "${mots[@]:i+1}"; then
-    vise=0
-  fi
-  mots=()
+  ((i < n)) && [[ ${mots[i]} == push ]] && vise_principale "${mots[@]:i+1}"
 }
 
-# Lit la commande caractère par caractère. Hors guillemets, une espace finit un mot
-# et un séparateur du shell finit une commande simple. Entre guillemets, tout
-# caractère appartient au mot : le `;` d'un message de commit ne coupe rien.
-bo=$(printf '%b' '\0134')
-n=${#commande}
-k=0
-while ((k < n)); do
-  c="${commande:k:1}"
-  if [[ -n $guillemet ]]; then
-    if [[ $c == "$guillemet" ]]; then
-      guillemet=""
-    elif [[ $c == "$bo" && $guillemet == '"' ]]; then
-      k=$((k + 1))
-      mot+="${commande:k:1}"
-    else
-      mot+="$c"
-    fi
-  else
-    case "$c" in
-      '"' | "'")
-        guillemet="$c"
-        dans_mot=1
-        ;;
-      "$bo")
-        # Une barre oblique inverse en fin de ligne continue la ligne.
-        k=$((k + 1))
-        if [[ ${commande:k:1} != $'\n' ]]; then
-          mot+="${commande:k:1}"
-          dans_mot=1
-        fi
-        ;;
-      ' ' | $'\t') fin_mot ;;
-      ';' | '&' | '|' | '(' | ')' | '`' | $'\n') fin_commande ;;
-      *)
-        mot+="$c"
-        dans_mot=1
-        ;;
-    esac
-  fi
-  k=$((k + 1))
-done
-fin_commande
-
-[[ $vise -eq 0 ]] || exit 0
+commandes_simples "$commande" examine_push || exit 0
+refus_noter "$racine" push "push direct sur $principale"
 
 if [[ $(kv_get "$racine/.izanagi/config.env" hook_push || true) == avertit ]]; then
   printf '{"systemMessage": "Izanagi : push direct sur %s."}\n' "$principale"

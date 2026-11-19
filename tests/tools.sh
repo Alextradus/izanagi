@@ -66,7 +66,8 @@ config="$tmp/p03/.izanagi/config.env"
 [[ $(kv_get "$config" fichier_version) == *Cargo.toml* ]] || echoue "migration : fichier_version"
 [[ $(kv_get "$config" vault) == C:/Vault/essai ]] || echoue "migration : vault"
 [[ $(kv_get "$config" hook_push) == bloque && $(kv_get "$config" hook_verification) == bloque ]] || echoue "migration : hooks"
-[[ $(cat "$tmp/p03/.izanagi/.gitignore") == 'journal/*/' ]] || echoue "migration : .izanagi/.gitignore"
+[[ $(cat "$tmp/p03/.izanagi/.gitignore") == "$(cat "$racine/templates/core/.izanagi/.gitignore")" ]] || echoue "migration : .izanagi/.gitignore"
+[[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "migration : hook_destructif"
 
 # La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
 { echo pile=rust; valeurs_de "$tmp/p03"; } >"$tmp/p03v2"
@@ -104,15 +105,61 @@ sortie="$(bash "$migration05" "$tmp/p04")"
 [[ $sortie == 'écrit      .izanagi/config.env' ]] || echoue "migration 0.5.0 : $sortie"
 [[ $(kv_get "$tmp/p04/.izanagi/config.env" izanagi_version) == 0.5.0 ]] || echoue "migration 0.5.0 sur 0.4.1 : izanagi_version"
 [[ $(grep -A1 '^taille_tranche=' "$tmp/p04/.izanagi/config.env" | tail -1) == 'chemins_sensibles=' ]] || echoue "migration 0.5.0 : chemins_sensibles mal placé"
-# La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
+# La pose de la 0.5.0, relancée avec ces valeurs, trouve le config.env identique à
+# son gabarit. Le gabarit courant porte les clés des versions suivantes.
 { echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v"
-sortie="$("$install" "$tmp/p04" "$tmp/p04v")"
+mkdir -p "$tmp/v05"
+git -C "$racine" archive v0.5.0 scripts templates .claude-plugin | tar -x -C "$tmp/v05"
+sortie="$(bash "$tmp/v05/scripts/install.sh" "$tmp/p04" "$tmp/p04v")"
 grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "config.env migré en 0.5 différent du gabarit : $sortie"
 [[ $(bash "$migration05" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.5.0 relancée sur 0.4.1"
 # Sans config.env, la migration refuse.
 mkdir "$tmp/nu"
 code=0; bash "$migration05" "$tmp/nu" >/dev/null 2>&1 || code=$?
 [[ $code -eq 2 ]] || echoue "migration 0.5.0 sans config.env : code $code"
+
+# ============ Migration 0.6.0 ============
+migration06="$racine/scripts/migrations/0.6.0.sh"
+[[ -f $migration06 ]] || echoue "scripts/migrations/0.6.0.sh absent"
+# Sur le projet migré en 0.5 : clé, .gitignore et règles permissions.deny.
+git -C "$tmp/p04" add -A && git -C "$tmp/p04" commit -q -m "cadre 0.5"
+sortie="$(bash "$migration06" "$tmp/p04")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      .izanagi/.gitignore\ncréé       .claude/settings.json' ]] || echoue "migration 0.6.0 : $sortie"
+config04="$tmp/p04/.izanagi/config.env"
+[[ $(kv_get "$config04" izanagi_version) == 0.6.0 ]] || echoue "migration 0.6.0 : izanagi_version"
+[[ $(grep -A1 '^hook_verification=' "$config04" | tail -1) == 'hook_destructif=demande' ]] || echoue "migration 0.6.0 : hook_destructif mal placé"
+[[ $(kv_get "$config04" projet) == 'Essai Rapide' ]] || echoue "migration 0.6.0 a perdu une valeur"
+# La pose courante, relancée avec ces valeurs, trouve ces trois fichiers identiques au gabarit.
+{ echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v6"
+sortie="$("$install" "$tmp/p04" "$tmp/p04v6")"
+for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json; do
+  grep -qxF "identique  $f" <<<"$sortie" || echoue "migration 0.6.0 : $f différent du gabarit : $sortie"
+done
+[[ $(bash "$migration06" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.6.0 relancée"
+
+# Un .claude/settings.json du projet, avec d'autres réglages, n'est jamais réécrit.
+mkdir -p "$tmp/p06r/.izanagi" "$tmp/p06r/.claude"
+printf 'izanagi_version=0.5.0\nhook_push=bloque\nhook_verification=bloque\n' >"$tmp/p06r/.izanagi/config.env"
+printf '{\n  "model": "sonnet"\n}\n' >"$tmp/p06r/.claude/settings.json"
+# Un .gitignore sans saut de ligne final : le motif ne se colle pas à la dernière ligne.
+printf 'journal/*/' >"$tmp/p06r/.izanagi/.gitignore"
+avant="$(cat "$tmp/p06r/.claude/settings.json")"
+sortie="$(bash "$migration06" "$tmp/p06r")"
+grep -qxF 'à fusionner .claude/settings.json' <<<"$sortie" || echoue "migration 0.6.0 : settings.json existant : $sortie"
+[[ $(cat "$tmp/p06r/.claude/settings.json") == "$avant" ]] || echoue "migration 0.6.0 a réécrit settings.json"
+[[ $(cat "$tmp/p06r/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue "migration 0.6.0 : .gitignore sans saut de ligne final : $(cat "$tmp/p06r/.izanagi/.gitignore")"
+# Les règles déjà fusionnées : plus rien à signaler.
+cp "$racine/templates/core/.claude/settings.json" "$tmp/p06r/.claude/settings.json"
+[[ $(bash "$migration06" "$tmp/p06r") == 'déjà migré' ]] || echoue "migration 0.6.0 après fusion"
+
+# Enchaînée après la 0.4.0 et la 0.5.0 sur le projet posé en 0.3.0 : la clé est déjà là.
+sortie="$(bash "$migration05" "$tmp/p03" >/dev/null; bash "$migration06" "$tmp/p03")"
+[[ $(kv_get "$config" izanagi_version) == 0.6.0 ]] || echoue "migration 0.6.0 après 0.5.0 : izanagi_version : $sortie"
+[[ $(grep -c '^hook_destructif=' "$config") -eq 1 ]] || echoue "migration 0.6.0 après 0.4.0 : hook_destructif en double"
+git -C "$tmp/p03" checkout -q -- .izanagi
+rm -rf "$tmp/p03/.claude"
+code=0; bash "$migration06" "$tmp/nu" >/dev/null 2>&1 || code=$?
+[[ $code -eq 2 ]] || echoue "migration 0.6.0 sans config.env : code $code"
 
 # --- Vault absent ---
 mkdir "$tmp/sv"
@@ -183,14 +230,117 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 2 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 7 ]] || echoue "0.1.1 : créations en trop : $sortie"
   grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
 fi
+
+# ============ check.sh : recherche de secrets ============
+# Un faux gitleaks note ses arguments et rend le code de $GITLEAKS_CODE. Le projet n'a
+# qu'un composant sans gabarit, dont la section ne lance rien, et pour seul système
+# cible le système courant : `check.sh --host` ne lance que la recherche de secrets.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) ici=windows ;;
+  Darwin*) ici=macos ;;
+  *) ici=linux ;;
+esac
+mkdir -p "$tmp/faux" "$tmp/sec"
+cat >"$tmp/faux/gitleaks" <<'FAUX'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >"$GITLEAKS_ARGS"
+exit "${GITLEAKS_CODE:-0}"
+FAUX
+chmod +x "$tmp/faux/gitleaks"
+export GITLEAKS_ARGS="$tmp/gitleaks.args"
+printf 'projet=sec\nspec=s.md\nlieu_test=ici\ntest_manuel=x\nfichier_version=y\ncomposant=api|.|zig|\nsystemes=%s\n' "$ici" >"$tmp/secv"
+"$install" "$tmp/sec" "$tmp/secv" >/dev/null
+grep -qF 'verifier_secrets' "$tmp/sec/scripts/check.sh" || echoue "check.sh : pas de verifier_secrets"
+depot "$tmp/sec"
+git -C "$tmp/sec" switch -q -c task/x
+echo x >"$tmp/sec/x.txt" && git -C "$tmp/sec" add x.txt && git -C "$tmp/sec" commit -q -m x
+# secrets <dossier> : lance check.sh --host avec le faux gitleaks ; remplit $sortie et $code.
+secrets() {
+  code=0
+  rm -f "$GITLEAKS_ARGS"
+  sortie="$(cd "$1" && PATH="$tmp/faux:$PATH" bash scripts/check.sh --host 2>&1)" || code=$?
+}
+secrets "$tmp/sec"
+[[ $code -eq 0 ]] || echoue "secrets : code $code : $sortie"
+[[ $(cat "$GITLEAKS_ARGS") == 'git --redact --no-banner --log-opts=main..HEAD .' ]] || echoue "secrets : arguments « $(cat "$GITLEAKS_ARGS") »"
+grep -qF -- '-- secrets' <<<"$sortie" || echoue "secrets : étape non annoncée : $sortie"
+GITLEAKS_CODE=1 secrets "$tmp/sec"
+[[ $code -ne 0 ]] || echoue "secrets : une fuite ne fait pas échouer check.sh"
+
+# Clone sans branche principale locale, comme le checkout d'une CI.
+git clone -q "$tmp/sec" "$tmp/sec-clone"
+git -C "$tmp/sec-clone" rev-parse -q --verify refs/heads/main >/dev/null && echoue "secrets : le clone a une branche main locale"
+secrets "$tmp/sec-clone"
+[[ $(cat "$GITLEAKS_ARGS") == 'git --redact --no-banner --log-opts=origin/main..HEAD .' ]] || echoue "secrets : clone : « $(cat "$GITLEAKS_ARGS") »"
+
+# Aucune des deux références : tout l'historique, et une ligne qui le dit.
+git -C "$tmp/sec" branch -q -D main
+secrets "$tmp/sec"
+[[ $(cat "$GITLEAKS_ARGS") == 'git --redact --no-banner .' ]] || echoue "secrets : sans branche principale : « $(cat "$GITLEAKS_ARGS") »"
+grep -qF -- '-- secrets : branche principale introuvable, analyse de tout l'"'"'historique' <<<"$sortie" || echoue "secrets : sans branche principale : $sortie"
+
+# Hors d'un dépôt git, comme la copie WSL : étape sautée.
+mkdir "$tmp/sec-copie"
+git -C "$tmp/sec" archive HEAD | tar -x -C "$tmp/sec-copie"
+secrets "$tmp/sec-copie"
+[[ $code -eq 0 && ! -e $GITLEAKS_ARGS ]] || echoue "secrets : hors dépôt git : code $code : $sortie"
+grep -qF -- '-- secrets : pas de dépôt git, sauté' <<<"$sortie" || echoue "secrets : hors dépôt git : $sortie"
+
+if command -v gitleaks >/dev/null; then
+  # Une fausse clé AWS commitée fait échouer check.sh, et la sortie la masque.
+  git -C "$tmp/sec" switch -q -c main 2>/dev/null || true
+  git -C "$tmp/sec" switch -q -c task/fuite
+  cle='AKIA'"ZQ3DRSJ7XKW4PLMB"
+  printf 'aws_access_key_id = %s\n' "$cle" >"$tmp/sec/conf.ini"
+  git -C "$tmp/sec" add conf.ini && git -C "$tmp/sec" commit -q -m fuite
+  code=0
+  sortie="$(cd "$tmp/sec" && bash scripts/check.sh --host 2>&1)" || code=$?
+  [[ $code -ne 0 ]] || echoue "gitleaks : fuite non trouvée : $sortie"
+  grep -qF "$cle" <<<"$sortie" && echoue "gitleaks : la clé apparaît dans la sortie"
+else
+  echo "tools.sh : gitleaks absent, cas réel sauté"
+  # Sans gitleaks, check.sh échoue et renvoie à doctor.
+  code=0
+  sortie="$(cd "$tmp/sec" && bash scripts/check.sh --host 2>&1)" || code=$?
+  [[ $code -ne 0 ]] || echoue "secrets : gitleaks absent accepté"
+  grep -qF -- '-- secrets : gitleaks absent, voir /izanagi:doctor' <<<"$sortie" || echoue "secrets : gitleaks absent : $sortie"
+fi
+
+# ============ refus.sh ============
+refus="$racine/scripts/refus.sh"
+[[ -f $refus ]] || echoue "scripts/refus.sh absent"
+mkdir -p "$tmp/rf/.izanagi"
+printf 'branche=main\n' >"$tmp/rf/.izanagi/config.env"
+depot "$tmp/rf"
+# Fichier absent : aucune sortie, code 0.
+[[ -z $(cd "$tmp/rf" && bash "$refus" task/a) ]] || echoue "refus.sh : sortie sans refus.log"
+printf '%s\n' '2026-11-18T10:00:00Z|task/a|push|push direct sur main' \
+  '2026-11-18T10:01:00Z|task/b|destructif|git reset --hard' \
+  '2026-11-18T10:02:00Z|task/a|verification|vérification rouge' >"$tmp/rf/.izanagi/refus.log"
+sortie="$(cd "$tmp/rf" && bash "$refus" task/a)"
+[[ $sortie == $'2026-11-18T10:00:00Z|task/a|push|push direct sur main\n2026-11-18T10:02:00Z|task/a|verification|vérification rouge' ]] || echoue "refus.sh : filtre : $sortie"
+[[ -z $(cd "$tmp/rf" && bash "$refus" task/c) ]] || echoue "refus.sh : branche sans refus"
+# Une branche dont le nom est le préfixe d'une autre ne prend pas ses lignes.
+[[ -z $(cd "$tmp/rf" && bash "$refus" task) ]] || echoue "refus.sh : préfixe de branche"
+# Un « | » dans un nom de branche est noté comme une espace : refus.sh le retrouve.
+printf '%s\n' '2026-11-18T10:03:00Z|task/a b|push|push direct sur main' >>"$tmp/rf/.izanagi/refus.log"
+[[ $(cd "$tmp/rf" && bash "$refus" 'task/a|b') == '2026-11-18T10:03:00Z|task/a b|push|push direct sur main' ]] || echoue "refus.sh : branche avec |"
+(cd "$tmp/rf" && bash "$refus" 'task/a|b' --vider)
+(cd "$tmp/rf" && bash "$refus" task/a --vider)
+[[ $(cat "$tmp/rf/.izanagi/refus.log") == '2026-11-18T10:01:00Z|task/b|destructif|git reset --hard' ]] || echoue "refus.sh : vidage : $(cat "$tmp/rf/.izanagi/refus.log")"
+if (cd "$tmp/rf" && bash "$refus" task/a --tout >/dev/null 2>&1); then echoue "refus.sh : option inconnue acceptée"; fi
+if (cd "$tmp/rf" && bash "$refus" >/dev/null 2>&1); then echoue "refus.sh : sans argument accepté"; fi
+mkdir "$tmp/rf-hors" && git -C "$tmp/rf-hors" init -q
+code=0; (cd "$tmp/rf-hors" && bash "$refus" task/a >/dev/null 2>&1) || code=$?
+[[ $code -eq 2 ]] || echoue "refus.sh : hors projet Izanagi : code $code"
 
 # ============ status.sh ============
 status="$racine/scripts/status.sh"
@@ -264,7 +414,7 @@ mkdir "$tmp/dr"
 depot "$tmp/dr"
 git -C "$tmp/dr" config core.hooksPath .githooks
 cd "$tmp/dr"
-controles_projet='hook pre-push|config.env|version du cadre|hook_push|hook_verification|contrat|état|jalon.md'
+controles_projet='hook pre-push|config.env|version du cadre|hook_push|hook_verification|hook_destructif|permissions|actions épinglées|contrat|état|jalon.md'
 
 # diagnostic : remplit $sortie et $code.
 diagnostic() {
@@ -279,11 +429,11 @@ ecart() {
 }
 
 diagnostic
-for c in 'outil git' 'outil bash' 'outil gh' 'outil cargo'; do
+for c in 'outil git' 'outil bash' 'outil gh' 'outil gitleaks' 'outil cargo'; do
   grep -qE "^(ok|écart)   +$c" <<<"$sortie" || echoue "doctor : contrôle « $c » absent : $sortie"
 done
 grep -E "^écart   ($controles_projet)" <<<"$sortie" && echoue "doctor : écart sur un projet sain : $sortie"
-for c in 'hook pre-push' 'config.env' 'version du cadre' 'hook_push' 'hook_verification' 'contrat' 'état' 'jalon.md'; do
+for c in 'hook pre-push' 'config.env' 'version du cadre' 'hook_push' 'hook_verification' 'hook_destructif' 'permissions' 'actions épinglées' 'contrat' 'état' 'jalon.md'; do
   grep -qxF "ok      $c" <<<"$sortie" || echoue "doctor : « ok      $c » absent : $sortie"
 done
 
@@ -294,6 +444,25 @@ retablir() { cp "$tmp/dr-config" "$config"; }
 sed -i 's/^hook_push=.*/hook_push=avertit/' "$config"
 ecart hook_push 'en avertissement'
 retablir
+sed -i 's/^hook_destructif=.*/hook_destructif=avertit/' "$config"
+ecart hook_destructif 'en avertissement \(avertit\)'
+retablir
+sed -i 's/^hook_destructif=.*/hook_destructif=bloque/' "$config"
+diagnostic
+grep -qxF 'ok      hook_destructif' <<<"$sortie" || echoue "doctor : hook_destructif=bloque signalé : $sortie"
+retablir
+reglages="$tmp/dr/.claude/settings.json"
+cp "$reglages" "$tmp/dr-settings"
+sed -i '/"Read(\*.pem)"/d' "$reglages"
+ecart permissions 'règles absentes de .claude/settings.json : Read\(\*\.pem\)'
+rm "$reglages"
+ecart permissions 'Read\(\.env\*\)'
+cp "$tmp/dr-settings" "$reglages"
+ci_dr="$tmp/dr/.github/workflows/ci.yml"
+cp "$ci_dr" "$tmp/dr-ci"
+sed -i '0,/uses: actions\/checkout@[0-9a-f]*/s//uses: actions\/checkout@v4/' "$ci_dr"
+ecart 'actions épinglées' 'ci.yml:[0-9]+ actions/checkout@v4'
+cp "$tmp/dr-ci" "$ci_dr"
 # `chemins_sensibles` peut être vide, pas absent.
 grep -qxF 'chemins_sensibles=' "$config" || echoue "doctor : le projet sain n'a pas chemins_sensibles vide"
 sed -i '/^chemins_sensibles=/d' "$config"

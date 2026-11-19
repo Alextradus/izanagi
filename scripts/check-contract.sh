@@ -24,6 +24,7 @@ harness=docs/agents/harness.md
 check=scripts/check.sh
 ci=.github/workflows/ci.yml
 dev=scripts/dev.sh
+secu=.github/workflows/securite.yml
 
 # Règle 8 : harness.md existe.
 if [[ ! -f $projet/$harness ]]; then
@@ -85,6 +86,8 @@ if [[ -f $projet/$check ]]; then
     fi
     [[ $code -eq 2 ]] || ecart "$check" "une option inconnue doit sortir avec le code 2 sans rien lancer"
   fi
+  # Règle 9 : la recherche de secrets.
+  grep -qF 'gitleaks git' "$projet/$check" || ecart "$check" "ne lance pas la recherche de secrets (gitleaks git)"
   # Règle 5 : une section par composant.
   for nom in "${noms[@]}"; do
     grep -qF -- "# --- composant $nom (" "$projet/$check" || ecart "$check" "pas de section pour le composant $nom"
@@ -92,7 +95,7 @@ if [[ -f $projet/$check ]]; then
 fi
 
 # Règle 4 : aucun À ÉCRIRE.
-for f in "$check" "$ci" "$dev"; do
+for f in "$check" "$ci" "$secu" "$dev"; do
   if [[ -f $projet/$f ]] && grep -qF 'À ÉCRIRE' "$projet/$f"; then
     ecart "$f" "contient À ÉCRIRE, à remplir"
   fi

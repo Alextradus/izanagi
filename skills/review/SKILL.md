@@ -55,23 +55,23 @@ Le niveau retenu règle la suite :
 | Niveau | Relecteurs | Tours | Après la revue |
 |---|---|---|---|
 | `faible` | `izanagi:reviewer-standards` seul | un | rien |
-| `normal` | les deux | trois au plus | rien |
-| `eleve` | les deux | trois au plus | l'utilisateur relit le diff |
+| `normal` | Standards et Spec | trois au plus | rien |
+| `eleve` | Standards, Spec et Sécurité | trois au plus | l'utilisateur relit le diff |
 
 Si l'utilisateur change le niveau pendant la revue, applique le nouveau niveau à partir du tour en cours.
 
 ## 3. Premier tour
 
-Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en parallèle. Au niveau `faible`, lance le seul `izanagi:reviewer-standards`, et saute ce que ce skill dit du relecteur Spec. Passe à chacun :
+Lance les sous-agents `izanagi:reviewer-standards` et `izanagi:reviewer-spec` en parallèle. Au niveau `eleve`, lance aussi `izanagi:reviewer-security`, en parallèle des deux autres. Au niveau `faible`, lance le seul `izanagi:reviewer-standards`, et saute ce que ce skill dit du relecteur Spec. Passe à chacun :
 
 - le chemin du fichier de diff ;
 - le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/finding.md`, qui fixe la forme et les étiquettes de ses constats ;
 - les constats écartés notés au journal pour ce jalon, pour qu'il ne les reprenne pas ;
 - les mineurs que les revues de tâche ont laissés au journal, à confirmer avec une étiquette ou à écarter.
 
-Le relecteur Spec reçoit en plus l'axe Spec. Le relecteur Standards lit lui-même `docs/CODING_STANDARDS.md` et `CLAUDE.md`.
+Le relecteur Spec reçoit en plus l'axe Spec. Le relecteur Standards lit lui-même `docs/CODING_STANDARDS.md`, `CLAUDE.md` et `docs/standards/`, et reçoit en plus le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`, qui le mène aux règles générales de chaque langage. Le relecteur Sécurité reçoit en plus le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/types/<type>.md`, où `<type>` est le type d'application que donne `docs/agents/harness.md`. Pour un projet à plusieurs types, passe-lui chaque fiche.
 
-Ne fusionne pas les deux rapports et ne les reclasse pas l'un contre l'autre.
+Ne fusionne pas les rapports et ne les reclasse pas l'un contre l'autre.
 
 ## 4. Traiter chaque constat
 
@@ -96,7 +96,7 @@ Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commit�
 
 **Niveau `faible` : pas de tour suivant.** Les constats Important du tour unique se corrigent, la vérification passe, et la revue s'arrête là. Dis à l'utilisateur que les corrections n'ont pas été relues, et qu'il peut monter le niveau à `normal` pour qu'elles le soient.
 
-Aux niveaux `normal` et `eleve`, relance les deux relecteurs avec les mêmes pièces qu'au premier tour, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va aux deux relecteurs, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
+Aux niveaux `normal` et `eleve`, relance les relecteurs du premier tour avec les mêmes pièces, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va à chaque relecteur, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier.
 
 La revue a convergé quand un tour ne rend aucun Important.
 

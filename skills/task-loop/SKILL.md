@@ -18,6 +18,8 @@ Exécute toutes les tâches de la tranche sans demander à l'utilisateur s'il fa
 
 Un conflit, une ambiguïté ou un défaut du plan ne t'arrête pas. Tranche-le : la spec fait foi, le plan en découle, et ton jugement règle ce que ni l'un ni l'autre ne dit. Note chaque décision au journal sous la forme `Décision : <ce que tu as décidé>, parce que <raison>. Si c'est faux : <ce que ça coûte>.`
 
+**Corrections.** Quand l'utilisateur corrige une consigne, reprend un travail ou rappelle une règle, ajoute au journal une ligne `Correction : <ce qu'il a repris, en une phrase>`, et commite-la avec la prochaine ligne du journal. La rétrospective du jalon lit ces lignes pour en tirer des règles.
+
 Quatre cas t'arrêtent, et eux seuls. Pose alors la question à l'utilisateur :
 
 - une opération irréversible ou destructrice ;
@@ -63,7 +65,8 @@ Note `BASE` (`git rev-parse HEAD`) avant de lancer : le diff de la revue en part
 3. le texte de la tâche, recopié tel quel, du titre `### Tâche N` au titre suivant ;
 4. les sections de la spec que la tâche cite, recopiées ;
 5. les interfaces et les décisions des tâches précédentes que le texte de la tâche ne peut pas connaître, et ta réponse à toute ambiguïté que tu as vue ;
-6. si une tâche précédente a laissé au journal un constat dans la zone que celle-ci touche, ce constat.
+6. si une tâche précédente a laissé au journal un constat dans la zone que celle-ci touche, ce constat ;
+7. le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`, d'où l'implémenteur tire les règles des langages qu'il touche.
 
 Les valeurs exactes (nombres, chaînes, signatures, cas de test) viennent du plan et de la spec, recopiées sans reformulation. Le brief ne contient pas le récit des tâches précédentes.
 

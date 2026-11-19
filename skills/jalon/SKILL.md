@@ -137,13 +137,14 @@ Une fois la validation reçue, tout ce qui modifie un fichier se fait sur la bra
 2. Monte la version mineure et commite (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
 3. Relis `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur. Commite s'il change.
 4. Fais la fin de jalon du vault (`docs/agents/vault.md`), qui lit le journal.
-5. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
-6. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
-7. Reviens sur la branche principale à jour. Pose le tag sur le commit de fusion et pousse-le.
-8. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.
-9. Propose à l'utilisateur de lancer `/retro` sur la session du jalon, s'il a ce skill.
+5. Lance `izanagi:retro` avec l'outil Skill, sur la branche du jalon. Il lit le journal, les rapports du dossier du plan et les refus des hooks, propose des règles à l'utilisateur et commite celles qu'il accepte sur la branche du jalon. Pousse la branche.
+6. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
+7. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+8. Reviens sur la branche principale à jour. Pose le tag sur le commit de fusion et pousse-le.
+9. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.
+10. Si une section `## À proposer au plugin` de `docs/standards/` a au moins une règle, dis-le à l'utilisateur en une ligne, et propose `/izanagi:contribuer <langage>`. Ne le lance pas toi-même : seul l'utilisateur le lance.
 
-Fin de phase : tag poussé, vault clos, la branche principale sans état ni journal, branches du jalon supprimées, `/retro` proposé.
+Fin de phase : tag poussé, vault clos, rétrospective faite, la branche principale sans état ni journal, branches du jalon supprimées.
 
 ## 8. Retours de test
 

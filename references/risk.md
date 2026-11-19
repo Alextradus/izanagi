@@ -6,7 +6,7 @@ Une tranche, une tâche (`task`) ou un correctif (`fix`) porte un niveau de risq
 |---|---|---|---|---|---|---|
 | faible | `faible` | documentation, renommage, configuration | Standards seul | un | non | non |
 | normal | `normal` | comportement nouveau | Standards et Spec | trois au plus | oui | non |
-| élevé | `eleve` | données, sécurité, migration, API publique | Standards et Spec | trois au plus | oui | oui, après la revue |
+| élevé | `eleve` | données, sécurité, migration, API publique | Standards, Spec et Sécurité | trois au plus | oui | oui, après la revue |
 
 La valeur écrite est celle des fichiers et des scripts : `state.sh set risque=eleve`, sans accent.
 

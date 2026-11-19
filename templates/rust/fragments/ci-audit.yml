@@ -1,0 +1,18 @@
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: cargo-audit
+      - name: Audit des dépendances de {{composant}}, toutes gravités
+        working-directory: {{chemin}}
+        shell: bash
+        run: cargo audit || echo "::warning::{{composant}} a des failles connues, voir le rapport. Seules les gravités haute et critique font échouer le job."
+      - name: Audit des dépendances de {{composant}}, gravité haute ou critique
+        working-directory: {{chemin}}
+        shell: bash
+        # Une faille sans note CVSS n'est pas filtrée : elle fait échouer le job.
+        run: |
+          mkdir -p "$HOME/.cargo"
+          printf '[advisories]\nseverity_threshold = "high"\n' >"$HOME/.cargo/audit.toml"
+          cargo audit

@@ -1,0 +1,12 @@
+# Configuration de gitleaks, que scripts/check.sh et la CI lancent.
+# Elle étend la configuration par défaut de gitleaks.
+#
+# Un faux positif s'écarte ici, dans une section [[allowlists]], avec en commentaire
+# la raison de l'exception. Jamais par un commentaire `gitleaks:allow` dans le code.
+#
+# [[allowlists]]
+# description = "jeux de données de test, sans vraie clé"
+# paths = ['''^tests/fixtures/''']
+
+[extend]
+useDefault = true

@@ -1,0 +1,9 @@
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - name: Audit des dépendances de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        # pip-audit ne filtre pas par gravité : toute faille connue fait échouer le job.
+        # Une exception s'écrit `--ignore-vuln <identifiant>`, avec sa raison en commentaire.
+        run: |
+          uv export --format requirements-txt --frozen --no-emit-project -o "$RUNNER_TEMP/{{id}}-requirements.txt"
+          uvx pip-audit@2.10.1 --disable-pip --require-hashes -r "$RUNNER_TEMP/{{id}}-requirements.txt"

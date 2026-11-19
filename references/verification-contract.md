@@ -10,6 +10,12 @@ Lu par `init` quand il pose ou remplit `scripts/check.sh` et la CI. Le script `c
 - **Code de sortie.** 0 si tout passe, un autre code sinon.
 - **Verrou.** Les dépendances s'installent depuis le fichier de verrou : `npm ci`, `uv sync --locked`, `cargo ... --locked`.
 
+## Secrets et dépendances
+
+`check.sh` cherche des secrets avant de vérifier les composants, avec la fonction `verifier_secrets` du gabarit. Elle lance `gitleaks git --redact` sur les commits de la branche absents de la branche principale, avec la configuration `.gitleaks.toml` du projet. Elle prend la plage `<branche>..HEAD`, sinon `origin/<branche>..HEAD`, sinon tout l'historique. Elle ne dépend d'aucune pile : une pile sans gabarit la garde telle quelle. Hors d'un dépôt git, comme dans la copie WSL, elle annonce qu'elle saute l'étape. Sans `gitleaks`, elle échoue et renvoie à `/izanagi:doctor`.
+
+L'audit des dépendances tourne dans la CI, pas dans `check.sh` : il a besoin du réseau, et une faille publiée après coup bloquerait sinon le push d'un changement sans rapport. Le job `audit` de `ci.yml` le lance sur chaque PR, et `securite.yml` le relance chaque semaine avec `gitleaks` sur tout l'historique. Une faille de gravité haute ou critique fait échouer le job (`cargo audit` avec `severity_threshold`, `npm audit --audit-level=high`). `pip-audit` ne filtre pas par gravité : pour Python, toute faille connue fait échouer le job. Les actions de la CI sont épinglées par SHA, et `.github/dependabot.yml` propose leurs mises à jour.
+
 ## WSL
 
 Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de travail dans WSL, dans `~/.cache/<projet_dossier>-wsl`, puis y lance `check.sh --host`. La copie prend les fichiers suivis et les fichiers non suivis qui ne sont pas ignorés. Elle retire les fichiers disparus depuis la copie précédente. `node_modules`, `.venv` et `target` restent dans le cache d'une vérification à l'autre. Cette règle vaut pour toutes les piles.
@@ -41,23 +47,25 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 
 ## Règles du contrôle
 
-`check-contract.sh` applique ces huit règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
+`check-contract.sh` applique ces neuf règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
 
 1. `scripts/check.sh` existe, est exécutable et passe `bash -n`.
 2. `check.sh --inconnu` sort avec le code 2 sans rien lancer. Cette règle ne court que si `check.sh` a un cas `--host`. Elle tourne sous `timeout`, avec un délai de 20 s (variable `IZANAGI_CONTRAT_DELAI`).
 3. `check.sh` gère `--host` et `--clean`.
-4. Aucun `À ÉCRIRE` ne reste dans `check.sh`, `ci.yml` ni `dev.sh`.
+4. Aucun `À ÉCRIRE` ne reste dans `check.sh`, `ci.yml`, `securite.yml` ni `dev.sh`.
 5. Chaque composant de `harness.md` a sa section `# --- composant <nom> (`.
 6. Aucune installation sans verrou : ni `npm install`, ni `pip install`, ni `uv sync` sans `--locked`, ni `cargo build`, `test` ou `clippy` sans `--locked`.
 7. La CI lance `bash scripts/check.sh --host`, et sa ligne `os: [...]` correspond aux systèmes de `harness.md`.
 8. `docs/agents/harness.md` existe.
+9. `check.sh` lance la recherche de secrets (`gitleaks git`).
 
 ## Remplir une section `# À ÉCRIRE`
 
-Une pile sans gabarit reçoit une section vide, marquée `# À ÉCRIRE : <composant> (<pile>), format, lint, tests`, et une étape de CI marquée `# À ÉCRIRE : installation de <pile>`. Pour chacune :
+Une pile sans gabarit reçoit une section vide, marquée `# À ÉCRIRE : <composant> (<pile>), format, lint, tests`, une étape de CI marquée `# À ÉCRIRE : installation de <pile>`, et une étape d'audit marquée `# À ÉCRIRE : audit des dépendances de <composant> (<pile>)` dans `ci.yml` et `securite.yml`. Pour chacune :
 
 1. Cherche dans la documentation officielle de la pile les commandes de format (en mode vérification, sans réécriture), de lint et de test. Cherche aussi la commande d'installation depuis le verrou et l'option qui l'impose (`--locked`, `--frozen`, `ci`).
 2. Si la pile n'a pas de formateur ou de linter officiel, prends l'outil que sa communauté tient pour standard et dis-le à l'utilisateur.
 3. Remplace la ligne `# À ÉCRIRE` de `check.sh` par les étapes, dans l'ordre installation, format, lint, tests, avec un `echo "-- <nom> : <étape>"` avant chacune. Garde le sous-shell et le `cd`.
-4. Remplace celle de `ci.yml` par l'action officielle qui installe la toolchain, épinglée à une version majeure.
-5. Lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>`, puis `bash scripts/check.sh --host`. Corrige jusqu'à ce que les deux passent.
+4. Remplace celle de `ci.yml` par l'action officielle qui installe la toolchain, épinglée par le SHA de son étiquette, avec l'étiquette en commentaire (`uses: <action>@<SHA> # v1.2.3`). Lis le SHA avec `gh api repos/<propriétaire>/<action>/commits/<étiquette> --jq .sha`.
+5. Remplace les deux lignes d'audit par l'outil d'audit officiel de la pile, lancé dans le dossier du composant (`working-directory`). Il échoue sur une faille de gravité haute ou critique et signale les autres, si l'outil sait filtrer par gravité. Sinon, il échoue sur toute faille connue, et dis-le à l'utilisateur.
+6. Lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>`, puis `bash scripts/check.sh --host`. Corrige jusqu'à ce que les deux passent.

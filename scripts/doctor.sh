@@ -57,6 +57,8 @@ case "$(uname -s)" in
     fi
     ;;
 esac
+# La recherche de secrets de check.sh demande gitleaks dès qu'il y a un composant.
+[[ -n $piles ]] && outil gitleaks
 for pile in $piles; do
   case "$pile" in
     rust) outil cargo ;;
@@ -107,8 +109,42 @@ if [[ -f $config ]]; then
     valeur="$(kv_get "$config" "$cle" || true)"
     if [[ $valeur == bloque ]]; then ok "$cle"; else ecart "$cle" "en avertissement (${valeur:-absent})"; fi
   done
+  valeur="$(kv_get "$config" hook_destructif || true)"
+  if [[ $valeur == demande || $valeur == bloque ]]; then
+    ok hook_destructif
+  else
+    ecart hook_destructif "en avertissement (${valeur:-absent})"
+  fi
 else
   ecart "config.env" "absent : lance /izanagi:upgrade"
+fi
+
+# Règles `permissions.deny` de .claude/settings.json, celles du gabarit.
+manquantes=""
+while IFS= read -r regle; do
+  manquantes+="${manquantes:+, }$regle"
+done < <(regles_deny_absentes "$cible/.claude/settings.json")
+if [[ -z $manquantes ]]; then
+  ok permissions
+else
+  ecart permissions "règles absentes de .claude/settings.json : $manquantes"
+fi
+
+# Actions de la CI épinglées par le SHA d'un commit. Une action locale (`./…`) ou une
+# image (`docker://…`) n'a rien à épingler.
+non_epinglees=""
+for wf in "$cible"/.github/workflows/*.yml "$cible"/.github/workflows/*.yaml; do
+  [[ -f $wf ]] || continue
+  while IFS=: read -r num ligne; do
+    action="$(sed -E 's/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1/' <<<"$ligne")"
+    [[ $action =~ @[0-9a-f]{40}$ || $action == ./* || $action == docker://* ]] && continue
+    non_epinglees+="${non_epinglees:+, }${wf##*/}:$num $action"
+  done < <(grep -nE '^[[:space:]]*-?[[:space:]]*uses:' "$wf" | tr -d '\r')
+done
+if [[ -z $non_epinglees ]]; then
+  ok "actions épinglées"
+else
+  ecart "actions épinglées" "$non_epinglees"
 fi
 
 if [[ -f $harness ]]; then

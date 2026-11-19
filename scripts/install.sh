@@ -10,7 +10,8 @@
 # Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
 # templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
 # argument. `izanagi_version` vaut la version du plugin, sauf si le fichier de
-# valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`.
+# valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`,
+# `hook_destructif` vaut `demande`, `bloque` ou `avertit`.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -155,6 +156,10 @@ for cle_hook in hook_push hook_verification; do
     exit 2
   fi
 done
+if [[ ! ${valeurs[hook_destructif]:-} =~ ^(demande|bloque|avertit)$ ]]; then
+  echo "install.sh : hook_destructif « ${valeurs[hook_destructif]:-} » refusé : demande, bloque ou avertit" >&2
+  exit 2
+fi
 # Version du cadre posé : celle du plugin, sauf si le fichier de valeurs la donne.
 valeurs[izanagi_version]="${valeurs[izanagi_version]:-$(plugin_version)}"
 # Chemins sensibles : vide si le fichier de valeurs ne les donne pas.
@@ -240,6 +245,7 @@ lancements=""
 tableau=""
 lignes_composants=""
 ci_setup=""
+ci_audit=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
 for entree in "${composants[@]}"; do
@@ -255,6 +261,9 @@ for entree in "${composants[@]}"; do
     setup_vus[$c_pile]=1
     ci_setup+="${ci_setup:+$'\n'}$(rendre_fragment "$(fragment ci-setup.yml "$c_pile")" "pile=$c_pile")"
   fi
+  # Audit des dépendances : un bloc par composant, dans son dossier.
+  ci_audit+="${ci_audit:+$'\n'}$(rendre_fragment "$(fragment ci-audit.yml "$c_pile")" \
+    "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
   [[ -f $racine/templates/$c_pile/fragments/check-section.sh ]] || a_ecrire+=("$c_nom ($c_pile)")
   resume+=("$c_nom($c_pile)")
 done
@@ -268,6 +277,8 @@ valeurs[lignes_composants]="$lignes_composants"
 valeurs[sections]="$sections"
 valeurs[appels]="$appels"
 valeurs[ci_setup]="$ci_setup"
+valeurs[ci_audit]="$ci_audit"
+valeurs[ci_gitleaks]="$(cat "$racine/templates/core/fragments/ci-gitleaks.yml")"
 valeurs[lancements]="$lancements"
 
 declare -a fichiers=()
@@ -284,6 +295,24 @@ for source in "${sources[@]}"; do
   done < <(find "$source" -type f -print0 | sort -z)
 done
 $manque && exit 1
+
+# Règles par langage : un fichier docs/standards/<pile>.md par pile des composants,
+# rendu depuis le fragment, puis comparé comme les autres gabarits.
+declare -A langages_vus=()
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  [[ -n ${langages_vus[$c_pile]:-} ]] && continue
+  langages_vus[$c_pile]=1
+  if [[ -f $racine/references/langages/$c_pile.md ]]; then
+    ligne_plugin="Le relecteur et l'implémenteur lisent aussi les règles générales du plugin pour ce langage, \`references/langages/$c_pile.md\` d'Izanagi. Ce fichier porte les ajouts et les exceptions de ce projet."
+  else
+    ligne_plugin="Le plugin n'a pas de règles générales pour $c_pile : ce fichier porte toutes les règles de ce projet pour ce langage."
+  fi
+  mkdir -p "$rapport/langages/docs/standards"
+  rendre_fragment "$racine/templates/core/fragments/standards.md" "langage=$c_pile" "ligne_plugin=$ligne_plugin" \
+    >"$rapport/langages/docs/standards/$c_pile.md"
+  fichiers+=("$rapport/langages|docs/standards/$c_pile.md")
+done
 
 for entree in "${fichiers[@]}"; do
   source="${entree%%|*}"

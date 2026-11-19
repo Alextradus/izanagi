@@ -20,8 +20,10 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 13 ]] || echoue "première pose : $sortie"
-for f in .izanagi/config.env .izanagi/.gitignore AGENTS.md; do
+[[ $(grep -c '^créé' <<<"$sortie") -eq 18 ]] || echoue "première pose : $sortie"
+grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
+grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
+for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
   grep -qxF "créé       $f" <<<"$sortie" || echoue "$f non posé : $sortie"
 done
 [[ ! -e $tmp/p/docs/agents/jalon.md ]] || echoue "docs/agents/jalon.md encore posé"
@@ -36,7 +38,11 @@ config="$tmp/p/.izanagi/config.env"
 [[ $(kv_get "$config" spec) == docs/spec.md ]] || echoue "config.env : spec"
 [[ $(kv_get "$config" lieu_test) == 'dans WSL' ]] || echoue "config.env : lieu_test"
 grep -q '{{' "$config" && echoue "config.env garde un {{"
-[[ $(cat "$tmp/p/.izanagi/.gitignore") == 'journal/*/' ]] || echoue ".izanagi/.gitignore"
+[[ $(cat "$tmp/p/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue ".izanagi/.gitignore"
+[[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "config.env : hook_destructif"
+for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(id_ed25519*)' 'Read(id_ecdsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(id_ed25519*)' 'Edit(id_ecdsa*)' 'Edit(credentials*)'; do
+  grep -qF "\"$regle\"" "$tmp/p/.claude/settings.json" || echoue ".claude/settings.json : règle $regle absente"
+done
 grep -q '{{' "$tmp/p/AGENTS.md" && echoue "AGENTS.md garde un {{"
 grep -qi 'izanagi' "$tmp/p/AGENTS.md" && echoue "AGENTS.md nomme Izanagi"
 grep -qF 'docs/spec.md' "$tmp/p/AGENTS.md" || echoue "AGENTS.md : spec"
@@ -54,7 +60,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 12 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 17 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -73,7 +79,7 @@ printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nizanagi_version=0.1.0
 
 # Valeur de hook refusée avant toute écriture.
 mkdir "$tmp/hk"
-for cle in hook_push hook_verification; do
+for cle in hook_push hook_verification hook_destructif; do
   printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n%s=parfois\n' "$cle" >"$tmp/hkv"
   if sortie="$("$install" "$tmp/hk" "$tmp/hkv" 2>&1)"; then echoue "$cle=parfois accepté"; fi
   grep -q 'refusé' <<<"$sortie" || echoue "$cle=parfois : message : $sortie"
@@ -82,6 +88,63 @@ done
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nhook_push=avertit\n' >"$tmp/hkv"
 "$install" "$tmp/hk" "$tmp/hkv" >/dev/null
 [[ $(kv_get "$tmp/hk/.izanagi/config.env" hook_push) == avertit ]] || echoue "hook_push=avertit non posé"
+
+# CI : actions épinglées par SHA, jeton non gardé, gitleaks vérifié, audit des dépendances.
+for f in .github/dependabot.yml .github/workflows/securite.yml; do
+  [[ -f $tmp/p/$f ]] || echoue "$f non posé"
+done
+non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/p/.github/workflows/"*.yml | grep -vE '@[0-9a-f]{40} # ' || true)"
+[[ -z $non_epinglees ]] || echoue "actions non épinglées : $non_epinglees"
+for mot in 'persist-credentials: false' 'fetch-depth: 0' 'gitleaks_8.30.1_' 'sha256' 'cargo audit' 'severity_threshold = "high"'; do
+  grep -qF -- "$mot" "$tmp/p/.github/workflows/ci.yml" || echoue "ci.yml : « $mot » absent"
+done
+for mot in 'cron:' 'workflow_dispatch:' 'issues: write' 'needs: [secrets, audit]' 'gitleaks git --redact --no-banner .' 'cargo audit' 'securite'; do
+  grep -qF -- "$mot" "$tmp/p/.github/workflows/securite.yml" || echoue "securite.yml : « $mot » absent"
+done
+# Seul le job de l'issue peut écrire, et il ne lance aucune action tierce.
+[[ $(grep -c 'issues: write' "$tmp/p/.github/workflows/securite.yml") -eq 1 ]] || echoue "securite.yml : issues: write hors du seul job de l'issue"
+[[ -z $(sed -n '/^  issue:/,$p' "$tmp/p/.github/workflows/securite.yml" | grep 'uses:') ]] || echoue "securite.yml : le job de l'issue lance une action"
+grep -qF 'package-ecosystem: github-actions' "$tmp/p/.github/dependabot.yml" || echoue "dependabot.yml : écosystème"
+
+# Un projet à trois piles et une pile sans gabarit : un audit par composant.
+mkdir "$tmp/au"
+printf '%s\n' pile=aucune projet=Audit spec=s.md lieu_test=ici test_manuel=x fichier_version=y \
+  'composant=moteur|moteur|rust|' 'composant=web|web|typescript|' 'composant=ml|ml|python|' 'composant=api|api|zig|' >"$tmp/auv"
+"$install" "$tmp/au" "$tmp/auv" >/dev/null
+for mot in 'cargo audit' 'npm audit --audit-level=high' 'pip-audit' 'À ÉCRIRE : audit des dépendances de api (zig)' 'working-directory: moteur' 'working-directory: web' 'working-directory: ml'; do
+  grep -qF -- "$mot" "$tmp/au/.github/workflows/ci.yml" || echoue "audit à trois piles : « $mot » absent de ci.yml"
+  grep -qF -- "$mot" "$tmp/au/.github/workflows/securite.yml" || echoue "audit à trois piles : « $mot » absent de securite.yml"
+done
+non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/au/.github/workflows/"*.yml | grep -vE '@[0-9a-f]{40} # ' || true)"
+[[ -z $non_epinglees ]] || echoue "trois piles : actions non épinglées : $non_epinglees"
+
+# Règles par langage : un fichier par pile des composants, qui renvoie aux règles du
+# plugin quand elles existent.
+for l in rust typescript python zig; do
+  [[ -f $tmp/au/docs/standards/$l.md ]] || echoue "docs/standards/$l.md non posé"
+  grep -qx "# Règles $l" "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md : titre"
+  grep -qx '## À proposer au plugin' "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md : section À proposer au plugin"
+  grep -qF 'Écarte : R<n>, parce que <raison>' "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md : forme d'une exception"
+done
+for l in rust typescript python; do
+  grep -qF "references/langages/$l.md" "$tmp/au/docs/standards/$l.md" || echoue "docs/standards/$l.md ne renvoie pas aux règles du plugin"
+done
+grep -qF 'references/langages/' "$tmp/au/docs/standards/zig.md" && echoue "docs/standards/zig.md renvoie à des règles du plugin qui n'existent pas"
+grep -qF 'docs/standards/' "$tmp/au/docs/CODING_STANDARDS.md" || echoue "CODING_STANDARDS.md ne renvoie pas à docs/standards/"
+for f in AGENTS.md CLAUDE.md; do
+  grep -qF 'docs/standards/' "$tmp/au/$f" || echoue "$f ne nomme pas docs/standards/"
+done
+# Deux composants de même pile : un seul fichier.
+mkdir "$tmp/deux"
+printf '%s\n' pile=aucune projet=Deux spec=s.md lieu_test=ici test_manuel=x fichier_version=y \
+  'composant=a|a|rust|' 'composant=b|b|rust|' >"$tmp/deuxv"
+sortie="$("$install" "$tmp/deux" "$tmp/deuxv")"
+[[ $(grep -c 'docs/standards/' <<<"$sortie") -eq 1 ]] || echoue "deux composants rust : $sortie"
+# Sans composant : aucun fichier de langage.
+mkdir "$tmp/nu"
+printf '%s\n' projet=Nu spec=s.md lieu_test=ici test_manuel=x fichier_version=y >"$tmp/nuv"
+"$install" "$tmp/nu" "$tmp/nuv" >/dev/null
+[[ ! -e $tmp/nu/docs/standards ]] || echoue "docs/standards posé sans composant"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"
@@ -164,7 +227,9 @@ grep -qF '",$cibles," == *,linux,*' "$tmp/m1/scripts/check.sh" || echoue "cibles
 mkdir "$tmp/fx" "$tmp/hc"
 printf '#!/bin/sh\necho MINGW64_NT-10.0\n' >"$tmp/fx/uname"
 printf '#!/usr/bin/env bash\ncat >/dev/null\necho "$*" >>"%s/appels"\n' "$tmp/fx" >"$tmp/fx/wsl.exe"
-chmod +x "$tmp/fx/uname" "$tmp/fx/wsl.exe"
+# Faux gitleaks : la recherche de secrets passe, ces cas testent le choix des systèmes.
+printf '#!/bin/sh\nexit 0\n' >"$tmp/fx/gitleaks"
+chmod +x "$tmp/fx/uname" "$tmp/fx/wsl.exe" "$tmp/fx/gitleaks"
 # Un dépôt git avec un composant zig dont la section écrit `lance` quand elle
 # tourne. Les cas changent ensuite la seule ligne `cibles=`.
 git -C "$tmp/hc" init -q
@@ -197,7 +262,7 @@ mkdir "$tmp/t1"
 printf '%s
 ' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|npm run dev' projet=essai spec=s.md lieu_test=ici >"$tmp/t1v"
 sortie="$("$install" "$tmp/t1" "$tmp/t1v")"
-[[ $(grep -c 'actions/setup-node' "$tmp/t1/.github/workflows/ci.yml") -eq 1 ]] || echoue "setup-node : un seul attendu"
+[[ $(sed '/^  audit:/q' "$tmp/t1/.github/workflows/ci.yml" | grep -c 'actions/setup-node') -eq 1 ]] || echoue "setup-node : un seul attendu dans le job check"
 grep -qF 'node-version: lts/*' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : node-version"
 grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" && echoue "ci.yml : cache npm sans cache-dependency-path"
 [[ $(grep -c '^# --- composant' "$tmp/t1/scripts/check.sh") -eq 2 ]] || echoue "check.sh : deux sections"

@@ -28,8 +28,8 @@ champ() {
   ' "$1" | tr -d '\r'
 }
 
-skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix)
-commandes=" init jalon grilling upgrade status doctor task fix "
+skills=(grilling domain-modeling brainstorming planning tdd task-loop review diagnosing merge-conflicts jalon init upgrade status doctor task fix retro contribuer)
+commandes=" init jalon grilling upgrade status doctor task fix retro contribuer "
 
 for s in "${skills[@]}"; do
   f="skills/$s/SKILL.md"
@@ -50,14 +50,14 @@ for d in skills/*/; do
   [[ " ${skills[*]} " == *" $s "* ]] || echoue "skills/$s absent de la liste de ce test"
 done
 
-for a in implementer reviewer-standards reviewer-spec diagnostician; do
+for a in implementer reviewer-standards reviewer-spec reviewer-security diagnostician; do
   f="agents/$a.md"
   [[ -f $f ]] || echoue "$f absent"
   [[ $(champ "$f" name) == "$a" ]] || echoue "$f : name différent de « $a »"
   [[ -n $(champ "$f" description) ]] || echoue "$f : description vide"
 done
 
-for a in reviewer-standards reviewer-spec; do
+for a in reviewer-standards reviewer-spec reviewer-security; do
   f="agents/$a.md"
   outils="$(champ "$f" tools)"
   [[ -n $outils ]] || echoue "$f : champ tools absent ou hors de la forme sur une ligne"
@@ -117,6 +117,69 @@ grep -qF 'git add -u -- .izanagi' skills/fix/SKILL.md || echoue "la clôture de 
 # `upgrade` crée sa branche avant la section des migrations, qu'un cadre à jour saute.
 awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { exit !vu }' skills/upgrade/SKILL.md ||
   echoue "upgrade ne crée pas sa branche avant la section Migrer"
+
+# Relecteur sécurité : chaque fiche de type a sa section, et `review` le lance au
+# niveau élevé.
+for t in references/types/*.md; do
+  grep -qx '## Sécurité' "$t" || echoue "$t : pas de section ## Sécurité"
+done
+grep -qF 'izanagi:reviewer-security' skills/review/SKILL.md || echoue "skills/review ne lance pas izanagi:reviewer-security"
+grep -qF 'Standards, Spec et Sécurité' references/risk.md || echoue "references/risk.md : pas de relecteur Sécurité au niveau élevé"
+
+# Règles générales par langage : chaque fichier que l'index nomme existe, et chaque
+# règle (`## R<n>. …`) a sa ligne `Source : …`.
+[[ -f references/langages/index.md ]] || echoue "references/langages/index.md absent"
+fichiers_langage="$(grep -oE '`[a-z-]+\.md`' references/langages/index.md | tr -d '`' | sort -u)"
+[[ -n $fichiers_langage ]] || echoue "references/langages/index.md ne nomme aucun fichier"
+for f in $fichiers_langage; do
+  [[ -f references/langages/$f ]] || echoue "references/langages/$f nommé par l'index et absent"
+  regles="$(grep -cE '^## R[0-9]+\. ' "references/langages/$f" || true)"
+  sources="$(grep -cE '^Source : ' "references/langages/$f" || true)"
+  ((regles >= 8)) || echoue "references/langages/$f : $regles règles, huit au moins attendues"
+  ((regles == sources)) || echoue "references/langages/$f : $regles règles pour $sources sources"
+done
+
+# Les deux couches de règles par langage : le relecteur Standards et l'implémenteur
+# les lisent, et les flux qui les lancent leur passent le chemin de l'index.
+for a in reviewer-standards implementer; do
+  grep -qF 'docs/standards/' "agents/$a.md" || echoue "agents/$a.md ne lit pas docs/standards/"
+  grep -qF 'langages/index.md' "agents/$a.md" || echoue "agents/$a.md ne lit pas l'index des langages"
+done
+for s in review task-loop task fix; do
+  grep -qF 'references/langages/index.md' "skills/$s/SKILL.md" || echoue "skills/$s ne passe pas references/langages/index.md"
+done
+
+# Les flux notent au journal les corrections de l'utilisateur, que la rétrospective lit.
+for s in task-loop task fix; do
+  grep -qF 'Correction : ' "skills/$s/SKILL.md" || echoue "skills/$s ne note pas les corrections au journal"
+done
+
+# Rétrospective : `jalon` la lance à la clôture (par l'outil Skill, donc sans
+# disable-model-invocation), à la place de `/retro`. `task` et `fix` posent la question.
+[[ -z $(champ skills/retro/SKILL.md disable-model-invocation) ]] || echoue "skills/retro porte disable-model-invocation : jalon ne pourrait pas le lancer"
+grep -qF 'izanagi:retro' skills/jalon/SKILL.md || echoue "la clôture de jalon ne lance pas izanagi:retro"
+grep -qF '/retro' skills/jalon/SKILL.md && echoue "la clôture de jalon propose encore /retro"
+awk '/izanagi:retro/ { r = NR } /git rm -f --ignore-unmatch/ { s = NR } END { exit !(r && s && r < s) }' skills/jalon/SKILL.md ||
+  echoue "la clôture de jalon supprime le journal avant la rétrospective"
+for s in task fix; do
+  grep -qF 'une leçon à garder ?' "skills/$s/SKILL.md" || echoue "skills/$s ne pose pas la question de la leçon"
+done
+for mot in 'scripts/refus.sh' 'Correction : ' 'docs/standards/' '## À proposer au plugin' 'chemins_sensibles' 'gh issue create'; do
+  grep -qF -- "$mot" skills/retro/SKILL.md || echoue "skills/retro ne nomme pas « $mot »"
+done
+
+# Remontée des règles au plugin : jamais sans l'utilisateur. `contribuer` ne se lance
+# que sur sa demande, montre le diff et attend son accord avant de pousser.
+[[ $(champ skills/contribuer/SKILL.md disable-model-invocation) == true ]] || echoue "skills/contribuer peut être lancé par le modèle"
+for mot in '## À proposer au plugin' 'repository' 'gh repo fork' 'langage/<langage>-' 'gh pr create' '**Accord.**'; do
+  grep -qF -- "$mot" skills/contribuer/SKILL.md || echoue "skills/contribuer ne nomme pas « $mot »"
+done
+awk '/\*\*Accord\.\*\*/ { a = NR } /git push/ { if (!p) p = NR } END { exit !(a && p && a < p) }' skills/contribuer/SKILL.md ||
+  echoue "skills/contribuer pousse avant l'étape d'accord"
+awk '/\*\*Accord\.\*\*/ { a = NR } /gh repo fork <dépôt>/ { if (!f) f = NR } END { exit !(a && f && a < f) }' skills/contribuer/SKILL.md ||
+  echoue "skills/contribuer crée le fork avant l'étape d'accord"
+grep -qF '/izanagi:contribuer' skills/jalon/SKILL.md || echoue "la clôture de jalon ne propose pas /izanagi:contribuer"
+grep -qF '## À proposer au plugin' skills/upgrade/SKILL.md || echoue "upgrade ne retire pas les règles reprises par le plugin"
 
 # Chaque renvoi `izanagi:<nom>` désigne un skill ou un sous-agent du plugin.
 while IFS= read -r nom; do

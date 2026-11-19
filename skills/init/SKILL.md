@@ -42,7 +42,7 @@ Fin : tu as le type, les composants et les systèmes cibles.
 Cette section ne concerne que le dossier vide.
 
 1. Recommande une pile et justifie-la en une phrase, selon les critères de `references/interview.md`. Attends le choix de l'utilisateur.
-2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`). Sous Windows, quand `linux` est une cible, vérifie-les aussi dans WSL avec `wsl.exe --exec bash -lc 'command -v cargo node npm uv'`. Un chemin qui commence par `/mnt/` est un outil de Windows, que `check.sh` retire du PATH : compte-le comme absent. Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
+2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`) et `gitleaks version`, que `scripts/check.sh` lance pour chercher des secrets. Pour installer `gitleaks` : `winget install Gitleaks.Gitleaks` sous Windows, `brew install gitleaks` sous macOS, le binaire de la page des versions (https://github.com/gitleaks/gitleaks/releases) sous Linux. Sous Windows, quand `linux` est une cible, vérifie-les aussi dans WSL avec `wsl.exe --exec bash -lc 'command -v cargo node npm uv'`. Un chemin qui commence par `/mnt/` est un outil de Windows, que `check.sh` retire du PATH : compte-le comme absent. Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
 3. Sur l'accord de l'utilisateur, lance l'outil de création de `references/interview.md` dans le dossier de chaque composant : `.` pour un seul composant, un sous-dossier par composant sinon (`web/`, `api/`).
 4. Vérifie que le `.gitignore` de la racine ignore `node_modules/`, `.venv/`, `target/` et `dist/`. Ajoute les lignes qui manquent, sans en retirer aucune. Écrits sans `/` au début, ces motifs couvrent les dossiers de tous les composants. Dans un dépôt git existant, `cargo init <dossier>` et `npm init -y` n'écrivent pas de `.gitignore`. Sans ces lignes, la copie WSL de `check.sh` emporterait les dépendances de Windows et le commit du cadre les prendrait.
 5. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par composant, qui affirme un résultat du code créé. Sans ce test, `pytest` et `vitest` font échouer la première vérification.
@@ -101,6 +101,8 @@ Pour chaque fichier `différent`, lis `<rapport>/diff/<chemin>.diff`. Le côté 
 - **Manque au projet** (lignes en `+` seules) : une convention du gabarit absente du projet. Cite-la.
 - **Divergence** (les deux) : le projet et le gabarit disent la même chose autrement. Cite les deux versions.
 
+Un `.claude/settings.json` déjà présent sort `différent` quand il porte d'autres réglages du projet. Ajoute à sa liste `permissions.deny` les règles du gabarit qui lui manquent, avec l'outil Edit, sans toucher aux autres clés. Ces règles empêchent les outils de Claude Code de lire ou d'écrire les fichiers de secrets (`.env*` sauf `.env.example`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `id_ecdsa*`, `credentials*`). Garde l'ordre du gabarit : une règle `!` n'exclut que des chemins des règles qui la précèdent.
+
 Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Le contrôle de la section 8 les couvre, donc ne classe pas ces blocs.
 
 Laisse les autres fichiers tels quels. Si l'utilisateur veut reprendre un manque ou une divergence, fais la modification qu'il désigne, et elle seule.
@@ -128,13 +130,13 @@ Donne à l'utilisateur :
 
 - les fichiers créés, identiques et différents, avec les écarts de la section 7 et ceux du contrat restés ouverts ;
 - les valeurs prises sans question (spec, test manuel, lieu, vault), modifiables dans `.izanagi/config.env` ;
-- les skills optionnels absents de ta liste de skills, parmi `mattpocock-skills:codebase-design`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:wizard`. Dis en une ligne ce que chacun apporte : une aide sur la forme d'une couture, un essai exécutable pendant le cadrage, une recherche de faits sur un outil, un guide pour une étape que seul l'utilisateur peut faire. Ils viennent tous du même plugin, qui s'installe avec `claude plugin install mattpocock-skills`. Propose cette commande et lance-la seulement sur l'accord de l'utilisateur. Aucun flux d'Izanagi n'en dépend. `/retro`, que la clôture d'un jalon propose, est un skill personnel que seul l'utilisateur lance : il ne figure jamais dans ta liste, ne le signale pas.
+- les skills optionnels absents de ta liste de skills, parmi `mattpocock-skills:codebase-design`, `mattpocock-skills:prototype`, `mattpocock-skills:research` et `mattpocock-skills:wizard`. Dis en une ligne ce que chacun apporte : une aide sur la forme d'une couture, un essai exécutable pendant le cadrage, une recherche de faits sur un outil, un guide pour une étape que seul l'utilisateur peut faire. Ils viennent tous du même plugin, qui s'installe avec `claude plugin install mattpocock-skills`. Propose cette commande et lance-la seulement sur l'accord de l'utilisateur. Aucun flux d'Izanagi n'en dépend.
 
 Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune avec sa commande exacte. Saute celles qui sont déjà faites :
 
 1. Commit du cadre : `git add <fichiers> && git commit -m "chore: cadre Izanagi"`. Sur un dossier vide, le commit prend aussi le projet créé et son fichier de verrou.
 2. Outils à installer : chaque outil refusé à la section 3 et chaque prérequis de la fiche du type (`npx playwright install`), avec sa commande.
-3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type.
+3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type. Les fichiers `docs/standards/<langage>.md` peuvent rester vides : les règles générales du plugin pour Rust, TypeScript et Python s'appliquent déjà, et les rétrospectives des jalons les compléteront.
 4. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
 
 Propose de lancer tout de suite la première étape que tu peux faire toi-même, en général le commit, et fais-la sur son accord.
