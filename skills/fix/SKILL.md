@@ -79,7 +79,9 @@ Fin : la cause est prouvée par un test rouge commité.
 2. Lance un sous-agent `izanagi:implementer`. Son brief : le rapport du diagnostic, le test de régression à faire passer, la consigne de ne corriger que cette cause, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`. Un hook du plugin relance la vérification à son arrêt.
 3. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse.
 
-Fin : le test de régression passe, la vérification est verte, le correctif est commité.
+Lance ensuite la vérification complète, `<verification> --complet`, avant la revue. Garde sa sortie pour le corps de la PR.
+
+Fin : le test de régression passe, la vérification complète est verte, le correctif est commité.
 
 ## 5. Revue
 
@@ -94,7 +96,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 ## 6. PR et test
 
 1. **Version.** Hors jalon, monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) et commite. Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas. Dans un jalon, ne touche pas à la version.
-2. **PR.** Pousse la branche. Si la PR existe déjà (`gh pr view` réussit), mets son corps à jour avec `gh pr edit --body-file`. Sinon, ouvre-la : `gh pr create --base <base>`, corps passé par `--body-file`. Le corps dit le geste qui montrait le bug, la cause, le correctif, colle la sortie de la vérification, et finit par `Closes #<n>` si une issue existe.
+2. **PR.** Pousse la branche. Si la PR existe déjà (`gh pr view` réussit), mets son corps à jour avec `gh pr edit --body-file`. Sinon, ouvre-la : `gh pr create --base <base>`, corps passé par `--body-file`. Le corps dit le geste qui montrait le bug, la cause, le correctif, colle la sortie de la vérification complète, et finit par `Closes #<n>` si une issue existe.
 3. Hors jalon, lance `state.sh set phase=test --commit` et pousse.
 4. **Test.** L'utilisateur refait le geste qui montrait le bug, depuis la branche. Si la revue a retenu le niveau faible, il n'y a pas de test : passe à la clôture.
 

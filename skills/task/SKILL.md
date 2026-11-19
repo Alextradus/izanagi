@@ -70,7 +70,9 @@ Fin : l'utilisateur a confirmé les quatre réponses, et le journal les porte.
 
 **Sans code.** Un changement de niveau faible qui ne touche que de la documentation ou de la configuration se fait sans sous-agent : fais-le toi-même, lance la vérification, commite.
 
-Fin : le changement est commité sur la branche, la vérification verte.
+Lance ensuite la vérification complète, `<verification> --complet`, avant la revue. Garde sa sortie pour le corps de la PR.
+
+Fin : le changement est commité sur la branche, la vérification complète verte.
 
 ## 5. Revue
 
@@ -84,7 +86,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 ## 6. PR et test
 
 1. **Version.** Monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) : lis la version sur la branche principale à jour juste avant, et commite (`chore: <version>`). Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas.
-2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification, et finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
+2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification complète, et finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
 3. Lance `state.sh set phase=test --commit` et pousse.
 4. **Test manuel.** L'utilisateur essaie le changement avec le test manuel, depuis la branche. Si la revue a retenu le niveau faible (`state.sh get risque`), il n'y a pas de test manuel : passe à la clôture.
 

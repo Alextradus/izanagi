@@ -220,6 +220,15 @@ for mot in 'check.sh --complet' 'proptest' 'fast-check' 'hypothesis' 'tests/fonc
   grep -qF -- "$mot" skills/tdd/SKILL.md || echoue "skills/tdd ne nomme pas « $mot »"
 done
 
+# Vérification complète et couches dans les flux (0.7).
+for s in task-loop task fix; do
+  grep -qF -- '--complet' "skills/$s/SKILL.md" || echoue "skills/$s ne nomme pas --complet"
+done
+grep -qF 'scénario d'"'"'acceptation' skills/task-loop/SKILL.md || echoue "task-loop ne commence pas par le scénario d'acceptation"
+grep -qF -- '- couche :' agents/reviewer-spec.md || echoue "reviewer-spec ne lit pas les lignes « - couche : »"
+grep -qF 'couche la plus basse' agents/diagnostician.md || echoue "diagnostician ne nomme pas la couche la plus basse"
+grep -qF 'couche de ta couture' agents/implementer.md || echoue "implementer ne lit pas la couche de sa couture"
+
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
   grep -qF "$mot" NOTICE || echoue "NOTICE ne cite pas « $mot »"
