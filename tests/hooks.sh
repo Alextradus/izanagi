@@ -293,6 +293,23 @@ done
 demande "$p/src" 'rm -rf ..'
 laisse "$p" 'cd src && rm -rf build'
 laisse "$p" 'cd src/.. && rm -rf node_modules'
+# Les options de `cd` ne sont pas des dossiers ; `pushd` change de dossier comme `cd`,
+# et `popd` rend le dossier inconnu.
+demande "$p" 'cd -P .. && rm -rf *'
+demande "$p" 'cd -- .. && rm -rf *'
+demande "$p" 'pushd .. && rm -rf *'
+demande "$p" 'popd && rm -rf build'
+laisse "$p" 'cd -P src && rm -rf build'
+# La valeur d'une option de préfixe n'est pas la commande.
+demande "$p" 'sudo -u root rm -rf ~/x'
+demande "$p" 'env -u GIT_DIR git reset --hard'
+laisse "$p" 'sudo -E rm -rf node_modules'
+# `checkout .` regarde l'arbre du dépôt visé par `-C` ou par un `cd`.
+p2="$(nouveau_projet destructif-autre)"
+echo a >"$p2/b.txt" && git -C "$p2" add b.txt && git -C "$p2" commit -q -m b && echo c >"$p2/b.txt"
+demande "$p" "git -C $p2 checkout ."
+demande "$p" "cd $p2 && git restore ."
+laisse "$p2" "git -C $p checkout ."
 
 regler "$p" hook_destructif bloque
 lancer guard-destructive.sh "$p" "$(entree_push 'git reset --hard')"

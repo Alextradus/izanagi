@@ -176,6 +176,8 @@ for mot in '## À proposer au plugin' 'repository' 'gh repo fork' 'langage/<lang
 done
 awk '/\*\*Accord\.\*\*/ { a = NR } /git push/ { if (!p) p = NR } END { exit !(a && p && a < p) }' skills/contribuer/SKILL.md ||
   echoue "skills/contribuer pousse avant l'étape d'accord"
+awk '/\*\*Accord\.\*\*/ { a = NR } /gh repo fork <dépôt>/ { if (!f) f = NR } END { exit !(a && f && a < f) }' skills/contribuer/SKILL.md ||
+  echoue "skills/contribuer crée le fork avant l'étape d'accord"
 grep -qF '/izanagi:contribuer' skills/jalon/SKILL.md || echoue "la clôture de jalon ne propose pas /izanagi:contribuer"
 grep -qF '## À proposer au plugin' skills/upgrade/SKILL.md || echoue "upgrade ne retire pas les règles reprises par le plugin"
 

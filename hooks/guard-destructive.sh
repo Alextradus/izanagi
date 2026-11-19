@@ -53,6 +53,7 @@ fi
 racine_abs="$(cd "$racine" && pwd)"
 ici="$(pwd)"
 motif=""
+depot_git=""
 
 # normaliser <chemin absolu> : retire `.`, `..` et les barres en trop, sans lire le disque.
 normaliser() {
@@ -88,31 +89,34 @@ absolu() {
   normaliser "$cible"
 }
 
-# suivre_cd <cible> : met à jour `ici` après un `cd` de la commande.
+# suivre_cd <arguments de cd> : met à jour `ici` après un `cd` ou un `pushd` de la
+# commande. Les options (`-P`, `-L`, `--`) ne sont pas le dossier. Sans dossier, `cd`
+# va dans `$HOME` ; `cd -` et un dossier non résolu rendent `ici` inconnu.
 suivre_cd() {
-  if [[ -z ${1:-} ]]; then
+  while (($#)) && [[ $1 == -?* ]]; do
+    if [[ $1 == -- ]]; then
+      shift
+      break
+    fi
+    shift
+  done
+  if (($# == 0)); then
     ici="$(normaliser "$HOME")"
   elif [[ $1 == - ]] || ! ici="$(absolu "$1")"; then
     ici=""
   fi
 }
 
-# hors_depot <cible> : rend 0 si la cible de `rm` est la racine du dépôt ou hors de lui.
+# hors_depot <cible> : rend 0 si la cible de `rm` est la racine du dépôt ou hors de lui,
+# ou si elle ne se résout pas.
 hors_depot() {
-  local cible=$1 chemin
-  [[ $cible == *'$'* || $cible == *'`'* ]] && return 0
-  cible="${cible//\\//}"
-  if [[ $cible == '~' || $cible == '~/'* ]]; then cible="$HOME${cible:1}"; fi
-  if [[ $cible =~ ^([A-Za-z]):/(.*)$ ]]; then
-    cible="/${BASH_REMATCH[1],,}/${BASH_REMATCH[2]}"
-  fi
-  if [[ $cible != /* ]]; then
-    [[ -n $ici ]] || return 0
-    cible="$ici/$cible"
-  fi
+  local chemin
+  chemin="$(absolu "$1")" || return 0
   # Un dernier segment avec un joker vaut son dossier : `rm -rf *` vise le dossier.
-  if [[ ${cible##*/} == *[*?[]* ]]; then cible="${cible%/*}"; fi
-  chemin="$(normaliser "$cible")"
+  if [[ ${chemin##*/} == *[*?[]* ]]; then
+    chemin="${chemin%/*}"
+    chemin="${chemin:-/}"
+  fi
   [[ $chemin == "$racine_abs" || $chemin != "$racine_abs"/* ]]
 }
 
@@ -170,7 +174,10 @@ examine_git() {
       ;;
     checkout | restore)
       for mot in "$@"; do
-        if [[ $mot == . && -n $(git status --porcelain --untracked-files=no 2>/dev/null) ]]; then
+        [[ $mot == . ]] || continue
+        # L'arbre regardé est celui du dépôt visé : `git -C <dossier>`, sinon le
+        # dossier courant de la commande. Un dossier inconnu demande.
+        if [[ -z $depot_git ]] || [[ -n $(git -C "$depot_git" status --porcelain --untracked-files=no 2>/dev/null) ]]; then
           motif="git $sous . sur un arbre modifié"
           return 0
         fi
@@ -220,11 +227,19 @@ examine() {
   local i=0 n=${#mots[@]} mot
   # Les affectations en tête (`FOO=1 cmd`) et les préfixes courants (`sudo`, `env`,
   # `command`, `time`, `nohup`, `exec`, avec leurs options) ne changent pas la commande.
-  local prefixe=0
+  # Une option de préfixe qui prend une valeur (`sudo -u root`, `env -u NOM`) saute
+  # aussi sa valeur.
+  local prefixe=""
   while ((i < n)); do
     case "${mots[i]}" in
-      sudo | env | command | time | nohup | exec) prefixe=1 ;;
-      -*) ((prefixe)) || break ;;
+      sudo | env | command | time | nohup | exec) prefixe="${mots[i]}" ;;
+      -*)
+        [[ -n $prefixe ]] || break
+        case "$prefixe:${mots[i]}" in
+          sudo:-u | sudo:-g | sudo:-h | sudo:-p | sudo:-C | sudo:-U | sudo:-r | sudo:-t | sudo:-D | \
+            env:-u | env:-C | env:-S | time:-f | time:-o) i=$((i + 1)) ;;
+        esac
+        ;;
       *)
         [[ ${mots[i]} =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || break
         ;;
@@ -233,15 +248,24 @@ examine() {
   done
   ((i < n)) || return 1
   case "${mots[i]}" in
-    cd)
-      suivre_cd "${mots[i + 1]:-}"
+    cd | pushd)
+      suivre_cd "${mots[@]:i+1}"
+      return 1
+      ;;
+    popd)
+      ici=""
       return 1
       ;;
     git)
+      depot_git="$ici"
       i=$((i + 1))
       while ((i < n)); do
         case "${mots[i]}" in
-          -C | -c | --git-dir | --work-tree | --namespace) i=$((i + 2)) ;;
+          -C)
+            depot_git="$(absolu "${mots[i + 1]:-}")" || depot_git=""
+            i=$((i + 2))
+            ;;
+          -c | --git-dir | --work-tree | --namespace) i=$((i + 2)) ;;
           -*) i=$((i + 1)) ;;
           *) break ;;
         esac
