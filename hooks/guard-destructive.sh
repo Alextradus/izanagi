@@ -237,6 +237,7 @@ examine() {
         [[ -n $prefixe ]] || break
         case "$prefixe:${mots[i]}" in
           sudo:-u | sudo:-g | sudo:-h | sudo:-p | sudo:-C | sudo:-U | sudo:-r | sudo:-t | sudo:-D | \
+            sudo:--user | sudo:--group | sudo:--host | sudo:--prompt | sudo:--chdir | \
             env:-u | env:-C | env:-S | time:-f | time:-o) i=$((i + 1)) ;;
         esac
         ;;
@@ -248,8 +249,13 @@ examine() {
   done
   ((i < n)) || return 1
   case "${mots[i]}" in
-    cd | pushd)
+    cd)
       suivre_cd "${mots[@]:i+1}"
+      return 1
+      ;;
+    pushd)
+      # Sans argument ou avec `+n`/`-n`, `pushd` prend une entrée de la pile : inconnue.
+      if [[ -z ${mots[i + 1]:-} || ${mots[i + 1]} == [+-][0-9]* ]]; then ici=""; else suivre_cd "${mots[@]:i+1}"; fi
       return 1
       ;;
     popd)

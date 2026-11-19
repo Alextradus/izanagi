@@ -304,6 +304,9 @@ laisse "$p" 'cd -P src && rm -rf build'
 demande "$p" 'sudo -u root rm -rf ~/x'
 demande "$p" 'env -u GIT_DIR git reset --hard'
 laisse "$p" 'sudo -E rm -rf node_modules'
+demande "$p" 'sudo --user root rm -rf ~/x'
+demande "$p" 'pushd +1 && rm -rf build'
+demande "$p" 'pushd && rm -rf build'
 # `checkout .` regarde l'arbre du dépôt visé par `-C` ou par un `cd`.
 p2="$(nouveau_projet destructif-autre)"
 echo a >"$p2/b.txt" && git -C "$p2" add b.txt && git -C "$p2" commit -q -m b && echo c >"$p2/b.txt"
