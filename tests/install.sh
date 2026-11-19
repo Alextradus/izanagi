@@ -268,7 +268,8 @@ for outil in cargo npm gitleaks; do
   chmod +x "$tmp/ar/bin/$outil"
 done
 printf '[ "$1" = metadata ] && cat "%s/meta"\nexit 0\n' "$tmp/ar" >>"$tmp/ar/bin/cargo"
-meta_complet='{"packages":[{"name":"cli","targets":[{"kind":["lib"],"crate_types":["lib"],"name":"cli"},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli","required-features":["fonctionnel"]},{"kind":["test"],"crate_types":["bin"],"name":"integ"}]}]}'
+# Le test `avec_cli` déclare sa propre feature : l'étape integration le saute.
+meta_complet='{"packages":[{"name":"cli","targets":[{"kind":["lib"],"crate_types":["lib"],"name":"cli","doctest":true},{"kind":["test"],"crate_types":["bin"],"name":"avec_cli","src_path":"tests/avec_cli.rs","required-features":["cli"],"doctest":false},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli","required-features":["fonctionnel"],"doctest":false},{"kind":["test"],"crate_types":["bin"],"name":"integ","doctest":false}]}]}'
 printf '%s\n' "$meta_complet" >"$tmp/ar/meta"
 printf '%s\n' 'composant=cli|.|rust||unitaire,integration,fonctionnelle' 'composant=web|web|typescript|' \
   'fonctionnel_projet=tests/fonctionnels|npm run test:projet' systemes=windows,linux,macos "${base[@]}" >"$tmp/arv"
@@ -299,12 +300,20 @@ for args in "--host" "--host --complet" "--complet --host"; do
   fi
 done
 # Sans bibliothèque : ni `--lib` ni `--doc`, qui échoueraient.
-cible_lib='{"kind":["lib"],"crate_types":["lib"],"name":"cli"},'
+cible_lib='{"kind":["lib"],"crate_types":["lib"],"name":"cli","doctest":true},'
 printf '%s\n' "${meta_complet/"$cible_lib"/}" >"$tmp/ar/meta"
 lancer_ar --host
 [[ $code_ar -eq 0 ]] || echoue "sans bibliothèque : code $code_ar : $sortie_ar"
 grep -qxF 'cargo test --workspace --locked --bins' "$tmp/ar/journal" || echoue "sans bibliothèque : --bins seul attendu : $(cat "$tmp/ar/journal")"
 grep -qE -- '--lib|--doc' "$tmp/ar/journal" && echoue "sans bibliothèque : --lib ou --doc lancé"
+# Bibliothèque cdylib : `--lib` lance ses tests, `--doc` ne tourne pas (pas de doctest).
+cible_cdylib='{"kind":["cdylib"],"crate_types":["cdylib"],"name":"cli","doctest":false},'
+printf '%s\n' "${meta_complet/"$cible_lib"/"$cible_cdylib"}" >"$tmp/ar/meta"
+lancer_ar --host
+[[ $code_ar -eq 0 ]] || echoue "cdylib : code $code_ar : $sortie_ar"
+grep -qxF 'cargo test --workspace --locked --lib --bins' "$tmp/ar/journal" || echoue "cdylib : --lib attendu : $(cat "$tmp/ar/journal")"
+grep -qF -- '--doc' "$tmp/ar/journal" && echoue "cdylib : --doc lancé"
+grep -qF -- '--test avec_cli' "$tmp/ar/journal" && echoue "test à feature propre nommé par --test"
 # Sans test d'intégration : l'étape échoue, une couche ne tolère pas un dossier vide.
 printf '%s\n' '{"packages":[{"name":"cli","targets":[{"kind":["bin"],"crate_types":["bin"],"name":"cli"},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli"}]}]}' >"$tmp/ar/meta"
 lancer_ar --host
