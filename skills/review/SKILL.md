@@ -41,7 +41,7 @@ Les relecteurs n'ont pas d'outil pour lancer git. Écris-leur le diff dans un fi
 
 Les trois points comparent à l'ancêtre commun. Pour un jalon, le fichier va dans le dossier du plan, `.izanagi/journal/<nom du plan sans extension>/`. Hors jalon, il va dans `.izanagi/journal/hors-jalon/`. Git ignore ces deux dossiers (`.izanagi/.gitignore`). Dans un dépôt sans `.izanagi/`, écris le fichier dans `.git/izanagi-review/`, que git ne suit jamais. Les relecteurs lisent ainsi le diff dans le dépôt.
 
-**Rapport de mutation.** Si la phase en fournit un, écris-le à côté du diff, dans le même dossier, sous le nom `mutation.txt`. Le rapport liste les lignes `survivant`, les lignes `non muté` et un compte final. Sur TypeScript, Stryker lance toute la configuration Vitest : la couche fonctionnelle peut aussi tuer des mutants, et le nombre de survivants peut donc être plus bas que les couches unitaire et d'intégration seules ne le donneraient.
+**Rapport de mutation.** Si la phase en fournit un, écris-le à côté du diff, dans le même dossier, sous le nom `mutation.txt`. Le rapport liste les lignes `survivant`, les lignes `non muté` et un compte final. Sur TypeScript, Stryker lance toute la configuration Vitest. La couche fonctionnelle peut aussi tuer des mutants, et le nombre de survivants peut donc être plus bas que les couches unitaire et d'intégration seules ne le donneraient.
 
 ## 2. Niveau de risque
 

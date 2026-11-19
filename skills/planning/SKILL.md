@@ -27,7 +27,7 @@ Avant les tâches, liste les fichiers à créer ou à modifier et le rôle de ch
 
 Une couture est une interface publique où un test observe le comportement sans regarder à l'intérieur. Avant d'écrire les tâches, liste les coutures du jalon et fais-les valider par l'utilisateur. L'implémenteur n'écrit de test qu'à une couture convenue.
 
-Chaque couture porte sa couche : `unitaire`, `integration` ou `fonctionnelle`. Tu la prends parmi les lignes `- couche : <composant> | <couche> | <dossier> | <commande>` du `harness.md` du projet, celle du composant que la couture traverse. Une couture sans couche est incomplète : le plan ne la garde pas. Une couche que `harness.md` ne déclare pas pour ce composant ne se choisit pas, il faut d'abord la déclarer.
+Chaque couture porte sa couche : `unitaire`, `integration` ou `fonctionnelle`. Tu la prends parmi les lignes `- couche : <composant> | <couche> | <dossier> | <commande>` du `harness.md` du projet, celle du composant que la couture traverse. Une couture sans couche est incomplète, et le plan ne la garde pas. Une couche que `harness.md` ne déclare pas pour ce composant ne se choisit pas, il faut d'abord la déclarer.
 
 Si la forme d'une couture est en question (profondeur du module, place de l'interface, ce qu'elle expose), consulte `mattpocock-skills:codebase-design` s'il est installé. Sinon, présente les deux formes possibles à l'utilisateur avec ce que chacune coûte.
 
@@ -35,7 +35,7 @@ Si la forme d'une couture est en question (profondeur du module, place de l'inte
 
 Regroupe les tâches en tranches. Une tranche livre un comportement que l'utilisateur peut essayer avec le test manuel (clé `test_manuel`), et son diff reste sous la taille d'une tranche (clé `taille_tranche`). Chaque tranche dit en une phrase ce que l'utilisateur pourra essayer à la fin.
 
-Une tranche qui change un comportement visible de l'utilisateur porte une ligne `**Acceptation :** <scénario>` : le scénario décrit ce que l'utilisateur fait et voit, et il s'écrit à la couche fonctionnelle. Si le projet n'a aucune couche fonctionnelle dans `harness.md`, la tranche n'a pas cette ligne et le plan le dit.
+Une tranche qui change un comportement visible de l'utilisateur porte une ligne `**Acceptation :** <scénario>`. Le scénario décrit ce que l'utilisateur fait et voit, et il s'écrit à la couche fonctionnelle. Si le projet n'a aucune couche fonctionnelle dans `harness.md`, la tranche n'a pas cette ligne et le plan le dit.
 
 Donne à chaque tranche un niveau de risque, d'après `${CLAUDE_PLUGIN_ROOT}/references/risk.md` : faible, normal ou élevé. Propose le niveau élevé pour une tranche qui touchera sans doute un chemin de la clé `chemins_sensibles` : à la revue, `risk.sh` le vérifie sur le diff et monte le niveau de lui-même. Dans le doute entre deux niveaux, prends le plus haut.
 
