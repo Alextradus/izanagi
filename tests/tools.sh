@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Teste les scripts des commandes upgrade, status et doctor :
-# scripts/migrations/0.4.0.sh, scripts/status.sh et scripts/doctor.sh.
+# Teste les scripts des commandes upgrade, status et doctor, et la passe de mutation :
+# scripts/migrations/0.4.0.sh, scripts/status.sh, scripts/doctor.sh et scripts/mutation.sh.
 set -euo pipefail
 
 racine="$(cd "$(dirname "$0")/.." && pwd)"
@@ -565,5 +565,179 @@ ecart jalon.md 'upgrade'
 rm docs/agents/jalon.md
 
 if (cd "$tmp/hors" && bash "$doctor" "$tmp/hors" >/dev/null 2>&1); then echoue "doctor hors projet Izanagi accepté"; fi
+
+
+# ============ mutation.sh ============
+mutation="$racine/scripts/mutation.sh"
+[[ -f $mutation ]] || echoue "scripts/mutation.sh absent"
+
+# Projet à quatre composants : une pile par outil, et une pile sans outil.
+mu="$tmp/mu"
+mkdir -p "$mu/.izanagi" "$mu/docs/agents" "$mu/rs/src" "$mu/web/src" "$mu/api/src/app" "$mu/api/tests/unitaires" "$mu/outils"
+printf 'mutation=oui\nmutation_delai=15\n' >"$mu/.izanagi/config.env"
+printf -- '# Harnais\n\n- composant : rs | rs | rust |\n- composant : web | web | typescript |\n- composant : api | api | python |\n- composant : outils | outils | go |\n' >"$mu/docs/agents/harness.md"
+printf 'pub fn somme(a: i32, b: i32) -> i32 {\n    a + b\n}\n' >"$mu/rs/src/lib.rs"
+printf 'export function max(a: number, b: number) {\n  return a > b ? a : b;\n}\n' >"$mu/web/src/calc.ts"
+printf '"""Calcul."""\n\ndef somme(a, b):\n    return a + b\n' >"$mu/api/src/app/calc.py"
+printf 'package outils\n' >"$mu/outils/main.go"
+echo '# Lisez-moi' >"$mu/README.md"
+depot "$mu"
+git -C "$mu" switch -q -c jalon/mu
+base_mu="$(git -C "$mu" rev-parse HEAD)"
+
+# Faux outils. Chacun note ses arguments et son dossier, et écrit le résultat que
+# l'outil réel produit : missed.txt pour cargo-mutants, le rapport clear-text de
+# Stryker, et `mutmut results` puis `mutmut show` pour mutmut.
+# FAUX_ABSENT=<outil> : sa sonde `--version` échoue. FAUX_DORT=<s> : il dort avant d'agir.
+fx="$tmp/fx"
+mkdir -p "$fx"
+cat >"$fx/cargo" <<'FAUX'
+#!/bin/sh
+[ "$1 $2" = "mutants --version" ] && { [ "$FAUX_ABSENT" = cargo ] && exit 1; exit 0; }
+[ -n "$FAUX_DORT" ] && exec sleep "$FAUX_DORT"
+pwd >"$FAUX_JOURNAL/cargo.cwd"
+echo "$*" >"$FAUX_JOURNAL/cargo.args"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --in-diff) cp "$2" "$FAUX_JOURNAL/cargo.diff"; shift ;;
+    --output) sortie="$2"; shift ;;
+  esac
+  shift
+done
+mkdir -p "$sortie/mutants.out"
+printf 'src/lib.rs:2:5: replace + with - in somme\n' >"$sortie/mutants.out/missed.txt"
+printf 'src/lib.rs:2:5: replace somme -> i32 with 0\n' >"$sortie/mutants.out/caught.txt"
+exit 2
+FAUX
+cat >"$fx/npx" <<'FAUX'
+#!/bin/sh
+[ "$*" = "--no-install stryker --version" ] && { [ "$FAUX_ABSENT" = npx ] && exit 1; exit 0; }
+[ -n "$FAUX_DORT" ] && exec sleep "$FAUX_DORT"
+pwd >"$FAUX_JOURNAL/npx.cwd"
+echo "$*" >"$FAUX_JOURNAL/npx.args"
+e=$(printf '\033')
+printf '%s[Survived]%s ConditionalExpression\n' "$e[31m" "$e[39m"
+printf '%ssrc/calc.ts%s:%s2%s:%s10%s\n' "$e[36m" "$e[39m" "$e[33m" "$e[39m" "$e[33m" "$e[39m"
+printf '%s-     return a > b ? a : b;%s\n' "$e[31m" "$e[39m"
+printf '%s+     return true ? a : b;%s\n' "$e[32m" "$e[39m"
+printf 'Tests ran:\n    calc > max\n\n'
+printf '[NoCoverage] StringLiteral\nsrc/calc.ts:9:1\n-   "a"\n+   ""\n'
+exit 0
+FAUX
+cat >"$fx/uv" <<'FAUX'
+#!/bin/sh
+[ "$*" = "run mutmut --version" ] && { [ "$FAUX_ABSENT" = uv ] && exit 1; exit 0; }
+case "$3" in
+  run)
+    [ -n "$FAUX_DORT" ] && exec sleep "$FAUX_DORT"
+    pwd >"$FAUX_JOURNAL/uv.cwd"
+    echo "$*" >"$FAUX_JOURNAL/uv.args"
+    echo "$PYTEST_ADDOPTS" >"$FAUX_JOURNAL/uv.addopts"
+    ;;
+  results)
+    printf '    app.calc.x_somme__mutmut_1: survived\n    autre.x_f__mutmut_1: survived\n    app.calc.x_somme__mutmut_2: no tests\n'
+    ;;
+  show)
+    printf '# %s: survived\n--- src/app/calc.py\n+++ src/app/calc.py\n@@ -1,2 +1,2 @@\n def somme(a, b):\n-    return b + a\n+    return b - a\n' "$4"
+    ;;
+esac
+exit 0
+FAUX
+chmod +x "$fx/cargo" "$fx/npx" "$fx/uv"
+path_initial="$PATH"
+export PATH="$fx:$PATH" FAUX_JOURNAL="$tmp/fxj"
+mkdir -p "$FAUX_JOURNAL"
+
+# passe [arguments] : remplit $sortie et $code.
+passe() {
+  code=0
+  sortie="$(bash "$mutation" "$@" 2>&1)" || code=$?
+}
+
+# Usage faux : code 2.
+passe
+[[ $code -eq 2 ]] || echoue "mutation : sans argument : code $code : $sortie"
+passe "$mu"
+[[ $code -eq 2 ]] || echoue "mutation : un seul argument : code $code : $sortie"
+passe "$tmp/introuvable" "$base_mu"
+[[ $code -eq 2 ]] || echoue "mutation : dossier introuvable : code $code : $sortie"
+passe "$mu" inconnu-xyz
+[[ $code -eq 2 ]] || echoue "mutation : point fixe inconnu : code $code : $sortie"
+
+# mutation=non, puis clé absente : désactivée, aucun outil lancé.
+sed -i 's/^mutation=oui/mutation=non/' "$mu/.izanagi/config.env"
+passe "$mu" "$base_mu"
+[[ $code -eq 0 && $sortie == 'mutation : désactivée' ]] || echoue "mutation=non : $code : $sortie"
+sed -i '/^mutation=/d' "$mu/.izanagi/config.env"
+passe "$mu" "$base_mu"
+[[ $code -eq 0 && $sortie == 'mutation : désactivée' ]] || echoue "mutation absente : $code : $sortie"
+printf 'mutation=oui\n' >>"$mu/.izanagi/config.env"
+
+# Diff de documentation et de test seuls : rien à muter.
+echo 'Suite.' >>"$mu/README.md"
+printf 'def test_x():\n    pass\n' >"$mu/api/tests/unitaires/test_calc.py"
+git -C "$mu" add -A && git -C "$mu" commit -q -m doc
+passe "$mu" "$base_mu"
+[[ $code -eq 0 && $sortie == 'mutation : rien à muter' ]] || echoue "mutation : diff de documentation : $code : $sortie"
+[[ -z $(ls "$FAUX_JOURNAL") ]] || echoue "mutation : outil lancé sur un diff de documentation"
+
+# Un fichier de code par composant : un survivant par pile.
+sed -i 's/a + b/b + a/' "$mu/rs/src/lib.rs" "$mu/api/src/app/calc.py"
+sed -i 's/a > b ?/b < a ?/' "$mu/web/src/calc.ts"
+printf 'import { max } from "./calc";\n' >"$mu/web/src/calc.test.ts"
+echo '// x' >>"$mu/outils/main.go"
+git -C "$mu" add -A && git -C "$mu" commit -q -m code
+passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : code $code : $sortie"
+attendu='survivant | rs | rs/src/lib.rs:2 | replace + with - in somme
+survivant | web | web/src/calc.ts:2 | ConditionalExpression : return true ? a : b;
+survivant | api | api/src/app/calc.py:4 | app.calc.x_somme__mutmut_1
+non muté | outils | pile sans outil
+mutation : 3 survivants'
+[[ $sortie == "$attendu" ]] || echoue "mutation : rapport faux : $sortie"
+grep -qF "$mu/rs" "$FAUX_JOURNAL/cargo.cwd" || echoue "mutation : cargo pas lancé dans rs"
+grep -qE '^mutants --in-diff .* --output ' "$FAUX_JOURNAL/cargo.args" || echoue "mutation : arguments cargo : $(cat "$FAUX_JOURNAL/cargo.args")"
+grep -qF -- '+++ b/src/lib.rs' "$FAUX_JOURNAL/cargo.diff" || echoue "mutation : diff de cargo pas relatif au composant : $(cat "$FAUX_JOURNAL/cargo.diff")"
+grep -qF 'main.go' "$FAUX_JOURNAL/cargo.diff" && echoue "mutation : diff de cargo hors du composant"
+grep -qF "$mu/web" "$FAUX_JOURNAL/npx.cwd" || echoue "mutation : stryker pas lancé dans web"
+[[ $(cat "$FAUX_JOURNAL/npx.args") == '--no-install stryker run --mutate src/calc.ts --reporters clear-text' ]] ||
+  echoue "mutation : arguments stryker : $(cat "$FAUX_JOURNAL/npx.args")"
+grep -qF "$mu/api" "$FAUX_JOURNAL/uv.cwd" || echoue "mutation : mutmut pas lancé dans api"
+[[ $(cat "$FAUX_JOURNAL/uv.args") == 'run mutmut run app.calc.x*' ]] || echoue "mutation : arguments mutmut : $(cat "$FAUX_JOURNAL/uv.args")"
+grep -qF -- '--ignore=tests/fonctionnels' "$FAUX_JOURNAL/uv.addopts" || echoue "mutation : mutmut lance la couche fonctionnelle"
+
+# Un outil absent : le composant n'est pas muté, les autres le sont.
+rm -f "$FAUX_JOURNAL"/*
+FAUX_ABSENT=npx passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : outil absent : code $code"
+grep -qxF 'non muté | web | outil absent' <<<"$sortie" || echoue "mutation : outil absent non signalé : $sortie"
+[[ -f $FAUX_JOURNAL/npx.args ]] && echoue "mutation : stryker lancé alors qu'absent"
+grep -qxF 'mutation : 2 survivants' <<<"$sortie" || echoue "mutation : outil absent : décompte faux : $sortie"
+
+# Délai nul : aucun outil ne tourne.
+rm -f "$FAUX_JOURNAL"/*
+sed -i 's/^mutation_delai=.*/mutation_delai=0/' "$mu/.izanagi/config.env"
+FAUX_DORT=30 passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : délai nul : code $code"
+for c in rs web api; do
+  grep -qxF "non muté | $c | délai dépassé" <<<"$sortie" || echoue "mutation : délai nul : $c : $sortie"
+done
+grep -qxF 'mutation : 0 survivants' <<<"$sortie" || echoue "mutation : délai nul : décompte faux : $sortie"
+[[ -z $(ls "$FAUX_JOURNAL") ]] || echoue "mutation : outil lancé avec un délai nul"
+sed -i 's/^mutation_delai=.*/mutation_delai=15/' "$mu/.izanagi/config.env"
+
+# Délai dépassé en cours de passe : timeout arrête l'outil qui dort, et le délai
+# usé ne revient pas aux composants suivants.
+if command -v timeout >/dev/null; then
+  debut=$SECONDS
+  IZANAGI_MUTATION_DELAI=2 FAUX_DORT=30 passe "$mu" "$base_mu"
+  [[ $code -eq 0 ]] || echoue "mutation : délai dépassé : code $code"
+  ((SECONDS - debut < 20)) || echoue "mutation : outil pas arrêté au délai"
+  for c in rs web api; do
+    grep -qxF "non muté | $c | délai dépassé" <<<"$sortie" || echoue "mutation : délai dépassé : $c : $sortie"
+  done
+fi
+export PATH="$path_initial"
+unset FAUX_JOURNAL
 
 echo "tools.sh : tous les cas passent"
