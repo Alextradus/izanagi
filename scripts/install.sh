@@ -131,23 +131,6 @@ if [[ -n $fonctionnel_projet && -n ${noms_vus[projet]:-} ]]; then
   exit 2
 fi
 
-# Dossier, relatif au composant, et commande d'une couche, pour harness.md
-# (décision 94). Les commandes sont celles des fragments `test-<couche>.sh`.
-info_couche() {
-  case "$1:$2" in
-    rust:unitaire) printf '%s' 'src|cargo test --workspace --locked --lib --bins, puis --doc' ;;
-    rust:integration) printf '%s' 'tests|cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*' ;;
-    rust:fonctionnelle) printf '%s' "tests/fonctionnel_*.rs|cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" ;;
-    typescript:unitaire) printf '%s' 'src|npm run test:unitaire' ;;
-    typescript:integration) printf '%s' 'tests/integration|npm run test:integration' ;;
-    typescript:fonctionnelle) printf '%s' 'tests/fonctionnels|npm run test:fonctionnel' ;;
-    python:unitaire) printf '%s' 'tests/unitaires|uv run pytest tests/unitaires' ;;
-    python:integration) printf '%s' 'tests/integration|uv run pytest tests/integration' ;;
-    python:fonctionnelle) printf '%s' 'tests/fonctionnels|uv run pytest tests/fonctionnels' ;;
-    *) printf '%s' 'à préciser|à préciser' ;;
-  esac
-}
-
 # Systèmes de la CI et de check.sh.
 systemes_demandes="$(grep -E '^systemes=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
 systemes="${systemes_demandes:-$(sed -n 's/^systemes=//p' "$racine/templates/core/defaults.env" | tr -d '\r')}"
@@ -377,21 +360,12 @@ for entree in "${composants[@]}"; do
   fonctionnelle=""
   declarees=" $(couches_de "$c_couches") "
   for couche in unitaire integration fonctionnelle; do
-    info="$(info_couche "$c_pile" "$couche")"
-    dossier="${info%%|*}"
-    commande="${info#*|}"
-    [[ $c_chemin != . && $dossier != 'à préciser' ]] && dossier="$c_chemin/$dossier"
-    libelle="${couche/integration/intégration}"
-    if [[ $declarees != *" $couche "* ]]; then
-      tableau_couches+="${tableau_couches:+$'\n'}| $c_nom | $libelle | sans objet | sans objet |"
-      continue
-    fi
-    if [[ $dossier == 'à préciser' ]]; then
-      tableau_couches+="${tableau_couches:+$'\n'}| $c_nom | $libelle | à préciser | à préciser |"
-    else
-      tableau_couches+="${tableau_couches:+$'\n'}| $c_nom | $libelle | \`$dossier\` | \`$commande\` |"
-    fi
-    lignes_couches+="${lignes_couches:+$'\n'}- couche : $c_nom | $couche | $dossier | $commande"
+    declaree=0
+    [[ $declarees == *" $couche "* ]] && declaree=1
+    rendre_couche "$c_nom" "$c_chemin" "$c_pile" "$couche" "$declaree"
+    tableau_couches+="${tableau_couches:+$'\n'}$couche_rang"
+    [[ $declaree -eq 1 ]] || continue
+    lignes_couches+="${lignes_couches:+$'\n'}$couche_ligne"
     etape="$(rendre_fragment "$(fragment "test-$couche.sh" "$c_pile")" "${cles[@]}")"
     if [[ $couche == fonctionnelle ]]; then
       # TypeScript : la couche fonctionnelle peut employer Playwright.
@@ -452,12 +426,7 @@ if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
   tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
   lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"
 fi
-if [[ -n $tableau_couches ]]; then
-  tableau_couches=$'| Composant | Couche | Dossier | Commande |\n| --- | --- | --- | --- |\n'"$tableau_couches"
-else
-  tableau_couches="Aucune couche sans composant."
-fi
-valeurs[tableau_couches]="$tableau_couches"
+valeurs[tableau_couches]="$(tableau_des_couches "$tableau_couches")"
 valeurs[lignes_couches]="$lignes_couches"
 valeurs[tableau_composants]="$tableau"
 valeurs[lignes_composants]="$lignes_composants"

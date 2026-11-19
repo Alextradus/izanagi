@@ -11,7 +11,7 @@ Plugin Claude Code qui pose le cadre de travail d'un projet, conduit ses jalons 
 - `/izanagi:init` démarre un projet de toute pile et pose son cadre. Il sait traiter deux cas :
   - Dans un dossier vide, il mène un entretien de départ, recommande une pile, lance le créateur officiel de cette pile, puis propose `gh repo create` et ne le lance que sur ton accord.
   - Dans un projet existant sans Izanagi, il détecte les composants et pose le cadre sans toucher au code.
-- `/izanagi:jalon [phase]` conduit un jalon : cadrage, plan, tranches, revue de jalon, test, clôture. Chaque tranche passe une revue convergente (trois tours au plus, re-revue sur le seul diff des corrections). `/izanagi:jalon convergente` lance cette revue seule, pour une PR hors jalon.
+- `/izanagi:jalon [phase]` conduit un jalon : cadrage, plan, tranches, revue de jalon, test, clôture. Dans le plan, chaque couture porte sa couche de test. Une tranche qui change un comportement visible commence par un scénario d'acceptation à la couche fonctionnelle, écrit et vu en échec avant les cycles des couches plus basses, puis vu passer à la fin de la tranche : c'est la double boucle du skill `tdd`. Chaque tranche passe une revue convergente (trois tours au plus, re-revue sur le seul diff des corrections). `/izanagi:jalon convergente` lance cette revue seule, pour une PR hors jalon.
 - `/izanagi:task [issue ou description]` conduit un petit changement, de l'issue à la PR, sans spec ni plan : cadrage en cinq questions au plus, implémentation testée, revue, patch monté. Si le changement dépasse une tranche ou touche plusieurs coutures, il s'arrête au cadrage et propose un jalon.
 - `/izanagi:fix [issue ou description du bug]` conduit un correctif : un diagnostic qui prouve la cause par un test de régression rouge, le correctif, la revue, la PR. Lancé pendant un jalon, il part de la branche du jalon et y revient. Les retours de test d'un jalon passent par lui.
 - `/izanagi:retro [branche]` tire les leçons d'un flux : il lit le journal, les rapports de revue, les refus des hooks (`.izanagi/refus.log`) et les lignes `Correction :` que les flux notent quand tu reprends l'agent. Il te propose une règle par leçon, dans le fichier qui convient (`docs/CODING_STANDARDS.md`, `docs/standards/<langage>.md`, `CLAUDE.md`…), et ne l'écrit qu'avec ton accord. Une leçon sur Izanagi lui-même devient un brouillon d'issue, ouvert seulement sur ton accord. La clôture d'un jalon le lance. `task` et `fix` te demandent « une leçon à garder ? » quand la revue a pris plus d'un tour ou qu'un hook a refusé quelque chose.
@@ -27,9 +27,9 @@ Les flux chargent huit autres skills du plugin, absents du menu des commandes : 
 
 Un projet posé a trois fichiers propres à Izanagi :
 
-- `.izanagi/config.env` porte les réglages, une valeur par ligne (`clé=valeur`) : version du cadre, chemin de la spec, lieu des décisions, dossier des plans, branche principale, commande de vérification, commande et lieu du test manuel, taille d'une tranche, chemins sensibles, fichier de version, chemin du vault ou `non`, et une clé par hook.
+- `.izanagi/config.env` porte les réglages, une valeur par ligne (`clé=valeur`) : version du cadre, chemin de la spec, lieu des décisions, dossier des plans, branche principale, commande de vérification, commande et lieu du test manuel, taille d'une tranche, chemins sensibles, fichier de version, chemin du vault ou `non`, une clé par hook, `navigateur` (`oui` quand une couche fonctionnelle emploie Playwright), et les clés de la mutation, `mutation` et `mutation_delai`.
 - `.izanagi/state.env` porte l'état du flux de la branche courante : flux, nom, phase, tranche, tour de revue, niveau de risque. Il est versionné sur la branche du flux, et la branche principale n'en porte jamais. Seul `scripts/state.sh` du plugin l'écrit.
-- `docs/agents/harness.md` décrit le harnais : composants, systèmes cibles, type d'application et couches de test.
+- `docs/agents/harness.md` décrit le harnais : composants, systèmes cibles, type d'application, et le tableau des couches de test, avec le dossier et la commande de chaque couche de chaque composant.
 
 Le journal d'un jalon, `.izanagi/journal/<plan>.md`, est versionné sur la branche du jalon. La clôture le supprime avec l'état, dans le dernier commit avant la fusion.
 
@@ -84,16 +84,43 @@ Comme la branche principale ne reçoit plus de push direct, un jalon passe par d
 
 ## Piles
 
-Trois piles ont un gabarit complet : Rust, TypeScript avec Node (npm) et Python (uv). Pour chacune, `scripts/check.sh` lance l'installation depuis le verrou, le format, le lint et les tests, et la CI exécute `check.sh --host` sur chaque système cible.
+Trois piles ont un gabarit complet : Rust, TypeScript avec Node (npm) et Python (uv). Pour chacune, `scripts/check.sh` lance l'installation depuis le verrou, le format, le lint, puis une étape par couche de test déclarée dans `harness.md`.
 
 Pour une autre pile (Go, Java, C#, Swift…), `init` pose une section `# À ÉCRIRE` et la remplit en suivant `references/verification-contract.md`, qui fixe ce que `check.sh` et la CI doivent faire. Le script `check-contract.sh` du plugin contrôle ce contrat.
 
-`scripts/check.sh` accepte deux options :
+`scripts/check.sh` accepte trois options :
 
 - `--host` vérifie le système courant seulement. Le hook pre-push l'utilise. Si le système courant n'est pas une cible, `check.sh` le saute ; sous Windows, il vérifie alors la copie WSL quand `linux` est une cible.
+- `--complet` ajoute les couches fonctionnelles et se combine avec `--host`.
 - `--clean` vide le cache WSL du projet.
 
 Sous Windows, quand `linux` est un système cible, `check.sh` copie l'arbre de travail dans `~/.cache/<projet_dossier>-wsl` et y lance la vérification.
+
+## Couches de test
+
+Un projet a trois couches de test, définies par ce que le test traverse :
+
+- la couche unitaire teste un module ou une fonction dans le processus, sans réseau, disque ni base ;
+- la couche intégration teste le composant avec ses vraies dépendances (base de test, système de fichiers, HTTP local), par son interface de code ou ses routes ;
+- la couche fonctionnelle teste le produit tel que l'utilisateur le touche : le binaire lancé, le service HTTP lancé, ou le navigateur avec Playwright.
+
+Les couches se séparent par dossier :
+
+| Pile | Unitaire | Intégration | Fonctionnelle |
+|---|---|---|---|
+| Rust | modules `#[cfg(test)]` de `src/` | `tests/*.rs` | `tests/fonctionnel_*.rs`, avec la feature `fonctionnel` |
+| TypeScript | projet Vitest `unitaire` | projet Vitest `integration` | `npm run test:fonctionnel`, Vitest ou Playwright |
+| Python | `tests/unitaires/` | `tests/integration/` | `tests/fonctionnels/` |
+
+`scripts/check.sh` lance les couches unitaire et intégration de chaque composant. `scripts/check.sh --complet` lance en plus les couches fonctionnelles, puis l'entrée fonctionnelle du projet, un scénario qui traverse plusieurs composants. Chaque couche est une étape annoncée `-- <composant> : <couche>`. Le hook pre-push et le hook d'arrêt de l'implémenteur lancent la version courte. La fin de chaque tranche, `task` et `fix` avant leur revue, et la CI lancent `--complet`.
+
+La CI lance `bash scripts/check.sh --host --complet` sur chaque système cible. Les tests Playwright n'y tournent que sur `ubuntu-latest`. Son job `couverture`, sur `ubuntu-latest` seul, relance la vérification complète avec la mesure de couverture (`cargo llvm-cov`, `vitest --coverage`, `pytest-cov`) et écrit le taux de chaque composant dans le résumé du job. Il n'a pas de seuil et ne fait jamais échouer la PR.
+
+## Mutation
+
+`scripts/mutation.sh` du plugin mute le code du diff et liste les mutants que les tests des couches unitaire et intégration laissent survivre, avec `cargo-mutants`, Stryker ou `mutmut` selon la pile. La passe tourne avant la revue de jalon, et avant la revue de `task` et de `fix` au seul niveau de risque élevé. `reviewer-standards` classe chaque survivant : Important s'il touche une couture convenue, Mineur sinon. La passe ne fait jamais échouer la vérification ni la CI.
+
+Deux clés de `.izanagi/config.env` la règlent. `mutation=oui` l'active, et `init` l'écrit quand toutes les piles des composants ont un gabarit. `mutation_delai` borne sa durée, en minutes (15 par défaut). Son rapport cite ce qui n'a pas été muté, faute d'outil ou de temps. `/izanagi:doctor` contrôle l'outil de chaque pile et donne sa commande d'installation.
 
 ## Prérequis
 
@@ -134,7 +161,7 @@ Depuis un clone local, remplace `Alextradus/izanagi` par le chemin du clone : Cl
 
 ## Feuille de route
 
-La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, d'après `docs/specs/2026-11-18-izanagi-0.6-securite-amelioration.md`. La 1.0 sortira après un projet mené de bout en bout avec la 0.6.
+La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, d'après `docs/specs/2026-11-18-izanagi-0.6-securite-amelioration.md`. La 0.7 ajoute les couches de test, la couverture et la mutation, d'après `docs/specs/2026-11-19-izanagi-0.7-couches-de-test.md`. La 1.0 sortira après un projet mené de bout en bout avec la 0.7, sur lequel se font aussi les essais de réception des 0.5, 0.6 et 0.7.
 
 Restent sans version prévue : un template de PR, la release et le déploiement d'un projet, et des évals du plugin sur un projet témoin.
 
@@ -150,6 +177,6 @@ claude plugin validate .
 bash tests/install.sh && bash tests/check-contract.sh && bash tests/skills.sh && bash tests/state.sh && bash tests/hooks.sh && bash tests/risk.sh && bash tests/tools.sh
 ```
 
-`tests/skills.sh` contrôle la structure du plugin : les dix-huit skills, les cinq sous-agents, les outils des relecteurs et l'absence de renvoi à un skill externe obligatoire. `tests/state.sh` teste `scripts/state.sh`, `tests/hooks.sh` les quatre hooks, `tests/risk.sh` le calcul du niveau de risque, et `tests/tools.sh` les migrations, `status.sh`, `doctor.sh`, `refus.sh` et la recherche de secrets de `check.sh`. Ce dernier prend deux à trois minutes sous Windows.
+`tests/skills.sh` contrôle la structure du plugin : les dix-huit skills, les cinq sous-agents, les outils des relecteurs et l'absence de renvoi à un skill externe obligatoire. `tests/state.sh` teste `scripts/state.sh`, `tests/hooks.sh` les quatre hooks, `tests/risk.sh` le calcul du niveau de risque, et `tests/tools.sh` les migrations, `status.sh`, `doctor.sh`, `refus.sh`, `mutation.sh` et la recherche de secrets de `check.sh`. Ce dernier prend plus de dix minutes sous Windows.
 
 Les skills et les sous-agents dérivent des skills de Matt Pocock et de Superpowers, tous deux sous licence MIT. `NOTICE` cite les deux sources.

@@ -211,3 +211,58 @@ json_echappe() {
   t="${t//$'\n'/ }"
   printf '%s' "$t"
 }
+
+# info_couche <pile> <couche> : affiche `<dossier>|<commande>` d'une couche pour
+# harness.md (décision 94), le dossier relatif au composant. Les commandes sont
+# celles des fragments `test-<couche>.sh`. Une pile sans gabarit donne
+# `à préciser|à préciser`.
+info_couche() {
+  case "$1:$2" in
+    rust:unitaire) printf '%s' 'src|cargo test --workspace --locked --lib --bins, puis --doc' ;;
+    rust:integration) printf '%s' 'tests|cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*' ;;
+    rust:fonctionnelle) printf '%s' "tests/fonctionnel_*.rs|cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" ;;
+    typescript:unitaire) printf '%s' 'src|npm run test:unitaire' ;;
+    typescript:integration) printf '%s' 'tests/integration|npm run test:integration' ;;
+    typescript:fonctionnelle) printf '%s' 'tests/fonctionnels|npm run test:fonctionnel' ;;
+    python:unitaire) printf '%s' 'tests/unitaires|uv run pytest tests/unitaires' ;;
+    python:integration) printf '%s' 'tests/integration|uv run pytest tests/integration' ;;
+    python:fonctionnelle) printf '%s' 'tests/fonctionnels|uv run pytest tests/fonctionnels' ;;
+    *) printf '%s' 'à préciser|à préciser' ;;
+  esac
+}
+
+# rendre_couche <nom> <chemin> <pile> <couche> <déclarée> [commande [dossier]] :
+# rend une couche d'un composant pour la section « Couches de test » de harness.md
+# (décision 101). Remplit `couche_rang`, la ligne du tableau, et `couche_ligne`,
+# la ligne `- couche : <nom> | <couche> | <dossier> | <commande>`, vide quand
+# <déclarée> vaut 0. La commande et le dossier, relatif au composant, remplacent
+# ceux du gabarit quand ils sont donnés.
+rendre_couche() {
+  local nom="$1" chemin="$2" pile="$3" couche="$4" declaree="$5" info dossier commande libelle cellule_d cellule_c
+  info="$(info_couche "$pile" "$couche")"
+  dossier="${7:-${info%%|*}}"
+  commande="${6:-${info#*|}}"
+  [[ $chemin != . && $dossier != 'à préciser' ]] && dossier="$chemin/$dossier"
+  libelle="${couche/integration/intégration}"
+  couche_ligne=""
+  if [[ $declaree -eq 0 ]]; then
+    couche_rang="| $nom | $libelle | sans objet | sans objet |"
+    return 0
+  fi
+  cellule_d='à préciser'
+  [[ $dossier == 'à préciser' ]] || cellule_d="\`$dossier\`"
+  cellule_c='à préciser'
+  [[ $commande == 'à préciser' ]] || cellule_c="\`${commande//|/\\|}\`"
+  couche_rang="| $nom | $libelle | $cellule_d | $cellule_c |"
+  couche_ligne="- couche : $nom | $couche | $dossier | $commande"
+}
+
+# tableau_des_couches <rangs> : affiche le tableau des couches de harness.md, en-tête
+# compris, ou la phrase qui dit qu'il n'y en a pas.
+tableau_des_couches() {
+  if [[ -n $1 ]]; then
+    printf '| Composant | Couche | Dossier | Commande |\n| --- | --- | --- | --- |\n%s' "$1"
+  else
+    printf '%s' "Aucune couche sans composant."
+  fi
+}
