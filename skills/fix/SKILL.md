@@ -87,7 +87,9 @@ Fin : le test de régression passe, la vérification complète est verte, le cor
 
 Hors jalon, lance `state.sh set phase=revue tour=0 --commit`. Dans un jalon, ne change pas la phase.
 
-Au seul niveau `eleve`, déclaré ou retenu par `risk.sh` (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`), lance d'abord `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <base>`, la base étant la branche principale, ou la branche du jalon pour un correctif né d'un jalon, et garde sa sortie : c'est le rapport de mutation. Le script ne fait jamais échouer la revue.
+Calcule d'abord le niveau retenu avec `bash "${CLAUDE_PLUGIN_ROOT}/scripts/risk.sh" <base> <niveau déclaré>`. Un chemin sensible peut faire monter le diff à `eleve`. `review` recalcule ce niveau à son tour, ce qui ne coûte rien.
+
+Au seul niveau `eleve`, lance ensuite `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <base>` et garde sa sortie, qui est le rapport de mutation. La base est la branche principale, ou la branche du jalon pour un correctif né d'un jalon. Le script ne fait jamais échouer la revue.
 
 Lance `izanagi:review`, avec le rapport de mutation s'il existe, la base pour point fixe, le rapport du diagnostic et l'issue pour axe Spec, le journal, et le niveau de risque. Applique pour la suite le niveau que `review` annonce.
 

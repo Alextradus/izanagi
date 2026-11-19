@@ -238,6 +238,10 @@ done
 grep -qF 'survivant' agents/reviewer-standards.md || echoue "reviewer-standards ne nomme pas les survivants"
 grep -qF 'non muté' agents/reviewer-standards.md || echoue "reviewer-standards ne traite pas les lignes « non muté »"
 grep -qF 'mutation' references/risk.md || echoue "risk.md ne place pas la mutation au niveau élevé"
+for s in task fix; do
+  awk '/scripts\/risk\.sh/ { if (!r) r = NR } /scripts\/mutation\.sh/ { if (!m) m = NR } END { exit !(r && m && r < m) }' "skills/$s/SKILL.md" ||
+    echoue "skills/$s ne lance pas risk.sh avant mutation.sh"
+done
 
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
