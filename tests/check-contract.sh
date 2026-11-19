@@ -73,6 +73,19 @@ if sortie="$("$contrat" "$tmp/os")"; then echoue "os modifié accepté"; fi
 grep -q 'ci.yml' <<<"$sortie" || echoue "os : $sortie"
 rm -rf "$tmp/os"
 
+# Règle 7 : une CI qui lance encore `--host` seul est refusée, même si le job
+# couverture lance `--host --complet`.
+cp -r "$tmp/ok" "$tmp/r7"
+sed -i 's/^\( *\)run: bash scripts\/check.sh --host --complet$/\1run: bash scripts\/check.sh --host/' "$tmp/r7/.github/workflows/ci.yml"
+grep -qxF '        run: bash scripts/check.sh --host' "$tmp/r7/.github/workflows/ci.yml" || echoue "règle 7 : sed sans effet"
+if sortie="$("$contrat" "$tmp/r7")"; then echoue "CI sans --complet acceptée"; fi
+grep -qxF 'contrat : .github/workflows/ci.yml : ne lance pas bash scripts/check.sh --host --complet' <<<"$sortie" || echoue "règle 7 : $sortie"
+# Dans un bloc `run: |`, la ligne seule passe aussi.
+cp -r "$tmp/ok" "$tmp/r7b"
+sed -i 's/^\( *\)run: bash scripts\/check.sh --host --complet$/\1run: |\n\1  bash scripts\/check.sh --host --complet/' "$tmp/r7b/.github/workflows/ci.yml"
+sortie="$("$contrat" "$tmp/r7b")" || echoue "règle 7 : bloc run: | refusé : $sortie"
+rm -rf "$tmp/r7" "$tmp/r7b"
+
 # Composant sans section dans check.sh.
 cp -r "$tmp/ok" "$tmp/sec"
 sed -i 's/^# --- composant cli (/# --- composant autre (/' "$tmp/sec/scripts/check.sh"
@@ -99,12 +112,12 @@ cp -r "$tmp/ok" "$tmp/sl"
 printf '#!/usr/bin/env bash\n# --- composant cli (rust) ---\ncase "${1:-}" in\n  --host|-h) ;;\n  --clean) exit 0 ;;\n  *) sleep 60 ;;\nesac\n' >"$tmp/sl/scripts/check.sh"
 if sortie="$(IZANAGI_CONTRAT_DELAI=1 "$contrat" "$tmp/sl")"; then echoue "délai dépassé accepté"; fi
 grep -q 'option inconnue doit sortir avec le code 2' <<<"$sortie" || echoue "délai : $sortie"
-grep -q 'ne gère pas' <<<"$sortie" && echoue "--host|-h) non reconnu : $sortie"
+grep -qE 'ne gère pas --(host|clean)' <<<"$sortie" && echoue "--host|-h) non reconnu : $sortie"
 rm -rf "$tmp/sl"
 
 # Cas entre guillemets : `"--host")` et `'--clean')` sont reconnus.
 cp -r "$tmp/ok" "$tmp/gu"
-sed -i -e 's/^  --host)/  "--host")/' -e "s/^  --clean)/  '--clean')/" "$tmp/gu/scripts/check.sh"
+sed -i -e 's/^\( *\)--host)/\1"--host")/' -e "s/^\\( *\\)--clean)/\\1'--clean')/" "$tmp/gu/scripts/check.sh"
 grep -qF '"--host")' "$tmp/gu/scripts/check.sh" && grep -qF "'--clean')" "$tmp/gu/scripts/check.sh" || echoue "guillemets : sed sans effet"
 sortie="$("$contrat" "$tmp/gu")" || echoue "cas entre guillemets refusés : $sortie"
 rm -rf "$tmp/gu"
@@ -123,6 +136,38 @@ sed -i 's/$/\r/' "$tmp/cr/scripts/check.sh"
 if sortie="$("$contrat" "$tmp/cr")"; then echoue "npm install en CRLF accepté"; fi
 grep -q 'verrou' <<<"$sortie" || echoue "CRLF : $sortie"
 rm -rf "$tmp/cr"
+
+# Règle 10 : une étape par couche déclarée dans harness.md.
+poser couches composant='cli|.|rust|cargo run|unitaire,integration,fonctionnelle' systemes=linux,windows \
+  fonctionnel_projet='e2e|bash e2e/run.sh'
+sortie="$("$contrat" "$tmp/couches")" || echoue "projet à trois couches refusé : $sortie"
+[[ $sortie == 'contrat : respecté' ]] || echoue "trois couches : $sortie"
+for couche in unitaire integration fonctionnelle; do
+  cp -r "$tmp/couches" "$tmp/manque"
+  sed -i "/echo \"-- cli : $couche\"/d" "$tmp/manque/scripts/check.sh"
+  if sortie="$("$contrat" "$tmp/manque")"; then echoue "étape $couche manquante acceptée"; fi
+  grep -qF "contrat : scripts/check.sh : pas d'étape $couche pour le composant cli" <<<"$sortie" || echoue "étape $couche : $sortie"
+  rm -rf "$tmp/manque"
+done
+cp -r "$tmp/couches" "$tmp/manque"
+sed -i '/echo "-- projet : fonctionnelle"/d' "$tmp/manque/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/manque")"; then echoue "étape projet manquante acceptée"; fi
+grep -qF "contrat : scripts/check.sh : pas d'étape fonctionnelle pour le composant projet" <<<"$sortie" || echoue "étape projet : $sortie"
+rm -rf "$tmp/manque"
+
+# Règle 11 : check.sh gère --complet.
+cp -r "$tmp/ok" "$tmp/comp"
+sed -i 's/--complet)/--entier)/' "$tmp/comp/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/comp")"; then echoue "--complet absent accepté"; fi
+grep -qF 'contrat : scripts/check.sh : ne gère pas --complet' <<<"$sortie" || echoue "--complet : $sortie"
+rm -rf "$tmp/comp"
+
+# Des composants et aucune couche déclarée : écart.
+cp -r "$tmp/ok" "$tmp/nc"
+sed -i '/^- couche : /d' "$tmp/nc/docs/agents/harness.md"
+if sortie="$("$contrat" "$tmp/nc")"; then echoue "aucune couche déclarée acceptée"; fi
+grep -qF 'contrat : docs/agents/harness.md : aucune couche de test déclarée' <<<"$sortie" || echoue "aucune couche : $sortie"
+rm -rf "$tmp/nc"
 
 # harness.md supprimé.
 rm "$tmp/ok/docs/agents/harness.md"

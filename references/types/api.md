@@ -4,8 +4,9 @@ API ou service réseau, sans interface graphique.
 
 ## Couches de test
 
-- Tests unitaires de la logique métier (`cargo test`, `vitest`, `pytest`).
-- Tests d'intégration des routes : requête HTTP réelle contre le service lancé sur un port local, avec une base de test (`supertest` avec vitest, `httpx` avec pytest, `reqwest` en Rust).
+- Unitaire : la logique métier, sans réseau ni base (`cargo test`, `vitest`, `pytest`).
+- Intégration : les routes, par une requête HTTP réelle contre le service lancé sur un port local, avec une base de test que le test démarre lui-même (`reqwest` en Rust, `supertest` avec vitest, `httpx` avec pytest).
+- Fonctionnelle : un scénario HTTP de bout en bout contre le service lancé, sans accès à son code. Une fixture démarre le service sur un port libre et l'arrête à la fin (`reqwest` dans `tests/fonctionnel_*.rs`, `fetch` avec vitest, `httpx` avec pytest).
 
 ## Test manuel par défaut
 

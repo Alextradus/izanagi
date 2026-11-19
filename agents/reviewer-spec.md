@@ -31,6 +31,8 @@ Tu es en lecture seule. Tu ne modifies aucun fichier, tu ne lances aucune comman
 - **Ce qui est mal compris** : la bonne fonction construite de la mauvaise façon, ou le mauvais problème résolu.
 - **Les tests** : chaque comportement demandé a-t-il un test à une couture que la demande nomme, et ce test vérifie-t-il un comportement plutôt qu'une simulation ?
 
+Lis les lignes `- couche :` de `harness.md` et les coutures du plan, qui portent chacune leur couche. Signale en Important un comportement nouveau sans test, et un test qui n'est pas à la couche de sa couture ou hors du dossier que `harness.md` donne à cette couche.
+
 Cite la ligne de la demande pour chaque constat.
 
 Si la demande liste plusieurs fichiers avec chacun son changement, contrôle le diff fichier par fichier. Un fichier listé que le diff ne touche pas est un constat Important.

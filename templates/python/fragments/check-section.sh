@@ -8,7 +8,6 @@ verifier_{{id}}() {
     uv run ruff format --check
     echo "-- {{composant}} : lint"
     uv run ruff check
-    echo "-- {{composant}} : tests"
-    uv run pytest
+{{etapes}}
   )
 }

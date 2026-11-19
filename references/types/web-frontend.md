@@ -4,8 +4,9 @@ Application web côté navigateur.
 
 ## Couches de test
 
-- Tests unitaires et de composants (vitest, avec Testing Library).
-- Tests de bout en bout dans un navigateur réel (Playwright). La CI ne les lance que si `scripts/check.sh` les inclut ; ajoute alors l'installation des navigateurs à la CI.
+- Unitaire : la logique hors rendu (vitest).
+- Intégration : les composants rendus (vitest, avec Testing Library).
+- Fonctionnelle : l'application dans un navigateur réel, avec Playwright. L'option `webServer` de Playwright lance le serveur de développement. La CI installe les navigateurs sur Ubuntu, et `init` écrit `navigateur=oui`.
 
 ## Test manuel par défaut
 
@@ -29,4 +30,4 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 
 ## Prérequis
 
-node et npm, puis `npx playwright install` pour les navigateurs des tests de bout en bout.
+node et npm, puis `npx playwright install` pour les navigateurs des tests fonctionnels.

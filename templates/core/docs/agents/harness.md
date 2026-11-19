@@ -4,7 +4,6 @@ Le contrat de vérification de ce projet. Le script `check-contract.sh` du plugi
 
 - **Type** : {{type}}.
 - **Systèmes cibles** : {{systemes}}.
-- **Couches de test** : {{couches}}.
 - **Test manuel** : `{{test_manuel}}`.
 
 ## Composants
@@ -12,3 +11,11 @@ Le contrat de vérification de ce projet. Le script `check-contract.sh` du plugi
 {{tableau_composants}}
 
 {{lignes_composants}}
+
+## Couches de test
+
+`scripts/check.sh` lance les couches unitaire et intégration de chaque composant. `scripts/check.sh --complet` lance en plus les couches fonctionnelles, puis l'entrée fonctionnelle du projet.
+
+{{tableau_couches}}
+
+{{lignes_couches}}

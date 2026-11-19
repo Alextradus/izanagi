@@ -123,6 +123,25 @@ awk '/^## 2\. Migrer/ { exit } /crée `task\/izanagi-upgrade`/ { vu = 1 } END { 
 for t in references/types/*.md; do
   grep -qx '## Sécurité' "$t" || echoue "$t : pas de section ## Sécurité"
 done
+# Couches de test (décision 93) : chaque fiche de type a les trois puces dans sa
+# section, et la couche fonctionnelle d'un front emploie Playwright.
+for t in references/types/*.md; do
+  section="$(awk '/^## / { dedans = ($0 == "## Couches de test") ; next } dedans' "$t")"
+  for couche in Unitaire Intégration Fonctionnelle; do
+    grep -q "^- $couche : " <<<"$section" || echoue "$t : pas de puce « $couche » dans la section Couches de test"
+  done
+done
+grep -qE '^- Fonctionnelle : .*Playwright' references/types/web-frontend.md || echoue "web-frontend : la couche fonctionnelle ne nomme pas Playwright"
+# L'entretien et `init` suivent les couches : plus de clé `couches`, le cinquième
+# champ de `composant=`, la vérification complète à la fin de la pose.
+grep -qF 'couches=' references/interview.md && echoue "references/interview.md garde la clé couches="
+grep -qF '| `couches` |' skills/init/SKILL.md && echoue "skills/init garde la clé couches"
+for mot in '<lancement>|<couches>' 'navigateur=oui' 'fonctionnel_projet=' 'test:unitaire' 'test:integration' 'test:fonctionnel' '@vitest/coverage-v8' 'required-features = ["fonctionnel"]' 'tests/unitaires' 'tests/fonctionnels'; do
+  grep -qF -- "$mot" references/interview.md || echoue "references/interview.md ne nomme pas « $mot »"
+done
+for mot in '`navigateur`' '`fonctionnel_projet`' '<lancement>\|<couches>' 'check.sh --host --complet'; do
+  grep -qF -- "$mot" skills/init/SKILL.md || echoue "skills/init ne nomme pas « $mot »"
+done
 grep -qF 'izanagi:reviewer-security' skills/review/SKILL.md || echoue "skills/review ne lance pas izanagi:reviewer-security"
 grep -qF 'Standards, Spec et Sécurité' references/risk.md || echoue "references/risk.md : pas de relecteur Sécurité au niveau élevé"
 
@@ -185,6 +204,48 @@ grep -qF '## À proposer au plugin' skills/upgrade/SKILL.md || echoue "upgrade n
 while IFS= read -r nom; do
   [[ -f skills/$nom/SKILL.md || -f agents/$nom.md ]] || echoue "renvoi izanagi:$nom sans skill ni sous-agent"
 done < <(grep -rhoE 'izanagi:[a-z][a-z-]*' skills agents references templates README.md | sed 's/^izanagi://' | sort -u)
+
+# Couches de test (0.7) : le plan donne une couche à chaque couture et une ligne
+# d'acceptation à la couche fonctionnelle ; `tdd` décrit les couches, la double boucle
+# et les propriétés.
+for mot in '- couche :' '<interface> (<couche>)' '**Acceptation :**' 'fonctionnelle' 'harness.md'; do
+  grep -qF -- "$mot" skills/planning/SKILL.md || echoue "skills/planning ne nomme pas « $mot »"
+done
+grep -qF 'couche de chaque couture' skills/planning/SKILL.md || echoue "la relecture du plan ne contrôle pas la couche de chaque couture"
+grep -qF 'couche à chaque couture' skills/jalon/SKILL.md || echoue "la phase plan de jalon n'exige pas une couche à chaque couture"
+for titre in '## Couches' '## Double boucle' '## Propriétés'; do
+  grep -qxF -- "$titre" skills/tdd/SKILL.md || echoue "skills/tdd n'a pas la section « $titre »"
+done
+for mot in 'check.sh --complet' 'proptest' 'fast-check' 'hypothesis' 'tests/fonctionnels' 'premier besoin'; do
+  grep -qF -- "$mot" skills/tdd/SKILL.md || echoue "skills/tdd ne nomme pas « $mot »"
+done
+
+# Vérification complète et couches dans les flux (0.7).
+for s in task-loop task fix; do
+  grep -qF -- '--complet' "skills/$s/SKILL.md" || echoue "skills/$s ne nomme pas --complet"
+done
+grep -qF 'scénario d'"'"'acceptation' skills/task-loop/SKILL.md || echoue "task-loop ne commence pas par le scénario d'acceptation"
+grep -qF -- '- couche :' agents/reviewer-spec.md || echoue "reviewer-spec ne lit pas les lignes « - couche : »"
+grep -qF 'couche la plus basse' agents/diagnostician.md || echoue "diagnostician ne nomme pas la couche la plus basse"
+grep -qF 'couche de ta couture' agents/implementer.md || echoue "implementer ne lit pas la couche de sa couture"
+# Hors jalon, la couche vient du brief : task la nomme au cadrage et la recopie.
+grep -qF 'Lis dans le plan ou le brief la couche de ta couture' agents/implementer.md || echoue "implementer ne lit la couche que dans le plan"
+grep -E '^- \*\*la couture\*\*' skills/task/SKILL.md | grep -qF 'sa couche' || echoue "le cadrage de task ne nomme pas la couche de la couture"
+grep -E "^2\. Écris le brief de l'implémenteur" skills/task/SKILL.md | grep -qF 'la couture et sa couche' || echoue "le brief de task ne donne pas la couche de la couture"
+
+# Mutation dans la revue (0.7).
+grep -qF 'mutation.txt' skills/review/SKILL.md || echoue "review ne nomme pas mutation.txt"
+grep -qF 'Stryker' skills/review/SKILL.md || echoue "review ne dit pas que Stryker lance toute la configuration Vitest"
+for s in jalon task fix; do
+  grep -qF 'mutation.sh' "skills/$s/SKILL.md" || echoue "skills/$s ne lance pas mutation.sh"
+done
+grep -qF 'survivant' agents/reviewer-standards.md || echoue "reviewer-standards ne nomme pas les survivants"
+grep -qF 'non muté' agents/reviewer-standards.md || echoue "reviewer-standards ne traite pas les lignes « non muté »"
+grep -qF 'mutation' references/risk.md || echoue "risk.md ne place pas la mutation au niveau élevé"
+for s in task fix; do
+  awk '/scripts\/risk\.sh/ { if (!r) r = NR } /scripts\/mutation\.sh/ { if (!m) m = NR } END { exit !(r && m && r < m) }' "skills/$s/SKILL.md" ||
+    echoue "skills/$s ne lance pas risk.sh avant mutation.sh"
+done
 
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do

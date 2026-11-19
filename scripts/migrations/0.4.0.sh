@@ -104,6 +104,10 @@ if [[ ! -f $config && -f $jalon ]]; then
   v[chemins_sensibles]=""
   # Clé de la 0.6, que le gabarit porte : sa valeur par défaut.
   v[hook_destructif]=demande
+  # Clés de la 0.7, que le gabarit porte : sans navigateur ni mutation, comme
+  # un projet posé avant la 0.7.
+  v[navigateur]=non
+  v[mutation]=non
 
   # Le fichier suit le gabarit ligne à ligne, pour que la pose le trouve identique.
   mkdir -p "$cible/.izanagi"

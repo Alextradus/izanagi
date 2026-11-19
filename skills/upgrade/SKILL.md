@@ -43,7 +43,7 @@ Si la version du cadre vaut celle du plugin, il n'y a pas de migration à lancer
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/migrations/<version>.sh" <racine du projet>
    ```
 
-   Lis sa sortie. Une ligne `à fusionner <fichier>` désigne un fichier du projet que le script n'a pas réécrit : la section 3 le traite. Une ligne `non reconnu : …` cite une ligne de l'ancien `docs/agents/jalon.md` que le script n'a pas su lire, et une ligne `à compléter : <clé>` une clé restée vide dans `.izanagi/config.env`. Montre-les à l'utilisateur, remplis la clé avec sa réponse, puis supprime `docs/agents/jalon.md` avec `git rm`, sur son accord. Commite ensuite (`chore(izanagi): migration <version>`), en nommant à `git add` les fichiers des lignes `écrit`, jamais avec `git add -A`. Les fichiers des lignes `supprimé` sont déjà en index, et les nommer à `git add` ferait échouer la commande. Contrôle avec `git status --short` que l'index ne contient aucun journal avant de commiter.
+   Lis sa sortie. Une ligne `à fusionner <fichier>` désigne un fichier du projet que le script n'a pas réécrit : la section 3 le traite. Une ligne `non reconnu : …` cite une ligne de l'ancien `docs/agents/jalon.md` que le script n'a pas su lire, et une ligne `à compléter : <clé>` une clé restée vide dans `.izanagi/config.env`. Une ligne `à ranger   <chemin>` cite un fichier de test que la migration 0.7.0 n'a mis dans aucune couche. Garde la liste pour la section 3. Montre les lignes `non reconnu` et `à compléter` à l'utilisateur, remplis la clé avec sa réponse, puis supprime `docs/agents/jalon.md` avec `git rm`, sur son accord. Commite ensuite (`chore(izanagi): migration <version>`), en nommant à `git add` les fichiers des lignes `écrit`, jamais avec `git add -A`. Les fichiers des lignes `supprimé` sont déjà en index, et les nommer à `git add` ferait échouer la commande. Contrôle avec `git status --short` que l'index ne contient aucun journal avant de commiter.
 3. Si `izanagi_version` de `.izanagi/config.env` est encore en retard sur le plugin après la dernière migration, écris-y la version du plugin et commite.
 
 **Journaux.** La migration 0.4.0 cesse de faire ignorer `.izanagi/journal/*.md` par git, et peut y déplacer un journal d'avant la 0.3 (ligne `déplacé`). Ces journaux apparaissent alors comme fichiers non suivis. Ne les commite pas sur `task/izanagi-upgrade` : la branche principale ne porte jamais de journal. Chacun appartient à la branche de son jalon, où il se commite après la mise à jour.
@@ -55,7 +55,7 @@ Fin : chaque migration a son commit, `izanagi_version` vaut la version du plugin
 Écris un fichier de valeurs dans le scratchpad, une valeur par ligne :
 
 - chaque ligne `clé=valeur` de `.izanagi/config.env`, hors commentaires ;
-- de `docs/agents/harness.md` : chaque ligne `- composant : <nom> | <chemin> | <pile> | <lancement>` devient `composant=<nom>|<chemin>|<pile>|<lancement>`, sans les espaces autour des `|`. La ligne « Systèmes cibles » donne `systemes`, le type donne `type`, les couches donnent `couches` ;
+- de `docs/agents/harness.md` : chaque ligne `- composant : <nom> | <chemin> | <pile> | <lancement>` devient `composant=<nom>|<chemin>|<pile>|<lancement>|<couches>|<ancienne>`, sans les espaces autour des `|`. `<couches>` liste, séparées par des virgules et dans l'ordre du fichier, les couches des lignes `- couche : <nom> | <couche> | <dossier> | <commande>` de ce composant (`unitaire,integration`). Pour un composant Python ou TypeScript, `<ancienne>` est la commande de sa ligne `- couche : <nom> | unitaire | …`, que la migration 0.7.0 a copiée de l'ancien `check.sh`. Tant que la couche unitaire du gabarit ne peut pas tourner (Python sans test dans `tests/unitaires/`, TypeScript sans script `test:unitaire` dans `package.json`), `install.sh` garde cette commande dans l'étape unitaire, et la vérification reste verte sans déplacer de test. Pour un composant Rust ou d'une autre pile, laisse `<ancienne>` vide, comme pour une commande qui vaut « à préciser », que la migration écrit quand l'ancien `check.sh` n'avait pas d'étape `tests`. Une ligne `- couche : projet | fonctionnelle | <dossier> | <commande>` donne `fonctionnel_projet=<dossier>|<commande>`. Hors de `<ancienne>`, ne lis que les deux premiers champs des lignes d'un composant, car la commande d'une couche Rust est une phrase, pas une commande à lancer. La ligne « Systèmes cibles » donne `systemes`, et le type donne `type` ;
 - `projet_dossier` : le nom avant `-wsl` ou `-target` dans la ligne `.cache/` de `scripts/check.sh`.
 
 Tu compares ainsi le projet au gabarit à valeurs égales : un écart affiché vient du gabarit ou d'un ajout du projet, jamais d'une valeur changée.
@@ -91,10 +91,23 @@ Ce que chaque version a changé dans les gabarits, à présenter ainsi :
 - **Depuis la 0.6.** La migration ajoute `hook_destructif=demande` à `.izanagi/config.env` et `refus.log` à `.izanagi/.gitignore`, et pose `.claude/settings.json`. Si elle affiche `à fusionner .claude/settings.json`, le projet a déjà ce fichier : ajoute à sa liste `permissions.deny` les règles qui lui manquent, avec l'outil Edit, dans l'ordre de `${CLAUDE_PLUGIN_ROOT}/templates/core/.claude/settings.json`, sans toucher aux autres clés. La pose crée `.gitleaks.toml`, `.github/dependabot.yml`, `.github/workflows/securite.yml` et un `docs/standards/<langage>.md` par pile. `scripts/check.sh` gagne la recherche de secrets, et `.github/workflows/ci.yml` les actions épinglées par SHA, l'installation de `gitleaks` et le job `audit` : propose de les reprendre en entier, en gardant les commandes qu'une pile sans gabarit a écrites. Rappelle d'installer `gitleaks` (`/izanagi:doctor` donne la commande). Liste ensuite les lignes de `docs/CODING_STANDARDS.md` qui nomment une construction propre à un langage (un mot-clé, un type de la bibliothèque standard, un outil de la pile), et propose de déplacer chacune dans `docs/standards/<langage>.md`, une par une, sur l'accord de l'utilisateur.
 
   Pour chaque `docs/standards/<langage>.md`, compare les règles de la section `## À proposer au plugin` à celles de `${CLAUDE_PLUGIN_ROOT}/references/langages/<langage>.md`. Une règle que le plugin porte désormais, même reformulée, se retire du projet : montre les deux versions et retire-la sur l'accord de l'utilisateur.
+- **Depuis la 0.7.** La migration écrit dans `.izanagi/config.env` la clé `mutation` (`oui` quand toutes les piles des composants ont un gabarit), `mutation_delai=15` et `navigateur` (`oui` si un `playwright.config.*` existe). Dans `docs/agents/harness.md`, elle remplace la ligne « Couches de test » par la section des couches : chaque composant y reçoit la couche unitaire avec son ancienne commande de tests, et une couche intégration ou fonctionnelle quand son dossier contient déjà des tests. Elle n'écrit ni `scripts/check.sh` ni `.github/workflows/ci.yml`. Le fichier de valeurs prend donc les couches dans les lignes `- couche :` de `harness.md`, comme le dit le début de cette section.
+
+  `scripts/check.sh` et `.github/workflows/ci.yml` sortent `différent`. Montre l'écart de chacun. Le gabarit lance une étape `-- <composant> : <couche>` par couche déclarée à la place de l'étape `tests`, accepte `--complet`, et la CI lance `bash scripts/check.sh --host --complet` et gagne le job `couverture`. Dis à l'utilisateur qu'un `ci.yml` posé en 0.6 lance `--host` seul, et `check-contract.sh` le signale (règle 7) tant que `ci.yml` n'est pas repris du gabarit. Propose de reprendre les deux fichiers en entier, en gardant les commandes qu'une pile sans gabarit a écrites. Tant que la couche unitaire du gabarit ne peut pas tourner, l'étape unitaire reprise garde l'ancienne commande de tests du projet, et `harness.md` sort `identique`, sauf la commande unitaire d'un composant Rust. Le fichier de valeurs ne donne pas d'ancienne commande à un composant Rust, et la pose écrit la commande unitaire du gabarit à la place de celle que la migration a copiée.
+
+  Liste ensuite les lignes `à ranger` de la migration. Chacune est un fichier de test hors du dossier de toute couche, que la migration n'a pas déplacé. Ne le déplace pas non plus (décision 114). Propose à l'utilisateur une tâche du projet (`/izanagi:task`) qui range ces fichiers dans le dossier de leur couche. La migration ne déclare pas une couche que la commande du gabarit ne saurait lancer. Un dossier `tests/integration/` TypeScript sans script `test:integration`, ou un `tests/fonctionnel_*.rs` sans feature `fonctionnel`, donne des lignes `à ranger`. Après un rangement partiel suivi d'un upgrade, l'étape unitaire reprend la commande du gabarit, et les fichiers encore « à ranger » ne tournent plus dans la vérification.
+
+  Dans cette tâche, une fois les fichiers rangés, le projet ajoute ce que la commande du gabarit attend, et une ligne `- couche :` dans `harness.md` pour chaque couche nouvelle, puis relance `/izanagi:upgrade` pour reprendre `check.sh` et `harness.md` avec les couches rangées :
+
+  - TypeScript : dans `package.json`, les scripts `test:unitaire`, `test:integration` et `test:fonctionnel` des couches déclarées, et dans la configuration Vitest un projet `test.projects` par couche (`unitaire`, `integration`, `fonctionnel`), comme le décrit `${CLAUDE_PLUGIN_ROOT}/references/interview.md` ;
+  - Python : les dossiers `tests/unitaires/`, `tests/integration/` et `tests/fonctionnels/`, sans deux fichiers de test du même nom ;
+  - Rust : pour une couche fonctionnelle, la feature `fonctionnel = []` dans `[features]` de `Cargo.toml` et une entrée `[[test]]` avec `required-features = ["fonctionnel"]` par fichier `tests/fonctionnel_<nom>.rs`. Les couches unitaire et intégration de Rust ne demandent rien.
+
+  Rappelle de lancer `/izanagi:doctor` : il contrôle l'outil de mutation de chaque pile quand `mutation=oui` (`cargo-mutants`, Stryker, `mutmut`) et les navigateurs Playwright quand une couche fonctionnelle les emploie, et donne la commande d'installation.
 
 Une pile sans gabarit rend toujours `check.sh` et `ci.yml` `différent`, car le gabarit garde `# À ÉCRIRE` là où le projet a ses commandes. Ne classe pas ces blocs : le contrôle de la section 4 les couvre.
 
-Si `docs/agents/harness.md` vient d'être créé avec la valeur `à préciser` pour les couches de test, propose de la remplir avec les couches de la fiche du type.
+Si `docs/agents/harness.md` vient d'être créé, chaque composant n'y a que la couche unitaire. Propose d'ajouter les couches de la fiche du type que le projet teste déjà, en écrivant le cinquième champ de chaque `composant=`, puis relance `install.sh`.
 
 Commite les reprises acceptées (`chore(izanagi): cadre <version du plugin>`), en nommant à `git add` les fichiers créés ou repris.
 
@@ -108,15 +121,15 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>
 
 Chaque ligne `contrat : <fichier> : <règle>` est un écart. Rapporte-le et propose la correction, que tu fais sur l'accord de l'utilisateur.
 
-Lance ensuite `bash scripts/check.sh --host`. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer à la mise à jour sans preuve.
+Lance ensuite `bash scripts/check.sh --host --complet`, comme la CI. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer à la mise à jour sans preuve.
 
 Pour chaque `scripts/*.sh` et `.githooks/*` créé ou repris, lance `git add --chmod=+x <fichier>`.
 
-Fin : tu connais le résultat du contrôle du contrat et de `check.sh --host`.
+Fin : tu connais le résultat du contrôle du contrat et de `check.sh --host --complet`.
 
 ## 5. Ouvrir la PR
 
-Pousse `task/izanagi-upgrade` et ouvre la PR vers la branche principale (`gh pr create`, corps passé par `--body-file`). Le corps liste les migrations lancées, les fichiers repris, les écarts laissés avec leur raison, et colle la sortie de `check.sh --host`.
+Pousse `task/izanagi-upgrade` et ouvre la PR vers la branche principale (`gh pr create`, corps passé par `--body-file`). Le corps liste les migrations lancées, les fichiers repris, les écarts laissés avec leur raison, et colle la sortie de `check.sh --host --complet`.
 
 Rends compte à l'utilisateur :
 

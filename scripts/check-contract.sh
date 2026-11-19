@@ -88,11 +88,25 @@ if [[ -f $projet/$check ]]; then
   fi
   # Règle 9 : la recherche de secrets.
   grep -qF 'gitleaks git' "$projet/$check" || ecart "$check" "ne lance pas la recherche de secrets (gitleaks git)"
+  # Règle 11 : --complet, avec la même recherche que la règle 3.
+  grep -qE -- "(^|[|[:space:]])[\"']?--complet[\"']?[|)]" "$projet/$check" || ecart "$check" "ne gère pas --complet"
+  # Règle 10 : une étape par couche déclarée dans harness.md. Seuls les deux
+  # premiers champs comptent, la commande peut contenir n'importe quel texte.
+  while IFS= read -r ligne; do
+    ligne="${ligne%$'\r'}"
+    IFS='|' read -r c_nom c_couche _ <<<"${ligne#- couche : }"
+    c_nom="${c_nom#"${c_nom%%[![:space:]]*}"}"; c_nom="${c_nom%"${c_nom##*[![:space:]]}"}"
+    c_couche="${c_couche#"${c_couche%%[![:space:]]*}"}"; c_couche="${c_couche%"${c_couche##*[![:space:]]}"}"
+    grep -qF -- "-- $c_nom : $c_couche" "$projet/$check" || ecart "$check" "pas d'étape $c_couche pour le composant $c_nom"
+  done < <(grep -E '^- couche : ' "$projet/$harness" || true)
   # Règle 5 : une section par composant.
   for nom in "${noms[@]}"; do
     grep -qF -- "# --- composant $nom (" "$projet/$check" || ecart "$check" "pas de section pour le composant $nom"
   done
 fi
+
+# Règle 10, suite : des composants sans aucune couche déclarée.
+grep -qE '^- couche : ' "$projet/$harness" || ecart "$harness" "aucune couche de test déclarée"
 
 # Règle 4 : aucun À ÉCRIRE.
 for f in "$check" "$ci" "$secu" "$dev"; do
@@ -122,9 +136,14 @@ for f in "$check" "$ci" "$dev"; do
   fi
 done
 
-# Règle 7 : la CI lance check.sh --host, sur les systèmes de harness.md.
+# Règle 7 : la CI lance check.sh --host --complet, sur les systèmes de
+# harness.md. La commande occupe seule sa ligne, après `run:` ou dans un bloc
+# `run: |` : la ligne du job couverture, préfixée par IZANAGI_COUVERTURE=1,
+# ne compte pas.
 if [[ -f $projet/$ci ]]; then
-  grep -qF 'bash scripts/check.sh --host' "$projet/$ci" || ecart "$ci" "ne lance pas bash scripts/check.sh --host"
+  sans_commentaires "$projet/$ci" |
+    grep -qE '^[[:space:]]*(-[[:space:]]*)?(run:[[:space:]]*)?bash scripts/check\.sh --host --complet[[:space:]]*$' ||
+    ecart "$ci" "ne lance pas bash scripts/check.sh --host --complet"
   attendu=""
   IFS=',' read -r -a liste <<<"$systemes"
   for s in "${liste[@]}"; do

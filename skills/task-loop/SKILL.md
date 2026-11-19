@@ -68,6 +68,8 @@ Note `BASE` (`git rev-parse HEAD`) avant de lancer : le diff de la revue en part
 6. si une tâche précédente a laissé au journal un constat dans la zone que celle-ci touche, ce constat ;
 7. le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`, d'où l'implémenteur tire les règles des langages qu'il touche.
 
+**Scénario d'acceptation.** Pour la première tâche d'une tranche dont le plan porte `**Acceptation :**`, le brief demande de commencer par ce scénario. L'implémenteur l'écrit à la couche fonctionnelle, lance la vérification complète (`<verification> --complet`) pour montrer qu'il échoue, et le commite (`test: scénario d'acceptation`) avant toute autre chose. Le skill `tdd` décrit cette double boucle, à la section « Double boucle ».
+
 Les valeurs exactes (nombres, chaînes, signatures, cas de test) viennent du plan et de la spec, recopiées sans reformulation. Le brief ne contient pas le récit des tâches précédentes.
 
 Lance le sous-agent `izanagi:implementer` avec deux chemins : celui du brief (« Lis ce fichier d'abord, il contient tes exigences. ») et celui où il écrit son rapport, `<dossier du plan>/tache-N.rapport.md`. Garde son identifiant, les tours de correction le relancent.
@@ -141,7 +143,7 @@ Coche les étapes de la tâche dans le plan. Commite ensemble le journal et le p
 
 ## Fin de la tranche
 
-Après la dernière tâche de la tranche, lance la vérification sur la branche de la tranche. Si elle échoue, traite l'échec comme un rapport « bloqué » de la dernière tâche.
+Après la dernière tâche de la tranche, lance la vérification complète sur la branche de la tranche : `<verification> --complet`. Si elle échoue, renvoie la tranche à l'implémenteur comme un rapport « bloqué » de la dernière tâche, avec la fin de la sortie.
 
 Rends ensuite la main à `/izanagi:jalon`, qui lance la revue de la tranche. Tu ne lances ni revue d'ensemble ni PR.
 

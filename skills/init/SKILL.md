@@ -35,7 +35,9 @@ Une valeur donnée en argument de `/izanagi:init` (`type=cli`, `vault=non`) vaut
 
 **Détection des composants.** Un `Cargo.toml` donne `rust`, un `package.json` donne `typescript`, un `pyproject.toml` donne `python`. Cherche-les à la racine et un niveau en dessous, hors `node_modules`, `target` et `.venv`. Un manifeste sous un workspace racine de même pile (workspace Cargo, `workspaces` de npm) n'est pas un composant à part. Du code sans ces manifestes (`go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `Package.swift`…) donne aussi un composant. Propose-le avec le nom de sa pile (`go`, `java`, `csharp`, `swift`), et `install.sh` lui écrira une section `# À ÉCRIRE`. Le composant de la racine a pour nom sa pile et pour chemin `.`. Un composant d'un sous-dossier a pour nom celui du dossier. Noms et piles suivent `[a-z0-9-]`, et une pile ne vaut jamais `aucune`, `core`, `code`, `vault` ni `multi`. Le lancement vient du manifeste : `npm run dev` si `package.json` a un script `dev`, `cargo run` pour un binaire Rust, l'entrée de `[project.scripts]` pour Python, rien sinon. Si un projet TypeScript n'a pas de `package-lock.json` (pnpm, yarn), dis à l'utilisateur que le gabarit lance `npm ci`.
 
-Fin : tu as le type, les composants et les systèmes cibles.
+**Couches de test.** Les couches de chaque composant viennent de la section « Couches de test » de la fiche de son type, sans celles que la fiche dit sans objet. Dans un projet existant, garde seulement les couches dont le dossier a déjà des tests (les dossiers par pile sont dans « Ce qu'`init` ajoute après la création » de `references/interview.md`), car une étape de couche échoue sur un dossier vide.
+
+Fin : tu as le type, les composants avec leurs couches et les systèmes cibles.
 
 ## 3. Choisir la pile et créer le projet
 
@@ -45,11 +47,11 @@ Cette section ne concerne que le dossier vide.
 2. Vérifie les outils de la pile (`cargo --version`, `node --version`, `uv --version`) et `gitleaks version`, que `scripts/check.sh` lance pour chercher des secrets. Pour installer `gitleaks` : `winget install Gitleaks.Gitleaks` sous Windows, `brew install gitleaks` sous macOS, le binaire de la page des versions (https://github.com/gitleaks/gitleaks/releases) sous Linux. Sous Windows, quand `linux` est une cible, vérifie-les aussi dans WSL avec `wsl.exe --exec bash -lc 'command -v cargo node npm uv'`. Un chemin qui commence par `/mnt/` est un outil de Windows, que `check.sh` retire du PATH : compte-le comme absent. Pour chaque outil absent, donne la commande d'installation et attends l'accord avant de la lancer.
 3. Sur l'accord de l'utilisateur, lance l'outil de création de `references/interview.md` dans le dossier de chaque composant : `.` pour un seul composant, un sous-dossier par composant sinon (`web/`, `api/`).
 4. Vérifie que le `.gitignore` de la racine ignore `node_modules/`, `.venv/`, `target/` et `dist/`. Ajoute les lignes qui manquent, sans en retirer aucune. Écrits sans `/` au début, ces motifs couvrent les dossiers de tous les composants. Dans un dépôt git existant, `cargo init <dossier>` et `npm init -y` n'écrivent pas de `.gitignore`. Sans ces lignes, la copie WSL de `check.sh` emporterait les dépendances de Windows et le commit du cadre les prendrait.
-5. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par composant, qui affirme un résultat du code créé. Sans ce test, `pytest` et `vitest` font échouer la première vérification.
+5. Ajoute les outils et les scripts que `interview.md` liste pour la pile (« Ce qu'`init` ajoute après la création »), puis un premier test réel par couche déclarée de chaque composant, dans le dossier de la couche, selon la règle « premier test » de `interview.md`. Pour la couche fonctionnelle, ce test lance `--help` pour une cli, appelle une route de santé pour une api et charge la page pour un front. Sans ces tests, la première vérification échoue sur un dossier vide. Avec une ligne `fonctionnel_projet`, écris aussi un premier scénario dans son dossier.
 6. Produis le fichier de verrou : `cargo generate-lockfile`, `npm install` ou `uv lock`.
 7. Si l'utilisateur a voulu le dépôt GitHub, propose `gh repo create <nom> --private --source . --remote origin` et lance-le seulement sur son accord.
 
-Fin : chaque composant existe sur le disque avec son fichier de verrou et un test, et le `.gitignore` de la racine ignore ses dépendances.
+Fin : chaque composant existe sur le disque avec son fichier de verrou et un test par couche déclarée, et le `.gitignore` de la racine ignore ses dépendances.
 
 ## 4. Écrire les valeurs
 
@@ -57,10 +59,11 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 
 | Clé | Sens | D'où elle vient |
 |---|---|---|
-| `composant` | `<nom>\|<chemin>\|<pile>\|<lancement>`, une ligne par composant | sections 2 et 3 |
+| `composant` | `<nom>\|<chemin>\|<pile>\|<lancement>\|<couches>`, une ligne par composant ; `<couches>` parmi `unitaire,integration,fonctionnelle` | sections 2 et 3 ; les couches viennent de la section « Couches de test » de la fiche du type, sans les couches sans objet |
+| `navigateur` | `oui` quand une couche fonctionnelle emploie Playwright | fiche du type (un front), sinon omets-la |
+| `fonctionnel_projet` | `<dossier>\|<commande>` des scénarios qui traversent plusieurs composants | `references/interview.md`, seulement avec plusieurs composants dont l'un a une couche fonctionnelle |
 | `systemes` | sous-ensemble de `linux,windows,macos` | section 2 |
 | `type` | identifiant d'une fiche de `references/types/` | section 2 |
-| `couches` | couches de test retenues | fiche du type, ajustée à la pile |
 | `projet` | nom du projet, tel qu'il s'affiche | entretien, `name` du manifeste racine, sinon le nom du dossier |
 | `projet_dossier` | nom de dossier du cache WSL | `scripts/check.sh` existant (le nom avant `-wsl` dans `.cache/`), sinon `name` de `Cargo.toml` ; sinon omets-la |
 | `spec` | chemin de la spec, qui fait foi | réponse, sinon la spec existante, sinon `docs/specs/<date>-<projet>-design.md` |
@@ -71,7 +74,7 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 | `chemins_sensibles` | motifs des chemins dont tout changement est de niveau de risque élevé, séparés par des virgules | réponse, sinon vide |
 | `fichier_version` | fichier qui porte la version | seulement si les piles diffèrent ou si une pile n'a pas de gabarit |
 
-N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplacent. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans », donc donne-la avec son article.
+N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplacent. N'écris pas non plus `mutation` : `install.sh` met `oui` quand toutes les piles des composants ont un gabarit (Rust, TypeScript, Python), `non` sinon. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans », donc donne-la avec son article.
 
 **Test manuel tiré de la fiche.** La section « Test manuel par défaut » de la fiche du type donne les deux valeurs. `test_manuel` est la commande entre accents graves qui correspond à la pile du composant. `lieu_test` est le lieu de la phrase, mis en complément (« dans un terminal », « dans son navigateur »). Écris-les pour un seul composant, quelle que soit sa pile. Avec au moins deux composants, `test_manuel` vaut `scripts/dev.sh`. Omets alors la clé et garde `lieu_test`. Si aucun de ces composants n'a de lancement, `dev.sh` sort avec le code 1. Écris alors `test_manuel` dans le fichier de valeurs, avec la commande de la fiche.
 
@@ -115,9 +118,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine du projet>
 
 Chaque ligne `contrat : <fichier> : <règle>` est un écart. Si le fichier a été créé par `install.sh` ou rempli à la section 6, corrige-le et relance jusqu'à `contrat : respecté`. Si le fichier était déjà là, rapporte l'écart et propose la correction, que tu fais seulement sur l'accord de l'utilisateur. `contrat : aucun composant, rien à vérifier` signifie que `harness.md` ne déclare aucun composant. Si le projet a du code, reprends la détection de la section 2, réécris le fichier de valeurs avec les composants trouvés et relance la section 5. `harness.md` sort alors `différent`, car `install.sh` l'a posé sans composant. Remplace-le par `<rapport>/rendu/docs/agents/harness.md`, puis reprends les sections 6 à 8.
 
-Lance ensuite `bash scripts/check.sh --host` une fois. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve. Un `command not found` dans la partie `linux` d'une vérification complète signale un outil absent de WSL : donne sa commande d'installation pour Linux, puis `scripts/check.sh --clean` pour repartir d'un cache propre.
+Lance ensuite `bash scripts/check.sh --host --complet` une fois : la version complète lance aussi les couches fonctionnelles. S'il échoue, rapporte l'échec tel quel, sans le masquer ni l'attribuer au harnais sans preuve. Un `command not found` dans la partie `linux` d'une vérification complète signale un outil absent de WSL : donne sa commande d'installation pour Linux, puis `scripts/check.sh --clean` pour repartir d'un cache propre.
 
-Fin : les écarts au contrat sont corrigés ou rapportés, et tu connais le résultat de `check.sh --host`.
+Fin : les écarts au contrat sont corrigés ou rapportés, et tu connais le résultat de `check.sh --host --complet`.
 
 ## 9. Activer
 

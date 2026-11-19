@@ -77,3 +77,26 @@ test("calculateTotal additionne les lignes", () => {
   expect(calculateTotal([{ price: 10 }, { price: 5 }])).toBe(15);
 });
 ```
+
+## Un scénario d'acceptation
+
+Il traverse le produit comme l'utilisateur, à la couche fonctionnelle, et ne regarde pas l'intérieur.
+
+```typescript
+// BON : passe par le navigateur, comme l'utilisateur
+test("l'utilisateur valide son panier et voit la confirmation", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ajouter au panier" }).click();
+  await page.getByRole("button", { name: "Valider" }).click();
+  await expect(page.getByText("Commande confirmée")).toBeVisible();
+});
+```
+
+## Une propriété
+
+```python
+# BON : la règle vaut pour toute liste, la valeur attendue ne recalcule pas le code
+@given(st.lists(st.integers()))
+def test_le_tri_garde_la_longueur(valeurs):
+    assert len(trier(valeurs)) == len(valeurs)
+```

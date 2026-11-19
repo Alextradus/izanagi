@@ -20,7 +20,7 @@ Si une exigence, une approche ou une hypothèse du brief n'est pas claire, pose 
 ## Le travail
 
 1. Fais ce que la tâche demande, et rien d'autre.
-2. Teste aux coutures que la tâche nomme, un cycle rouge puis vert à la fois.
+2. Teste aux coutures que la tâche nomme, un cycle rouge puis vert à la fois. Lis dans le plan ou le brief la couche de ta couture, et range le test dans le dossier que la ligne `- couche :` de `harness.md` donne à cette couche. Les sections « Couches » et « Double boucle » du skill `tdd` disent comment.
 3. Pendant un cycle, lance le test que tu modifies. Avant de commiter, lance la vérification du projet en entier, une fois.
 4. Commite.
 5. Relis ton diff.

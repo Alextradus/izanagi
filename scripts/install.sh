@@ -4,14 +4,21 @@
 #   install.sh <projet> <fichier-valeurs>
 #
 # Le fichier de valeurs porte une valeur par ligne (`clé=valeur`), dont
-# `composant=<nom>|<chemin>|<pile>|<lancement>` (répétable, un par composant)
-# et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
+# `composant=<nom>|<chemin>|<pile>|<lancement>|<couches>[|<ancienne>]` (répétable,
+# un par composant ; `<couches>` pris dans `unitaire,integration,fonctionnelle`, vide
+# vaut `unitaire` ; `<ancienne>`, que donne upgrade, est l'ancienne commande de
+# tests : l'étape unitaire la garde tant que la couche unitaire du gabarit ne peut
+# pas tourner, voir unitaire_prete), `fonctionnel_projet=<dossier>|<commande>` (facultatif),
+# `navigateur` (`oui` quand une couche fonctionnelle emploie Playwright,
+# `non` par défaut) et `systemes` (sous-ensemble de `linux,windows,macos`). Sans ligne
 # `composant=`, `pile=<p>` (autre que `aucune`) crée le composant `<p>|.|<p>|`.
 # Les valeurs se superposent dans cet ordre : templates/core/defaults.env,
 # templates/<pile>/defaults.env de chaque pile, puis le fichier passé en
 # argument. `izanagi_version` vaut la version du plugin, sauf si le fichier de
 # valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`,
-# `hook_destructif` vaut `demande`, `bloque` ou `avertit`.
+# `hook_destructif` vaut `demande`, `bloque` ou `avertit`. `mutation` vaut `oui`
+# quand toutes les piles des composants ont un gabarit, `non` sinon, sauf si le
+# fichier de valeurs la donne.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -60,7 +67,7 @@ if [[ $pile != aucune && ! -d $racine/templates/$pile ]]; then
   exit 2
 fi
 
-# Composants : `nom|chemin|pile|lancement`, dans l'ordre du fichier.
+# Composants : `nom|chemin|pile|lancement|couches`, dans l'ordre du fichier.
 declare -a composants=()
 while IFS= read -r ligne; do
   composants+=("${ligne%$'\r'}")
@@ -75,7 +82,7 @@ declare -A noms_vus=()
 # Caractères qui casseraient le `cd "chemin"` de check.sh.
 chemin_interdit='["$`\]'
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches c_ancienne <<<"$entree"
   if [[ ! $c_nom =~ ^[a-z0-9-]+$ ]]; then
     echo "install.sh : composant « $c_nom » refusé : le nom suit [a-z0-9-]+" >&2
     exit 2
@@ -93,7 +100,50 @@ for entree in "${composants[@]}"; do
     echo "install.sh : pile « $c_pile » du composant $c_nom refusée" >&2
     exit 2
   fi
+  IFS=',' read -r -a liste_couches <<<"$c_couches"
+  for c in "${liste_couches[@]}"; do
+    c="${c// /}"
+    if [[ -n $c && ! $c =~ ^(unitaire|integration|fonctionnelle)$ ]]; then
+      echo "install.sh : couche « $c » du composant $c_nom refusée" >&2
+      exit 1
+    fi
+  done
 done
+
+# Couches déclarées d'un composant, dans l'ordre unitaire, integration,
+# fonctionnelle, séparées par des espaces. Prend le cinquième champ de
+# `composant=` ; vide, il vaut `unitaire`.
+couches_de() {
+  local champ=",${1// /}," c sortie=""
+  for c in unitaire integration fonctionnelle; do
+    [[ $champ == *",$c,"* ]] && sortie+="${sortie:+ }$c"
+  done
+  printf '%s' "${sortie:-unitaire}"
+}
+
+# Entrée fonctionnelle du projet : `dossier|commande`, la commande à la racine.
+fonctionnel_projet="$(grep -E '^fonctionnel_projet=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
+if [[ -n $fonctionnel_projet && ( $fonctionnel_projet != *'|'* || -z ${fonctionnel_projet%%|*} || -z ${fonctionnel_projet#*|} ) ]]; then
+  echo "install.sh : fonctionnel_projet « $fonctionnel_projet » refusé : <dossier>|<commande>" >&2
+  exit 2
+fi
+# `verifier_projet_fonctionnelle` et la ligne `- couche : projet` sont à l'entrée du projet.
+if [[ -n $fonctionnel_projet && -n ${noms_vus[projet]:-} ]]; then
+  echo "install.sh : composant « projet » refusé : le nom désigne l'entrée fonctionnel_projet" >&2
+  exit 2
+fi
+
+# unitaire_prete <pile> <dossier du composant> : rend 0 si la couche unitaire du
+# gabarit peut tourner dans le dossier. Python : un test dans tests/unitaires/.
+# TypeScript : un script `test:unitaire` dans package.json. Les autres piles
+# ne dépendent pas d'un dossier ou n'ont pas de gabarit : 0.
+unitaire_prete() {
+  case "$1" in
+    python) [[ -n $(find "$2/tests/unitaires" -type f \( -name 'test_*.py' -o -name '*_test.py' \) 2>/dev/null | head -1) ]] ;;
+    typescript) grep -qF '"test:unitaire"' "$2/package.json" 2>/dev/null ;;
+    *) return 0 ;;
+  esac
+}
 
 # Systèmes de la CI et de check.sh.
 systemes_demandes="$(grep -E '^systemes=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
@@ -158,6 +208,11 @@ for cle_hook in hook_push hook_verification; do
 done
 if [[ ! ${valeurs[hook_destructif]:-} =~ ^(demande|bloque|avertit)$ ]]; then
   echo "install.sh : hook_destructif « ${valeurs[hook_destructif]:-} » refusé : demande, bloque ou avertit" >&2
+  exit 2
+fi
+# `navigateur=oui` : une couche fonctionnelle emploie Playwright.
+if [[ ! ${valeurs[navigateur]:-} =~ ^(oui|non)$ ]]; then
+  echo "install.sh : navigateur « ${valeurs[navigateur]:-} » refusé : oui ou non" >&2
   exit 2
 fi
 # Version du cadre posé : celle du plugin, sauf si le fichier de valeurs la donne.
@@ -238,21 +293,119 @@ fragment() {
   fi
 }
 
+# Garde des étapes fonctionnelles qui emploient Playwright, quand
+# `navigateur=oui` : la CI passe IZANAGI_NAVIGATEUR=non aux systèmes sans
+# navigateur. L'étape tourne dans un sous-shell : `exit 0` ne quitte que lui.
+garde_navigateur() {
+  printf '%s\n' \
+    '    if [[ ${IZANAGI_NAVIGATEUR:-} == non ]]; then' \
+    "      echo \"-- $1 : fonctionnelle : navigateur absent de ce système, sauté\"" \
+    '      exit 0' \
+    '    fi'
+}
+
+# Couverture d'un composant selon sa pile : effacement des mesures d'avant
+# (`couv_prep`) et résumé (`couv_resume`), pour preparer_couverture et resumer_couverture
+# de check.sh. Les commandes de mesure sont dans les fragments `test-*.sh`.
+couverture_de() {
+  local nom="$1" chemin="$2" pile="$3" couches=" $4 "
+  couv_prep=""
+  couv_resume=""
+  case "$pile" in
+    rust)
+      couv_prep="  (cd \"$chemin\" && cargo llvm-cov clean --workspace)"
+      couv_resume="  couverture_composant $nom rust \"$chemin\" cargo llvm-cov report"
+      ;;
+    typescript)
+      couv_prep="  rm -rf \"$chemin/node_modules/.izanagi-couverture\""
+      # La couche fonctionnelle ne mesure pas : sans unitaire ni integration,
+      # il n'y a aucun rapport à fusionner.
+      if [[ $couches == *" unitaire "* || $couches == *" integration "* ]]; then
+        couv_resume="  couverture_composant $nom typescript \"$chemin\" npx vitest run --merge-reports=node_modules/.izanagi-couverture/blob --coverage --coverage.reporter=text-summary --coverage.reportsDirectory=node_modules/.izanagi-couverture/rapport"
+      else
+        couv_resume="  couverture_composant $nom typescript \"$chemin\" echo \"pas de mesure : la couche fonctionnelle seule ne mesure pas\""
+      fi
+      ;;
+    python)
+      couv_prep="  rm -f \"$chemin/.coverage\""
+      couv_resume="  couverture_composant $nom python \"$chemin\" uv run --with pytest-cov==7.1.0 coverage report"
+      ;;
+    *)
+      couv_resume="  couverture_composant $nom $pile \"$chemin\" echo \"pas de mesure de couverture pour $pile\""
+      ;;
+  esac
+}
+
 # Valeurs calculées : sections, appels et installation CI des composants.
+preparations_couverture=""
+resumes_couverture=""
+ci_couverture=""
+ci_playwright=""
+declare -A couverture_vus=() playwright_vus=()
+# Ajoute l'installation des navigateurs Playwright pour un dossier, une fois.
+# Les commentaires du fragment ne passent qu'avec la première étape.
+ajouter_playwright() {
+  local etape
+  [[ -n ${playwright_vus[$1]:-} ]] && return 0
+  playwright_vus[$1]=1
+  etape="$(rendre_fragment "$racine/templates/core/fragments/ci-playwright.yml" "chemin=$1")"
+  [[ -n $ci_playwright ]] && etape="$(grep -v '^ *#' <<<"$etape")"
+  ci_playwright+="${ci_playwright:+$'\n'}$etape"
+}
 sections=""
 appels=""
+appels_complets=""
 lancements=""
 tableau=""
 lignes_composants=""
+tableau_couches=""
+lignes_couches=""
 ci_setup=""
 ci_audit=""
 declare -a a_ecrire=() resume=()
 declare -A setup_vus=()
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches c_ancienne <<<"$entree"
   c_id="${c_nom//-/_}"
-  sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" \
-    "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
+  cles=("composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")
+  # Une étape par couche déclarée : unitaire et integration dans la section,
+  # fonctionnelle dans une fonction à part, que seul `--complet` appelle.
+  etapes=""
+  fonctionnelle=""
+  declarees=" $(couches_de "$c_couches") "
+  # Ancienne commande de tests (sixième champ) : l'étape unitaire la garde tant
+  # que la couche unitaire du gabarit ne peut pas tourner dans le projet.
+  ancienne=""
+  # `à préciser` : la migration 0.7.0 n'a pas trouvé d'étape `tests` dans check.sh.
+  [[ -n ${c_ancienne:-} && $c_ancienne != 'à préciser' ]] && ! unitaire_prete "$c_pile" "$cible/$c_chemin" && ancienne="$c_ancienne"
+  for couche in unitaire integration fonctionnelle; do
+    declaree=0
+    [[ $declarees == *" $couche "* ]] && declaree=1
+    commande_couche=""
+    [[ $couche == unitaire ]] && commande_couche="$ancienne"
+    rendre_couche "$c_nom" "$c_chemin" "$c_pile" "$couche" "$declaree" "$commande_couche"
+    tableau_couches+="${tableau_couches:+$'\n'}$couche_rang"
+    [[ $declaree -eq 1 ]] || continue
+    lignes_couches+="${lignes_couches:+$'\n'}$couche_ligne"
+    if [[ -n $commande_couche ]]; then
+      etape="    # Ancienne commande du projet : la couche unitaire du gabarit n'a pas encore ses tests."$'\n'"    echo \"-- $c_nom : unitaire\""$'\n'"    $commande_couche"
+    else
+      etape="$(rendre_fragment "$(fragment "test-$couche.sh" "$c_pile")" "${cles[@]}")"
+    fi
+    if [[ $couche == fonctionnelle ]]; then
+      # TypeScript : la couche fonctionnelle peut employer Playwright.
+      if [[ ${valeurs[navigateur]} == oui && $c_pile == typescript ]]; then
+        etape="$(garde_navigateur "$c_nom")"$'\n'"$etape"
+        ajouter_playwright "$c_chemin"
+      fi
+      fonctionnelle="verifier_${c_id}_fonctionnelle() {"$'\n'"  ("$'\n'"    cd \"$c_chemin\""$'\n'"$etape"$'\n'"  )"$'\n'"}"
+      appels_complets+="${appels_complets:+$'\n'}  verifier_${c_id}_fonctionnelle"
+    else
+      etapes+="${etapes:+$'\n'}$etape"
+    fi
+  done
+  sections+="${sections:+$'\n\n'}$(rendre_fragment "$(fragment check-section.sh "$c_pile")" "etapes=$etapes" "${cles[@]}")"
+  [[ -n $fonctionnelle ]] && sections+=$'\n\n'"$fonctionnelle"
   tableau+="${tableau:+$'\n'}| $c_nom | \`$c_chemin\` | $c_pile | ${c_lancement:+\`$c_lancement\`} |"
   lignes_composants+="${lignes_composants:+$'\n'}- composant : $c_nom | $c_chemin | $c_pile |${c_lancement:+ $c_lancement}"
   [[ -n $c_lancement ]] && lancements+="${lancements:+$'\n'}(cd \"$c_chemin\" && $c_lancement) &"$'\n''pids+=("$!")'
@@ -261,6 +414,16 @@ for entree in "${composants[@]}"; do
     setup_vus[$c_pile]=1
     ci_setup+="${ci_setup:+$'\n'}$(rendre_fragment "$(fragment ci-setup.yml "$c_pile")" "pile=$c_pile")"
   fi
+  # Couverture : outils de la pile en CI (une fois par pile), effacement et résumé par composant.
+  if [[ -z ${couverture_vus[$c_pile]:-} ]]; then
+    couverture_vus[$c_pile]=1
+    if [[ -f $racine/templates/$c_pile/fragments/ci-couverture.yml ]]; then
+      ci_couverture+="${ci_couverture:+$'\n'}$(cat "$racine/templates/$c_pile/fragments/ci-couverture.yml")"
+    fi
+  fi
+  couverture_de "$c_nom" "$c_chemin" "$c_pile" "$declarees"
+  [[ -n $couv_prep ]] && preparations_couverture+="${preparations_couverture:+$'\n'}$couv_prep"
+  resumes_couverture+="${resumes_couverture:+$'\n'}$couv_resume"
   # Audit des dépendances : un bloc par composant, dans son dossier.
   ci_audit+="${ci_audit:+$'\n'}$(rendre_fragment "$(fragment ci-audit.yml "$c_pile")" \
     "composant=$c_nom" "id=$c_id" "chemin=$c_chemin" "pile=$c_pile")"
@@ -272,14 +435,66 @@ if [[ -n $tableau ]]; then
 else
   tableau="Aucun composant pour l'instant : \`/izanagi:init\` en ajoute."
 fi
+# Entrée fonctionnelle du projet (décision 97) : lancée à la racine, après les
+# composants, par `--complet`.
+if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
+  p_dossier="${fonctionnel_projet%%|*}"
+  p_commande="${fonctionnel_projet#*|}"
+  p_garde=""
+  if [[ ${valeurs[navigateur]} == oui ]]; then
+    p_garde="$(garde_navigateur projet)"$'\n'
+    # Une commande Playwright à la racine : les navigateurs s'installent depuis le verrou de la racine.
+    [[ $p_commande == *playwright* ]] && ajouter_playwright .
+  fi
+  # Le package.json de la racine (Playwright, scénarios) s'installe depuis son verrou,
+  # comme chaque composant TypeScript, après la garde du navigateur.
+  p_installation="$(printf '%s\n' \
+    '    if [[ -f package-lock.json ]]; then' \
+    '      echo "-- projet : installation"' \
+    '      npm ci' \
+    '    fi')"$'\n'
+  sections+=$'\n\n'"# --- entrée fonctionnelle du projet ---"$'\n'"verifier_projet_fonctionnelle() {"$'\n'"  ("$'\n'"$p_garde$p_installation    echo \"-- projet : fonctionnelle\""$'\n'"    $p_commande"$'\n'"  )"$'\n'"}"
+  appels_complets+="${appels_complets:+$'\n'}  verifier_projet_fonctionnelle"
+  tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
+  lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"
+fi
+valeurs[tableau_couches]="$(tableau_des_couches "$tableau_couches")"
+valeurs[lignes_couches]="$lignes_couches"
 valeurs[tableau_composants]="$tableau"
 valeurs[lignes_composants]="$lignes_composants"
 valeurs[sections]="$sections"
 valeurs[appels]="$appels"
+valeurs[appels_complets]="${appels_complets:-  :}"
 valeurs[ci_setup]="$ci_setup"
 valeurs[ci_audit]="$ci_audit"
 valeurs[ci_gitleaks]="$(cat "$racine/templates/core/fragments/ci-gitleaks.yml")"
+valeurs[preparations_couverture]="${preparations_couverture:-  :}"
+valeurs[resumes_couverture]="${resumes_couverture:-  :}"
+valeurs[ci_couverture]="$ci_couverture"
+# Playwright : dans le job check, Ubuntu seul ; dans le job couverture, qui
+# n'a pas de matrice, sans condition.
+valeurs[ci_playwright]="$ci_playwright"
+valeurs[ci_playwright_couverture]="${ci_playwright//$'\n'"        if: matrix.os == 'ubuntu-latest'"/}"
+if [[ ${valeurs[navigateur]} == oui && ${#composants[@]} -gt 0 ]]; then
+  valeurs[ci_navigateur]="        env:"$'\n'"          IZANAGI_NAVIGATEUR: \${{ matrix.os == 'ubuntu-latest' && 'oui' || 'non' }}"
+else
+  valeurs[ci_navigateur]=""
+fi
 valeurs[lancements]="$lancements"
+# Mutation (décision 111) : `oui` quand toutes les piles des composants ont un
+# gabarit (cargo-mutants, Stryker, mutmut), `non` sinon ou sans composant. Le
+# fichier de valeurs l'emporte : une relance d'upgrade garde le choix du projet.
+if [[ -z ${valeurs[mutation]:-} ]]; then
+  if [[ ${#composants[@]} -gt 0 && ${#a_ecrire[@]} -eq 0 ]]; then
+    valeurs[mutation]=oui
+  else
+    valeurs[mutation]=non
+  fi
+fi
+if [[ ! ${valeurs[mutation]} =~ ^(oui|non)$ ]]; then
+  echo "install.sh : mutation « ${valeurs[mutation]} » refusée : oui ou non" >&2
+  exit 2
+fi
 
 declare -a fichiers=()
 manque=false
@@ -300,7 +515,7 @@ $manque && exit 1
 # rendu depuis le fragment, puis comparé comme les autres gabarits.
 declare -A langages_vus=()
 for entree in "${composants[@]}"; do
-  IFS='|' read -r c_nom c_chemin c_pile c_lancement <<<"$entree"
+  IFS='|' read -r c_nom c_chemin c_pile c_lancement c_couches c_ancienne <<<"$entree"
   [[ -n ${langages_vus[$c_pile]:-} ]] && continue
   langages_vus[$c_pile]=1
   if [[ -f $racine/references/langages/$c_pile.md ]]; then

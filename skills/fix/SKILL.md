@@ -79,13 +79,19 @@ Fin : la cause est prouvée par un test rouge commité.
 2. Lance un sous-agent `izanagi:implementer`. Son brief : le rapport du diagnostic, le test de régression à faire passer, la consigne de ne corriger que cette cause, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`. Un hook du plugin relance la vérification à son arrêt.
 3. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse.
 
-Fin : le test de régression passe, la vérification est verte, le correctif est commité.
+Lance ensuite la vérification complète, `<verification> --complet`, avant la revue. Garde sa sortie pour le corps de la PR.
+
+Fin : le test de régression passe, la vérification complète est verte, le correctif est commité.
 
 ## 5. Revue
 
 Hors jalon, lance `state.sh set phase=revue tour=0 --commit`. Dans un jalon, ne change pas la phase.
 
-Lance `izanagi:review`, avec la base pour point fixe, le rapport du diagnostic et l'issue pour axe Spec, le journal, et le niveau de risque. Applique pour la suite le niveau que `review` annonce.
+Calcule d'abord le niveau retenu avec `bash "${CLAUDE_PLUGIN_ROOT}/scripts/risk.sh" <base> <niveau déclaré>`. Un chemin sensible peut faire monter le diff à `eleve`. `review` recalcule ce niveau à son tour, ce qui ne coûte rien.
+
+Au seul niveau `eleve`, lance ensuite `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <base>` et garde sa sortie, qui est le rapport de mutation. La base est la branche principale, ou la branche du jalon pour un correctif né d'un jalon. Le script ne fait jamais échouer la revue.
+
+Lance `izanagi:review`, avec le rapport de mutation s'il existe, la base pour point fixe, le rapport du diagnostic et l'issue pour axe Spec, le journal, et le niveau de risque. Applique pour la suite le niveau que `review` annonce.
 
 Dans un jalon, `review` n'écrit ni le tour ni le niveau dans l'état : il voit la clé `correctif` et laisse l'état du jalon tel quel. Il note le nombre de tours et le niveau retenu au journal du jalon.
 
@@ -94,7 +100,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 ## 6. PR et test
 
 1. **Version.** Hors jalon, monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) et commite. Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas. Dans un jalon, ne touche pas à la version.
-2. **PR.** Pousse la branche. Si la PR existe déjà (`gh pr view` réussit), mets son corps à jour avec `gh pr edit --body-file`. Sinon, ouvre-la : `gh pr create --base <base>`, corps passé par `--body-file`. Le corps dit le geste qui montrait le bug, la cause, le correctif, colle la sortie de la vérification, et finit par `Closes #<n>` si une issue existe.
+2. **PR.** Pousse la branche. Si la PR existe déjà (`gh pr view` réussit), mets son corps à jour avec `gh pr edit --body-file`. Sinon, ouvre-la : `gh pr create --base <base>`, corps passé par `--body-file`. Le corps dit le geste qui montrait le bug, la cause, le correctif, colle la sortie de la vérification complète, et finit par `Closes #<n>` si une issue existe.
 3. Hors jalon, lance `state.sh set phase=test --commit` et pousse.
 4. **Test.** L'utilisateur refait le geste qui montrait le bug, depuis la branche. Si la revue a retenu le niveau faible, il n'y a pas de test : passe à la clôture.
 

@@ -70,6 +70,94 @@ for pile in $piles; do
   esac
 done
 
+# Navigateurs Playwright et outils de mutation. `navigateur` et `mutation` se lisent
+# dans config.env ; une clé absente vaut `non`, sans contrôle ni écart.
+# Faits lus le 2026-11-19 :
+# - Playwright télécharge ses navigateurs dans `%USERPROFILE%\AppData\Local\ms-playwright`
+#   sous Windows, `~/Library/Caches/ms-playwright` sous macOS et `~/.cache/ms-playwright`
+#   sous Linux. https://playwright.dev/docs/browsers
+# - `PLAYWRIGHT_BROWSERS_PATH` remplace ce dossier. https://playwright.dev/docs/browsers
+# - Le fait établi est le dossier de cache : doctor ne s'appuie pas sur
+#   `npx playwright install --dry-run`, que la documentation ne décrit pas.
+trim() { # trim <texte> : sans espaces de bord
+  local t=$1
+  t="${t#"${t%%[![:space:]]*}"}"
+  printf '%s' "${t%"${t##*[![:space:]]}"}"
+}
+cache_present() { # cache_present <dossier> : un chromium-* s'y trouve (préfixe entre guillemets, donc littéral : un antislash Windows ne s'interprète pas)
+  local d
+  for d in "$1"/chromium-*; do [[ -d $d ]] && return 0; done
+  return 1
+}
+couche_fonctionnelle=0
+[[ -f $harness ]] && grep -qE '^- couche : [^|]*\| *fonctionnelle *\|' "$harness" && couche_fonctionnelle=1
+if [[ $couche_fonctionnelle -eq 1 && $(kv_get "$config" navigateur 2>/dev/null || true) == oui ]]; then
+  cache_poste="${PLAYWRIGHT_BROWSERS_PATH:-}"
+  if [[ -z $cache_poste ]]; then
+    case "$(uname -s)" in
+      MINGW* | MSYS* | CYGWIN*) cache_poste="${LOCALAPPDATA:-$HOME/AppData/Local}/ms-playwright" ;;
+      Darwin) cache_poste="$HOME/Library/Caches/ms-playwright" ;;
+      *) cache_poste="$HOME/.cache/ms-playwright" ;;
+    esac
+  fi
+  commande_pw="npx playwright install chromium"
+  if cache_present "$cache_poste"; then
+    ok "navigateurs Playwright"
+  else
+    ecart "navigateurs Playwright" "absents : $commande_pw"
+  fi
+  case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*)
+      if [[ ,$systemes, == *,linux,* ]] && wsl.exe --exec true >/dev/null 2>&1; then
+        if wsl.exe --exec sh -c 'ls -d "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium-* >/dev/null 2>&1'; then
+          ok "navigateurs Playwright (WSL)"
+        else
+          ecart "navigateurs Playwright (WSL)" "absents : wsl $commande_pw"
+        fi
+      fi
+      ;;
+  esac
+fi
+
+if [[ -f $harness && $(kv_get "$config" mutation 2>/dev/null || true) == oui ]]; then
+  while IFS='|' read -r nom chemin pile _; do
+    nom="$(trim "${nom#- composant :}")"
+    chemin="$(trim "$chemin")"
+    pile="$(trim "$pile")"
+    dossier="$cible/$chemin"
+    [[ -d $dossier ]] || dossier="$cible"
+    case "$pile" in
+      rust)
+        outil_mut="cargo-mutants"
+        install_mut="cargo install cargo-mutants"
+        sonde=(cargo mutants --version)
+        ;;
+      typescript)
+        outil_mut="stryker"
+        install_mut="npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner"
+        sonde=(npx --no-install stryker --version)
+        ;;
+      python)
+        outil_mut="mutmut"
+        install_mut="uv add --dev mutmut"
+        sonde=(uv run mutmut --version)
+        ;;
+      *) continue ;;
+    esac
+    # mutation.sh lance Stryker avec `--testRunner vitest` : sans le paquet du
+    # lanceur, dans le composant ou à la racine, Stryker échoue.
+    lanceur=1
+    if [[ $pile == typescript && ! -d $dossier/node_modules/@stryker-mutator/vitest-runner && ! -d $cible/node_modules/@stryker-mutator/vitest-runner ]]; then
+      lanceur=0
+    fi
+    if [[ $lanceur -eq 1 ]] && (cd "$dossier" && "${sonde[@]}" >/dev/null 2>&1); then
+      ok "$outil_mut ($nom)"
+    else
+      ecart "$outil_mut" "absent pour $nom : $install_mut"
+    fi
+  done < <(grep -E '^- composant : ' "$harness" | tr -d '\r')
+fi
+
 # --- Projet ---
 if [[ -f $cible/scripts/check.sh ]]; then
   chemin_hooks="$(git -C "$cible" config core.hooksPath 2>/dev/null || true)"

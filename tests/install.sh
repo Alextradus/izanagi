@@ -40,6 +40,10 @@ config="$tmp/p/.izanagi/config.env"
 grep -q '{{' "$config" && echoue "config.env garde un {{"
 [[ $(cat "$tmp/p/.izanagi/.gitignore") == $'journal/*/\nrefus.log' ]] || echoue ".izanagi/.gitignore"
 [[ $(kv_get "$config" hook_destructif) == demande ]] || echoue "config.env : hook_destructif"
+# Mutation (décision 111) : `oui` quand toutes les piles des composants ont un gabarit.
+[[ $(kv_get "$config" mutation) == oui ]] || echoue "config.env : mutation pour rust"
+[[ $(kv_get "$config" mutation_delai) == 15 ]] || echoue "config.env : mutation_delai"
+[[ $(kv_get "$config" navigateur) == non ]] || echoue "config.env : navigateur par défaut"
 for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(id_ed25519*)' 'Read(id_ecdsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(id_ed25519*)' 'Edit(id_ecdsa*)' 'Edit(credentials*)'; do
   grep -qF "\"$regle\"" "$tmp/p/.claude/settings.json" || echoue ".claude/settings.json : règle $regle absente"
 done
@@ -76,6 +80,11 @@ mkdir "$tmp/iv"
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nizanagi_version=0.1.0\n' >"$tmp/ivv"
 "$install" "$tmp/iv" "$tmp/ivv" >/dev/null
 [[ $(kv_get "$tmp/iv/.izanagi/config.env" izanagi_version) == 0.1.0 ]] || echoue "izanagi_version des valeurs ignorée"
+# Un délai de mutation choisi par le projet passe dans config.env : upgrade le garde.
+mkdir "$tmp/md"
+printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\nmutation_delai=30\n' >"$tmp/mdv"
+"$install" "$tmp/md" "$tmp/mdv" >/dev/null
+[[ $(kv_get "$tmp/md/.izanagi/config.env" mutation_delai) == 30 ]] || echoue "mutation_delai des valeurs ignoré"
 
 # Valeur de hook refusée avant toute écriture.
 mkdir "$tmp/hk"
@@ -145,6 +154,7 @@ mkdir "$tmp/nu"
 printf '%s\n' projet=Nu spec=s.md lieu_test=ici test_manuel=x fichier_version=y >"$tmp/nuv"
 "$install" "$tmp/nu" "$tmp/nuv" >/dev/null
 [[ ! -e $tmp/nu/docs/standards ]] || echoue "docs/standards posé sans composant"
+[[ $(kv_get "$tmp/nu/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation sans composant"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"
@@ -177,8 +187,21 @@ grep -qxF '# --- composant cli (rust) ---' "$tmp/m1/scripts/check.sh" || echoue 
 grep -qx '  verifier_cli' "$tmp/m1/scripts/check.sh" || echoue "appel verifier_cli"
 bash -n "$tmp/m1/scripts/check.sh" || echoue "check.sh invalide"
 grep -qxF '        os: [ubuntu-latest, windows-latest]' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : os"
-grep -qF 'run: bash scripts/check.sh --host' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : run"
-grep -q 'cargo test' "$tmp/m1/.github/workflows/ci.yml" && echoue "ci.yml garde cargo test"
+ci_m1="$tmp/m1/.github/workflows/ci.yml"
+grep -qxF '        run: bash scripts/check.sh --host --complet' "$ci_m1" || echoue "ci.yml : run --host --complet"
+grep -qxF '        run: bash scripts/check.sh --host' "$ci_m1" && echoue "ci.yml : run --host seul"
+grep -q 'cargo test' "$ci_m1" && echoue "ci.yml garde cargo test"
+# Job couverture : Ubuntu seul, jamais bloquant, outils de couverture Rust.
+job_couverture="$(sed -n '/^  couverture:/,/^  [a-z]*:$/p' "$ci_m1")"
+for mot in 'runs-on: ubuntu-latest' 'continue-on-error: true' 'run: IZANAGI_COUVERTURE=1 bash scripts/check.sh --host --complet' \
+  'rustup component add llvm-tools-preview' 'tool: cargo-llvm-cov@' 'taiki-e/install-action@' 'rust-toolchain' 'gitleaks_8.30.1_' 'fetch-depth: 0'; do
+  grep -qF -- "$mot" <<<"$job_couverture" || echoue "job couverture : « $mot » absent"
+done
+sed -n '/^  check:/,/^  couverture:/p' "$ci_m1" | grep -qF 'cargo-llvm-cov' && echoue "job check : outil de couverture installé"
+# Sans navigateur=oui : ni Playwright ni IZANAGI_NAVIGATEUR.
+grep -qE 'playwright|IZANAGI_NAVIGATEUR' "$ci_m1" && echoue "ci.yml : Playwright sans navigateur=oui"
+non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$ci_m1" | grep -vE '@[0-9a-f]{40} # ' || true)"
+[[ -z $non_epinglees ]] || echoue "m1 : actions non épinglées : $non_epinglees"
 grep -qF 'rust-toolchain' "$tmp/m1/.github/workflows/ci.yml" || echoue "ci.yml : installation Rust"
 [[ -e $tmp/m1/fragments || -e $tmp/m1/defaults.env ]] && echoue "fragments posés"
 
@@ -257,12 +280,198 @@ lancer_fx windows,linux --host >/dev/null || echoue "windows,linux --host : éch
 lancer_fx windows,linux >/dev/null || echoue "windows,linux : échec"
 [[ -e $tmp/hc/lance && -e $tmp/fx/appels ]] || echoue "windows,linux : Windows et WSL attendus"
 
+# --- arguments de check.sh : --host, --complet, --clean ---
+# Faux cargo et npm : ils notent leurs arguments dans `journal` et réussissent.
+# `cargo metadata` affiche le contenu de `meta` : une bibliothèque, un test
+# d'intégration `integ` et un test fonctionnel `fonctionnel_cli`.
+mkdir "$tmp/ar" "$tmp/ar/bin" "$tmp/ar/web"
+git -C "$tmp/ar" init -q
+for outil in cargo npm gitleaks; do
+  printf '#!/bin/sh\necho "%s $*" >>"%s/journal"\n' "$outil" "$tmp/ar" >"$tmp/ar/bin/$outil"
+  chmod +x "$tmp/ar/bin/$outil"
+done
+printf '[ "$1" = metadata ] && cat "%s/meta"\nexit 0\n' "$tmp/ar" >>"$tmp/ar/bin/cargo"
+# Le test `avec_cli` déclare sa propre feature : l'étape integration le saute.
+meta_complet='{"packages":[{"name":"cli","targets":[{"kind":["lib"],"crate_types":["lib"],"name":"cli","doctest":true},{"kind":["test"],"crate_types":["bin"],"name":"avec_cli","src_path":"tests/avec_cli.rs","required-features":["cli"],"doctest":false},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli","required-features":["fonctionnel"],"doctest":false},{"kind":["test"],"crate_types":["bin"],"name":"integ","doctest":false}]}]}'
+printf '%s\n' "$meta_complet" >"$tmp/ar/meta"
+printf '%s\n' 'composant=cli|.|rust||unitaire,integration,fonctionnelle' 'composant=web|web|typescript|' \
+  'fonctionnel_projet=tests/fonctionnels|npm run test:projet' systemes=windows,linux,macos "${base[@]}" >"$tmp/arv"
+"$install" "$tmp/ar" "$tmp/arv" >/dev/null
+bash -n "$tmp/ar/scripts/check.sh" || echoue "check.sh à deux composants invalide"
+# lancer_ar [arguments] : code de sortie dans `code_ar`, sortie dans `sortie_ar`.
+lancer_ar() {
+  rm -f "$tmp/ar/journal"
+  set +e
+  sortie_ar="$(cd "$tmp/ar" && PATH="$tmp/ar/bin:$PATH" bash scripts/check.sh "$@" 2>&1)"
+  code_ar=$?
+  set -e
+}
+for args in "--host" "--host --complet" "--complet --host"; do
+  # shellcheck disable=SC2086
+  lancer_ar $args
+  [[ $code_ar -eq 0 ]] || echoue "check.sh $args : code $code_ar : $sortie_ar"
+  attendu=$'cargo test --workspace --locked --lib --bins\ncargo test --workspace --locked --doc\ncargo test --workspace --locked --test integ\nnpm run test:unitaire'
+  if [[ $args == *--complet* ]]; then
+    attendu+=$'\ncargo test --workspace --locked --features fonctionnel --test fonctionnel_*\nnpm run test:projet'
+  fi
+  [[ $(grep -vE '^(cargo (fmt|clippy|metadata)|npm (ci|run (format:check|lint))|gitleaks)' "$tmp/ar/journal") == "$attendu" ]] ||
+    echoue "check.sh $args : étapes de test : $(cat "$tmp/ar/journal")"
+  if [[ $args == *--complet* ]]; then
+    grep -qE ' : tout passe \(complet\)$' <<<"$sortie_ar" || echoue "check.sh $args : fin sans (complet) : $sortie_ar"
+  else
+    grep -qE ' : tout passe$' <<<"$sortie_ar" || echoue "check.sh $args : fin de sortie : $sortie_ar"
+  fi
+done
+# Entrée du projet sans Playwright ni navigateur, avec un verrou à la racine : la
+# racine s'installe aussi.
+touch "$tmp/ar/package-lock.json"
+lancer_ar --host --complet
+[[ $code_ar -eq 0 ]] || echoue "entrée du projet avec verrou : code $code_ar : $sortie_ar"
+[[ $(grep -A1 -xF -- '-- projet : installation' <<<"$sortie_ar" | tail -1) == '-- projet : fonctionnelle' ]] ||
+  echoue "entrée du projet sans Playwright : pas d'installation : $sortie_ar"
+rm "$tmp/ar/package-lock.json"
+# Sans bibliothèque : ni `--lib` ni `--doc`, qui échoueraient.
+cible_lib='{"kind":["lib"],"crate_types":["lib"],"name":"cli","doctest":true},'
+printf '%s\n' "${meta_complet/"$cible_lib"/}" >"$tmp/ar/meta"
+lancer_ar --host
+[[ $code_ar -eq 0 ]] || echoue "sans bibliothèque : code $code_ar : $sortie_ar"
+grep -qxF 'cargo test --workspace --locked --bins' "$tmp/ar/journal" || echoue "sans bibliothèque : --bins seul attendu : $(cat "$tmp/ar/journal")"
+grep -qE -- '--lib|--doc' "$tmp/ar/journal" && echoue "sans bibliothèque : --lib ou --doc lancé"
+# Bibliothèque cdylib : `--lib` lance ses tests, `--doc` ne tourne pas (pas de doctest).
+cible_cdylib='{"kind":["cdylib"],"crate_types":["cdylib"],"name":"cli","doctest":false},'
+printf '%s\n' "${meta_complet/"$cible_lib"/"$cible_cdylib"}" >"$tmp/ar/meta"
+lancer_ar --host
+[[ $code_ar -eq 0 ]] || echoue "cdylib : code $code_ar : $sortie_ar"
+grep -qxF 'cargo test --workspace --locked --lib --bins' "$tmp/ar/journal" || echoue "cdylib : --lib attendu : $(cat "$tmp/ar/journal")"
+grep -qF -- '--doc' "$tmp/ar/journal" && echoue "cdylib : --doc lancé"
+grep -qF -- '--test avec_cli' "$tmp/ar/journal" && echoue "test à feature propre nommé par --test"
+# Sans test d'intégration : l'étape échoue, une couche ne tolère pas un dossier vide.
+printf '%s\n' '{"packages":[{"name":"cli","targets":[{"kind":["bin"],"crate_types":["bin"],"name":"cli"},{"kind":["test"],"crate_types":["bin"],"name":"fonctionnel_cli"}]}]}' >"$tmp/ar/meta"
+lancer_ar --host
+[[ $code_ar -ne 0 ]] || echoue "sans test d'intégration : l'étape réussit"
+grep -qF "aucun test d'intégration" <<<"$sortie_ar" || echoue "sans test d'intégration : message : $sortie_ar"
+printf '%s\n' "$meta_complet" >"$tmp/ar/meta"
+for args in "--clean --complet" "--complet --clean" "--inconnu" "--host --inconnu" "--clean --host"; do
+  # shellcheck disable=SC2086
+  lancer_ar $args
+  [[ $code_ar -eq 2 ]] || echoue "check.sh $args : code $code_ar au lieu de 2"
+  [[ -e $tmp/ar/journal ]] && echoue "check.sh $args : un outil a tourné"
+  [[ $sortie_ar == 'usage : scripts/check.sh [--host] [--complet] | --clean' ]] || echoue "check.sh $args : usage : $sortie_ar"
+done
+# Sous le faux Windows, la copie WSL reçoit `--complet` quand il est demandé.
+sortie="$(lancer_fx linux "--host --complet")" || echoue "wsl --complet : échec : $sortie"
+grep -qE -- 'essai-wsl --complet$' "$tmp/fx/appels" || echoue "wsl --complet : option non transmise : $(cat "$tmp/fx/appels")"
+sortie="$(lancer_fx linux --host)" || echoue "wsl sans --complet : échec : $sortie"
+grep -qE -- 'essai-wsl --complet$' "$tmp/fx/appels" && echoue "wsl sans --complet : option transmise"
+
+# --- couverture : IZANAGI_COUVERTURE=1 ---
+# Faux npx : il note ses arguments comme cargo et npm.
+printf '#!/bin/sh\necho "npx $*" >>"%s/journal"\n' "$tmp/ar" >"$tmp/ar/bin/npx"
+chmod +x "$tmp/ar/bin/npx"
+# Sans la variable, aucune mesure, et le résumé n'est pas écrit.
+export GITHUB_STEP_SUMMARY="$tmp/ar/resume.md"
+lancer_ar --host --complet
+[[ $code_ar -eq 0 ]] || echoue "sans couverture : code $code_ar : $sortie_ar"
+grep -qE 'llvm-cov|--coverage|merge-reports' "$tmp/ar/journal" && echoue "sans couverture : une mesure a tourné : $(cat "$tmp/ar/journal")"
+[[ -e $tmp/ar/resume.md ]] && echoue "sans couverture : résumé écrit"
+# Avec la variable : les commandes de mesure, puis un résumé par composant.
+export IZANAGI_COUVERTURE=1
+lancer_ar --host --complet
+unset IZANAGI_COUVERTURE
+[[ $code_ar -eq 0 ]] || echoue "couverture : code $code_ar : $sortie_ar"
+attendu='cargo llvm-cov clean --workspace
+cargo llvm-cov --no-report --workspace --locked --lib --bins
+cargo test --workspace --locked --doc
+cargo llvm-cov --no-report --workspace --locked --test integ
+npm run test:unitaire -- --coverage --coverage.reportsDirectory=node_modules/.izanagi-couverture/unitaire --reporter=default --reporter=blob --outputFile.blob=node_modules/.izanagi-couverture/blob/unitaire.json
+cargo llvm-cov --no-report --workspace --locked --features fonctionnel --test fonctionnel_*
+npm run test:projet
+cargo llvm-cov report
+npx vitest run --merge-reports=node_modules/.izanagi-couverture/blob --coverage --coverage.reporter=text-summary --coverage.reportsDirectory=node_modules/.izanagi-couverture/rapport'
+[[ $(grep -vE '^(cargo (fmt|clippy|metadata)|npm (ci|run (format:check|lint))|gitleaks)' "$tmp/ar/journal") == "$attendu" ]] ||
+  echoue "couverture : commandes : $(cat "$tmp/ar/journal")"
+[[ -f $tmp/ar/resume.md ]] || echoue "couverture : résumé non écrit dans GITHUB_STEP_SUMMARY"
+for mot in '## Couverture des tests' '### cli (rust)' '### web (typescript)'; do
+  grep -qxF -- "$mot" "$tmp/ar/resume.md" || echoue "couverture : résumé sans « $mot » : $(cat "$tmp/ar/resume.md")"
+done
+grep -qxF '### projet' "$tmp/ar/resume.md" && echoue "couverture : l'entrée du projet a un résumé"
+unset GITHUB_STEP_SUMMARY
+# Hors des cibles : le résumé le dit au lieu de rester vide.
+sed -i 's/^cibles=.*/cibles="macos"/' "$tmp/ar/scripts/check.sh"
+GITHUB_STEP_SUMMARY="$tmp/ar/resume2.md" IZANAGI_COUVERTURE=1 lancer_ar --host --complet
+[[ $code_ar -eq 0 ]] || echoue "couverture hors cibles : code $code_ar : $sortie_ar"
+grep -qF 'hors des cibles, rien de mesuré' "$tmp/ar/resume2.md" || echoue "couverture hors cibles : résumé : $(cat "$tmp/ar/resume2.md" 2>/dev/null)"
+sed -i 's/^cibles=.*/cibles="windows,linux,macos"/' "$tmp/ar/scripts/check.sh"
+
+# --- navigateur=oui : Playwright sur Ubuntu seulement ---
+mkdir "$tmp/nv" "$tmp/nv/bin"
+git -C "$tmp/nv" init -q
+for outil in npm npx gitleaks; do
+  printf '#!/bin/sh\necho "%s $*" >>"%s/journal"\n' "$outil" "$tmp/nv" >"$tmp/nv/bin/$outil"
+  chmod +x "$tmp/nv/bin/$outil"
+done
+printf '%s\n' 'composant=web|web|typescript||unitaire,fonctionnelle' 'composant=api|api|typescript||unitaire' \
+  'fonctionnel_projet=tests/fonctionnels|npx playwright test' navigateur=oui systemes=linux,windows "${base[@]}" >"$tmp/nvv"
+"$install" "$tmp/nv" "$tmp/nvv" >/dev/null || echoue "navigateur=oui : install.sh échoue"
+[[ $(kv_get "$tmp/nv/.izanagi/config.env" navigateur) == oui ]] || echoue "config.env : navigateur=oui non rendu"
+mkdir "$tmp/nv/web" "$tmp/nv/api"
+ci_nv="$tmp/nv/.github/workflows/ci.yml"
+job_check="$(sed -n '/^  check:/,/^  couverture:/p' "$ci_nv")"
+job_couverture="$(sed -n '/^  couverture:/,/^  audit:/p' "$ci_nv")"
+for mot in 'npx playwright install --with-deps chromium' "if: matrix.os == 'ubuntu-latest'" 'working-directory: web' 'working-directory: .' \
+  "IZANAGI_NAVIGATEUR: \${{ matrix.os == 'ubuntu-latest' && 'oui' || 'non' }}" 'run: bash scripts/check.sh --host --complet'; do
+  grep -qF -- "$mot" <<<"$job_check" || echoue "navigateur=oui : job check sans « $mot »"
+done
+grep -qF 'working-directory: api' <<<"$job_check" && echoue "navigateur=oui : Playwright pour un composant sans couche fonctionnelle"
+[[ $(grep -c '^ *npx playwright install' <<<"$job_check") -eq 2 ]] || echoue "navigateur=oui : deux installations attendues dans le job check"
+grep -qF 'npx playwright install --with-deps chromium' <<<"$job_couverture" || echoue "navigateur=oui : job couverture sans navigateurs"
+grep -qF 'matrix.os' <<<"$job_couverture" && echoue "navigateur=oui : job couverture conditionné à la matrice"
+bash -n "$tmp/nv/scripts/check.sh" || echoue "navigateur=oui : check.sh invalide"
+lancer_nv() {
+  rm -f "$tmp/nv/journal"
+  set +e
+  sortie_nv="$(cd "$tmp/nv" && PATH="$tmp/nv/bin:$PATH" bash scripts/check.sh --host --complet 2>&1)"
+  code_nv=$?
+  set -e
+}
+# Sans IZANAGI_NAVIGATEUR : les étapes Playwright tournent.
+sed -i 's/^cibles=.*/cibles="windows,linux,macos"/' "$tmp/nv/scripts/check.sh"
+lancer_nv
+[[ $code_nv -eq 0 ]] || echoue "navigateur : code $code_nv : $sortie_nv"
+grep -qxF 'npm run test:fonctionnel' "$tmp/nv/journal" || echoue "navigateur : étape web non lancée : $(cat "$tmp/nv/journal")"
+grep -qxF 'npx playwright test' "$tmp/nv/journal" || echoue "navigateur : entrée du projet non lancée"
+grep -qxF -- '-- projet : installation' <<<"$sortie_nv" && echoue "entrée du projet : installation sans package-lock.json : $sortie_nv"
+# Avec un verrou à la racine, l'entrée du projet installe ses dépendances avant la commande.
+touch "$tmp/nv/package-lock.json"
+lancer_nv
+[[ $code_nv -eq 0 ]] || echoue "entrée du projet avec verrou : code $code_nv : $sortie_nv"
+[[ $(grep -A1 -xF -- '-- projet : installation' <<<"$sortie_nv" | tail -1) == '-- projet : fonctionnelle' ]] ||
+  echoue "entrée du projet : pas d'installation avant la commande : $sortie_nv"
+[[ $(grep -cxF 'npm ci' "$tmp/nv/journal") -eq 3 ]] || echoue "entrée du projet : npm ci de la racine absent : $(cat "$tmp/nv/journal")"
+# IZANAGI_NAVIGATEUR=non : les deux étapes sont sautées et rendent 0.
+export IZANAGI_NAVIGATEUR=non
+lancer_nv
+unset IZANAGI_NAVIGATEUR
+[[ $code_nv -eq 0 ]] || echoue "navigateur=non : code $code_nv : $sortie_nv"
+grep -qxF -- '-- web : fonctionnelle : navigateur absent de ce système, sauté' <<<"$sortie_nv" || echoue "navigateur=non : saut web : $sortie_nv"
+grep -qxF -- '-- projet : fonctionnelle : navigateur absent de ce système, sauté' <<<"$sortie_nv" || echoue "navigateur=non : saut projet : $sortie_nv"
+grep -qxF -- '-- projet : installation' <<<"$sortie_nv" && echoue "navigateur=non : la racine s'installe alors que l'étape est sautée : $sortie_nv"
+grep -qE 'test:fonctionnel|playwright test' "$tmp/nv/journal" && echoue "navigateur=non : une étape Playwright a tourné"
+grep -qxF 'npm run test:unitaire' "$tmp/nv/journal" || echoue "navigateur=non : l'étape unitaire doit tourner"
+# Valeur fausse : refus avant écriture.
+mkdir "$tmp/nvx"
+printf '%s\n' 'composant=web|web|typescript|' navigateur=peut-etre "${base[@]}" >"$tmp/nvxv"
+set +e; "$install" "$tmp/nvx" "$tmp/nvxv" >/dev/null 2>"$tmp/err"; code=$?; set -e
+[[ $code -eq 2 ]] || echoue "navigateur=peut-etre : code $code au lieu de 2"
+grep -qF 'navigateur « peut-etre » refusé : oui ou non' "$tmp/err" || echoue "navigateur faux : message : $(cat "$tmp/err")"
+[[ -z $(ls -A "$tmp/nvx") ]] || echoue "navigateur faux : écriture avant le refus"
+
 # --- piles TypeScript et Python, dev.sh ---
 mkdir "$tmp/t1"
 printf '%s
 ' 'composant=api|api|typescript|npm run dev' 'composant=web|web|typescript|npm run dev' projet=essai spec=s.md lieu_test=ici >"$tmp/t1v"
 sortie="$("$install" "$tmp/t1" "$tmp/t1v")"
-[[ $(sed '/^  audit:/q' "$tmp/t1/.github/workflows/ci.yml" | grep -c 'actions/setup-node') -eq 1 ]] || echoue "setup-node : un seul attendu dans le job check"
+[[ $(sed -n '/^  check:/,/^  couverture:/p' "$tmp/t1/.github/workflows/ci.yml" | grep -c 'actions/setup-node') -eq 1 ]] || echoue "setup-node : un seul attendu dans le job check"
 grep -qF 'node-version: lts/*' "$tmp/t1/.github/workflows/ci.yml" || echoue "ci.yml : node-version"
 grep -qF 'cache: npm' "$tmp/t1/.github/workflows/ci.yml" && echoue "ci.yml : cache npm sans cache-dependency-path"
 [[ $(grep -c '^# --- composant' "$tmp/t1/scripts/check.sh") -eq 2 ]] || echoue "check.sh : deux sections"
@@ -291,6 +500,7 @@ printf '%s
 ' 'composant=cli|cli|rust|' 'composant=web|web|typescript|' projet=essai spec=s.md lieu_test=ici >"$tmp/t5v"
 "$install" "$tmp/t5" "$tmp/t5v" >/dev/null
 grep -qF '`Cargo.lock`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : Cargo.lock"
+[[ $(kv_get "$tmp/t5/.izanagi/config.env" mutation) == oui ]] || echoue "config.env : mutation pour rust et typescript"
 grep -qF '`package-lock.json`' "$tmp/t5/docs/CODING_STANDARDS.md" || echoue "hors_revue : package-lock.json"
 [[ $(grep -o 'docs/plans/' "$tmp/t5/docs/CODING_STANDARDS.md" | wc -l) -eq $(grep -o 'docs/plans/' "$tmp/t1/docs/CODING_STANDARDS.md" | wc -l) ]] || echoue "hors_revue : doublon"
 [[ $(kv_get "$tmp/t1/.izanagi/config.env" test_manuel) == scripts/dev.sh ]] || echoue "config.env : test manuel dev.sh"
@@ -319,7 +529,13 @@ mkdir "$tmp/m3"
 printf '%s\n' 'composant=outil|.|zig|' "${base[@]}" >"$tmp/m3v"
 sortie="$("$install" "$tmp/m3" "$tmp/m3v")"
 grep -qxF 'à écrire   outil (zig)' <<<"$sortie" || echoue "à écrire : $sortie"
-grep -qxF '    # À ÉCRIRE : outil (zig), format, lint, tests' "$tmp/m3/scripts/check.sh" || echoue "section à écrire"
+grep -qxF '    # À ÉCRIRE : outil (zig), format, lint' "$tmp/m3/scripts/check.sh" || echoue "section à écrire"
+grep -qxF '    # À ÉCRIRE : outil (zig), couche unitaire' "$tmp/m3/scripts/check.sh" || echoue "couche unitaire à écrire"
+[[ $(kv_get "$tmp/m3/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation pour une pile sans gabarit"
+mkdir "$tmp/mx"
+printf '%s\n' 'composant=cli|cli|rust|' 'composant=outil|outil|zig|' "${base[@]}" >"$tmp/mxv"
+"$install" "$tmp/mx" "$tmp/mxv" >/dev/null
+[[ $(kv_get "$tmp/mx/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation avec une pile sans gabarit parmi d'autres"
 sed -i 's/^.*# À ÉCRIRE.*$/    true/' "$tmp/m3/scripts/check.sh"
 (cd "$tmp/m3" && scripts/check.sh --host >/dev/null) || echoue "check.sh --host avec true"
 sed -i 's/^    true$/    false/' "$tmp/m3/scripts/check.sh"
@@ -385,6 +601,112 @@ grep -q '^- composant :' "$tmp/m6/docs/agents/harness.md" && echoue "harness.md 
 grep -qF 'Aucun composant' "$tmp/m6/docs/agents/harness.md" || echoue "harness.md : note de tableau vide"
 grep -qxF -- '- composant : a | a | typescript |' "$tmp/t4/docs/agents/harness.md" || echoue "harness.md : espace final sans lancement"
 
+# --- couches de test ---
+# Sans cinquième champ, un composant n'a que la couche unitaire.
+grep -qF 'Couches de test** :' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md garde la ligne Couches de test"
+grep -qxF -- '- couche : cli | unitaire | src | cargo test --workspace --locked --lib --bins, puis --doc' "$tmp/m1/docs/agents/harness.md" ||
+  echoue "harness.md : couche unitaire par défaut"
+grep -q -- '- couche : cli | integration' "$tmp/m1/docs/agents/harness.md" && echoue "harness.md : couche integration non déclarée"
+grep -qF 'echo "-- cli : unitaire"' "$tmp/m1/scripts/check.sh" || echoue "check.sh : étape unitaire par défaut"
+grep -qE -- '-- [a-z]+ : tests"' "$tmp/m1/scripts/check.sh" && echoue "check.sh garde l'étape tests"
+grep -qE -- '-- cli : (integration|fonctionnelle)' "$tmp/m1/scripts/check.sh" && echoue "check.sh : couche non déclarée rendue"
+grep -qF 'verifier_cli_fonctionnelle' "$tmp/m1/scripts/check.sh" && echoue "check.sh : fonction fonctionnelle sans la couche"
+[[ $(sed -n '/^verifier_tout_complet() {/,/^}/p' "$tmp/m1/scripts/check.sh") == $'verifier_tout_complet() {\n  :\n}' ]] ||
+  echoue "check.sh : verifier_tout_complet non vide sans couche fonctionnelle"
+grep -q '^couches=' "$racine/templates/core/defaults.env" && echoue "defaults.env garde la clé couches"
+
+# Un composant de chaque pile avec les trois couches, un composant unitaire
+# seul, et l'entrée fonctionnelle du projet.
+mkdir "$tmp/co"
+trois=unitaire,integration,fonctionnelle
+printf '%s\n' "composant=cli|cli|rust||$trois" "composant=web|web|typescript|npm run dev|$trois" \
+  "composant=ml|ml|python||$trois" "composant=outil|outil|zig||$trois" 'composant=noyau|noyau|rust||unitaire' \
+  'fonctionnel_projet=tests/fonctionnels|npx playwright test' "${base[@]}" >"$tmp/cov"
+"$install" "$tmp/co" "$tmp/cov" >/dev/null || echoue "trois couches : install.sh échoue"
+check_co="$tmp/co/scripts/check.sh"
+bash -n "$check_co" || echoue "trois couches : check.sh invalide"
+# fonction <nom> : le corps rendu d'une fonction de check.sh.
+fonction() { sed -n "/^$1() {/,/^}/p" "$check_co"; }
+for ligne in \
+  'verifier_cli|echo "-- cli : unitaire"' \
+  'verifier_cli|cibles_unitaires=(--lib --bins)' \
+  'verifier_cli|cargo test --workspace --locked "${cibles_unitaires[@]}"' \
+  'verifier_cli|cargo test --workspace --locked --doc' \
+  'verifier_cli|echo "-- cli : integration"' \
+  'verifier_cli|cargo test --workspace --locked "${tests_integration[@]}"' \
+  'verifier_cli_fonctionnelle|cd "cli"' \
+  'verifier_cli_fonctionnelle|echo "-- cli : fonctionnelle"' \
+  "verifier_cli_fonctionnelle|cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" \
+  'verifier_web|npm run test:unitaire' \
+  'verifier_web|npm run test:integration' \
+  'verifier_web_fonctionnelle|cd "web"' \
+  'verifier_web_fonctionnelle|npm run test:fonctionnel' \
+  'verifier_ml|uv run pytest tests/unitaires' \
+  'verifier_ml|uv run pytest tests/integration' \
+  'verifier_ml_fonctionnelle|uv run pytest tests/fonctionnels' \
+  'verifier_outil|# À ÉCRIRE : outil (zig), couche unitaire' \
+  'verifier_outil|# À ÉCRIRE : outil (zig), couche integration' \
+  'verifier_outil_fonctionnelle|# À ÉCRIRE : outil (zig), couche fonctionnelle' \
+  'verifier_noyau|echo "-- noyau : unitaire"' \
+  'verifier_projet_fonctionnelle|echo "-- projet : fonctionnelle"' \
+  'verifier_projet_fonctionnelle|npx playwright test'; do
+  fonction "${ligne%%|*}" | grep -qF -- "${ligne#*|}" || echoue "trois couches : ${ligne%%|*} sans « ${ligne#*|} »"
+done
+fonction verifier_cli | grep -qF -- '--features fonctionnel' && echoue "trois couches : verifier_cli lance la couche fonctionnelle"
+fonction verifier_noyau | grep -qF 'integration' && echoue "unitaire seul : étape integration rendue"
+grep -qF 'verifier_noyau_fonctionnelle' "$check_co" && echoue "unitaire seul : fonction fonctionnelle rendue"
+[[ $(fonction verifier_tout_complet) == $'verifier_tout_complet() {\n  verifier_cli_fonctionnelle\n  verifier_web_fonctionnelle\n  verifier_ml_fonctionnelle\n  verifier_outil_fonctionnelle\n  verifier_projet_fonctionnelle\n}' ]] ||
+  echoue "trois couches : verifier_tout_complet : $(fonction verifier_tout_complet)"
+[[ $(grep -c '# --- composant ' "$check_co") -eq 5 ]] || echoue "trois couches : un marqueur de composant par composant"
+# Couverture des piles Python et sans gabarit, et pas de garde de navigateur sans navigateur=oui.
+for ligne in \
+  'verifier_ml|uv run --with pytest-cov==7.1.0 pytest tests/unitaires --cov --cov-append --cov-report=' \
+  'verifier_ml|uv run --with pytest-cov==7.1.0 pytest tests/integration --cov --cov-append --cov-report=' \
+  'verifier_ml_fonctionnelle|uv run --with pytest-cov==7.1.0 pytest tests/fonctionnels --cov --cov-append --cov-report=' \
+  'verifier_web_fonctionnelle|npm run test:fonctionnel' \
+  'preparer_couverture|(cd "cli" && cargo llvm-cov clean --workspace)' \
+  'preparer_couverture|rm -rf "web/node_modules/.izanagi-couverture"' \
+  'preparer_couverture|rm -f "ml/.coverage"' \
+  'resumer_couverture|couverture_composant cli rust "cli" cargo llvm-cov report' \
+  'resumer_couverture|couverture_composant ml python "ml" uv run --with pytest-cov==7.1.0 coverage report' \
+  'resumer_couverture|couverture_composant outil zig "outil" echo "pas de mesure de couverture pour zig"'; do
+  fonction "${ligne%%|*}" | grep -qF -- "${ligne#*|}" || echoue "couverture : ${ligne%%|*} sans « ${ligne#*|} »"
+done
+fonction verifier_web_fonctionnelle | grep -qF -- '--coverage' && echoue "couverture : l'étape fonctionnelle TypeScript mesure (Playwright possible)"
+grep -qF '${IZANAGI_NAVIGATEUR' "$check_co" && echoue "sans navigateur=oui : garde de navigateur rendue"
+grep -qE -- '-- [a-z]+ : tests"' "$check_co" && echoue "trois couches : étape tests restante"
+harness_co="$tmp/co/docs/agents/harness.md"
+grep -qxF '## Couches de test' "$harness_co" || echoue "harness.md : section Couches de test"
+grep -qxF '| Composant | Couche | Dossier | Commande |' "$harness_co" || echoue "harness.md : tableau des couches"
+grep -qxF '| noyau | intégration | sans objet | sans objet |' "$harness_co" || echoue "harness.md : couche sans objet"
+for ligne in \
+  '- couche : cli | unitaire | cli/src | cargo test --workspace --locked --lib --bins, puis --doc' \
+  "- couche : cli | integration | cli/tests | cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*" \
+  "- couche : cli | fonctionnelle | cli/tests/fonctionnel_*.rs | cargo test --workspace --locked --features fonctionnel --test 'fonctionnel_*'" \
+  '- couche : web | unitaire | web/src | npm run test:unitaire' \
+  '- couche : web | integration | web/tests/integration | npm run test:integration' \
+  '- couche : web | fonctionnelle | web/tests/fonctionnels | npm run test:fonctionnel' \
+  '- couche : ml | unitaire | ml/tests/unitaires | uv run pytest tests/unitaires' \
+  '- couche : ml | integration | ml/tests/integration | uv run pytest tests/integration' \
+  '- couche : ml | fonctionnelle | ml/tests/fonctionnels | uv run pytest tests/fonctionnels' \
+  '- couche : outil | unitaire | à préciser | à préciser' \
+  '- couche : noyau | unitaire | noyau/src | cargo test --workspace --locked --lib --bins, puis --doc' \
+  '- couche : projet | fonctionnelle | tests/fonctionnels | npx playwright test'; do
+  grep -qxF -- "$ligne" "$harness_co" || echoue "harness.md : ligne « $ligne » absente"
+done
+[[ $(grep -c '^- couche : ' "$harness_co") -eq 14 ]] || echoue "harness.md : 14 lignes de couche attendues"
+grep -q '^- couche : noyau | integration' "$harness_co" && echoue "harness.md : couche non déclarée listée"
+# Le contrat garde ses lignes de composant.
+grep -qxF -- '- composant : web | web | typescript | npm run dev' "$harness_co" || echoue "harness.md : ligne composant avec couches"
+
+# Couche inconnue : refus avant toute écriture, code 1.
+mkdir "$tmp/ci"
+printf '%s\n' 'composant=cli|.|rust||unitaire,e2e' "${base[@]}" >"$tmp/civ"
+set +e; "$install" "$tmp/ci" "$tmp/civ" >/dev/null 2>"$tmp/err"; code=$?; set -e
+[[ $code -eq 1 ]] || echoue "couche inconnue : code $code au lieu de 1"
+grep -qxF 'install.sh : couche « e2e » du composant cli refusée' "$tmp/err" || echoue "couche inconnue : message : $(cat "$tmp/err")"
+[[ -z $(ls -A "$tmp/ci") ]] || echoue "couche inconnue : écriture malgré le refus"
+
 # Une valeur vide garde sa ligne `clé=` : la ligne suivante ne s'y colle pas.
 mkdir "$tmp/cle-vide"
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n' >"$tmp/cle-vide-v"
@@ -395,6 +717,14 @@ printf 'chemins_sensibles=db/*, src/auth/*\n' >>"$tmp/cle-vide-v"
 mkdir "$tmp/cle-pleine"
 "$install" "$tmp/cle-pleine" "$tmp/cle-vide-v" >/dev/null
 grep -qxF 'chemins_sensibles=db/*, src/auth/*' "$tmp/cle-pleine/.izanagi/config.env" || echoue "chemins_sensibles donné n'est pas rendu"
+
+# Ancienne commande `à préciser` (la migration 0.7.0 l'écrit quand check.sh n'avait
+# pas d'étape `tests`) : ignorée, check.sh ne la lance pas comme une commande.
+mkdir "$tmp/ap"
+printf '%s\n' 'composant=app|.|python||unitaire|à préciser' "${base[@]}" >"$tmp/apv"
+"$install" "$tmp/ap" "$tmp/apv" >/dev/null
+grep -qF 'à préciser' "$tmp/ap/scripts/check.sh" && echoue "ancienne « à préciser » rendue dans check.sh : $(grep -nF 'à préciser' "$tmp/ap/scripts/check.sh")"
+grep -qF 'uv run pytest tests/unitaires' "$tmp/ap/scripts/check.sh" || echoue "ancienne « à préciser » : commande du gabarit absente"
 
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.

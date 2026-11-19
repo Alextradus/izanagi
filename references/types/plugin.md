@@ -4,8 +4,9 @@ Plugin ou extension d'un hôte : éditeur, navigateur, outil en ligne de command
 
 ## Couches de test
 
-- Tests unitaires de la logique, hors hôte (`vitest`, `pytest`, `cargo test`).
-- Tests dans l'hôte réel : charger le plugin dans l'hôte et vérifier son effet (`@vscode/test-electron` pour VS Code, Playwright avec une extension chargée pour Chrome, `claude plugin validate .` pour un plugin Claude Code).
+- Unitaire : la logique, hors hôte (`vitest`, `pytest`, `cargo test`).
+- Intégration : le plugin contre un hôte simulé, ou contre l'hôte réel si l'hôte le permet (`@vscode/test-electron` pour VS Code, `claude plugin validate .` pour un plugin Claude Code).
+- Fonctionnelle : sans objet par défaut. Le test manuel dans l'hôte en tient lieu.
 
 ## Test manuel par défaut
 

@@ -47,7 +47,7 @@ Fin : la branche existe, avec son état commité.
 Lance `izanagi:grilling` sur le changement, pour cinq questions au plus. Tu cherches quatre réponses :
 
 - **ce que le changement fait**, en une ou deux phrases que l'utilisateur confirme ;
-- **la couture** : l'interface par laquelle un test le prouve ;
+- **la couture** : l'interface par laquelle un test le prouve, et sa couche (`unitaire`, `integration` ou `fonctionnelle`, selon la section « Couches » du skill `tdd`) ;
 - **le critère de fin** : ce que l'utilisateur pourra faire ou voir une fois le changement fusionné ;
 - **le niveau de risque**, que tu proposes d'après `references/risk.md` et que l'utilisateur confirme.
 
@@ -64,27 +64,31 @@ Fin : l'utilisateur a confirmé les quatre réponses, et le journal les porte.
 ## 4. Travail
 
 1. Lance `state.sh set phase=travail risque=<niveau> --commit`. Si tu reviens ici après un retour de test, garde le niveau que l'état porte déjà (`state.sh get risque`) : la revue a pu le monter.
-2. Écris le brief de l'implémenteur : le titre et le numéro de l'issue, les quatre réponses du cadrage, la couture, la consigne de ne rien faire d'autre, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`.
+2. Écris le brief de l'implémenteur : le titre et le numéro de l'issue, les quatre réponses du cadrage, la couture et sa couche, la consigne de ne rien faire d'autre, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`.
 3. Lance un sous-agent `izanagi:implementer` avec ce brief. Un hook du plugin relance la vérification à son arrêt et le renvoie au travail si elle échoue.
 4. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse. Au statut « fait avec réserves », note les réserves au journal et commite-le.
 
 **Sans code.** Un changement de niveau faible qui ne touche que de la documentation ou de la configuration se fait sans sous-agent : fais-le toi-même, lance la vérification, commite.
 
-Fin : le changement est commité sur la branche, la vérification verte.
+Lance ensuite la vérification complète, `<verification> --complet`, avant la revue. Garde sa sortie pour le corps de la PR.
+
+Fin : le changement est commité sur la branche, la vérification complète verte.
 
 ## 5. Revue
 
 1. Lance `state.sh set phase=revue tour=0 --commit`.
-2. Lance `izanagi:review`, avec la branche principale pour point fixe, l'issue et le cadrage du journal pour axe Spec, le journal, et le niveau de risque.
+2. Calcule le niveau retenu avec `bash "${CLAUDE_PLUGIN_ROOT}/scripts/risk.sh" <branche principale> <niveau déclaré>`. Un chemin sensible peut faire monter le diff à `eleve`. `review` recalcule ce niveau à son tour, ce qui ne coûte rien.
+3. Au seul niveau `eleve` retenu à l'étape 2, lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <branche principale>` et garde sa sortie, qui est le rapport de mutation. Le script ne fait jamais échouer la revue.
+4. Lance `izanagi:review`, avec le rapport de mutation s'il existe, la branche principale pour point fixe, l'issue et le cadrage du journal pour axe Spec, le journal, et le niveau de risque.
 
-`review` calcule le niveau retenu : il monte à élevé si le diff touche un chemin sensible du projet. Applique le niveau qu'il annonce pour la suite.
+`review` calcule le niveau retenu. Il monte à élevé si le diff touche un chemin sensible du projet. Applique le niveau qu'il annonce pour la suite.
 
 Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 
 ## 6. PR et test
 
 1. **Version.** Monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) : lis la version sur la branche principale à jour juste avant, et commite (`chore: <version>`). Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas.
-2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification, et finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
+2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification complète, et finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
 3. Lance `state.sh set phase=test --commit` et pousse.
 4. **Test manuel.** L'utilisateur essaie le changement avec le test manuel, depuis la branche. Si la revue a retenu le niveau faible (`state.sh get risque`), il n'y a pas de test manuel : passe à la clôture.
 

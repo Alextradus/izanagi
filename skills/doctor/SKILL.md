@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Contrôler le poste et le cadre Izanagi d'un projet (outils, hooks, réglages, version du cadre, contrat de vérification, cohérence de l'état avec git) et proposer la correction de chaque écart. À lancer quand un flux se comporte de façon inattendue ou après un changement de poste.
+description: Contrôler le poste et le cadre Izanagi d'un projet (outils, navigateurs Playwright, outils de mutation, hooks, réglages, version du cadre, contrat de vérification, cohérence de l'état avec git) et proposer la correction de chaque écart. À lancer quand un flux se comporte de façon inattendue ou après un changement de poste.
 ---
 
 # Doctor
@@ -40,6 +40,8 @@ Rends la sortie du script dans un bloc de code, puis la liste des écarts. Pour 
 | `permissions` | ajouter les règles citées à la liste `permissions.deny` de `.claude/settings.json`, avec l'outil Edit, sans toucher aux autres clés |
 | `actions épinglées` | remplacer l'étiquette de chaque action citée par le SHA de son commit, l'étiquette en commentaire (`uses: <action>@<SHA> # v1.2.3`). Le SHA se lit avec `gh api repos/<propriétaire>/<action>/commits/<étiquette> --jq .sha` |
 | `outil gitleaks` | `winget install Gitleaks.Gitleaks` sous Windows, `brew install gitleaks` sous macOS, le binaire de https://github.com/gitleaks/gitleaks/releases sous Linux |
+| `navigateurs Playwright`, `navigateurs Playwright (WSL)` | `npx playwright install chromium`, lancé dans le dossier du composant TypeScript, ou dans WSL pour la seconde ligne. Le script lit `navigateur` dans `.izanagi/config.env` et ne contrôle rien tant que la clé manque ou vaut `non` |
+| `cargo-mutants`, `stryker`, `mutmut` | la commande que la ligne donne : `cargo install cargo-mutants`, `npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner` dans le dossier du composant, `uv add --dev mutmut` dans le dossier du composant. Le script lit `mutation` dans `.izanagi/config.env` et ne contrôle rien tant que la clé manque ou vaut `non` |
 | `contrat` | `bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-contract.sh" <racine>` pour le détail, puis la correction de chaque règle |
 | `état` | git l'emporte. Sur une branche de flux, `/izanagi:jalon` corrige l'état. Sur la branche principale, supprimer `.izanagi/state.env` par une PR |
 

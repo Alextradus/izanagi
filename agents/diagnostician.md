@@ -21,7 +21,7 @@ Suis les phases 1 à 4 de `diagnosing`, puis la première moitié de la phase 5 
 2. Reproduis et réduis.
 3. Écris trois à cinq hypothèses classées, chacune avec sa prédiction.
 4. Instrumente pour les départager, une variable à la fois.
-5. Écris le test de régression à une couture correcte et constate son échec. Arrête-toi là.
+5. Écris le test de régression à une couture correcte, à la couche la plus basse qui reproduit le symptôme observé, et constate son échec. Si le bug ne se voit qu'à la couche fonctionnelle, le test va là. Arrête-toi là.
 
 Retire ensuite toute ton instrumentation et tes montages jetables. Commite le test de régression seul, avec un message qui dit qu'il est rouge et pourquoi.
 
@@ -35,5 +35,5 @@ Rends un rapport de moins de trente lignes :
 - **Boucle** : la commande, et la fin de sa sortie rouge, secrets masqués.
 - **Cause** : l'hypothèse confirmée, le fichier et la ligne, et l'observation qui la confirme.
 - **Hypothèses écartées** : une ligne chacune, avec ce qui l'a écartée.
-- **Test de régression** : son fichier, son nom et son commit. S'il n'existe aucune couture correcte, dis-le et dis pourquoi.
+- **Test de régression** : son fichier, son nom, sa couche (unitaire, intégration ou fonctionnelle) et son commit. S'il n'existe aucune couture correcte, dis-le et dis pourquoi.
 - **Piste de correctif** : le plus petit changement qui traiterait la cause, en une ou deux phrases.

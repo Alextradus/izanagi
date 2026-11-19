@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Teste les scripts des commandes upgrade, status et doctor :
-# scripts/migrations/0.4.0.sh, scripts/status.sh et scripts/doctor.sh.
+# Teste les scripts des commandes upgrade, status et doctor, et la passe de mutation :
+# scripts/migrations/*.sh, scripts/status.sh, scripts/doctor.sh et scripts/mutation.sh.
 set -euo pipefail
 
 racine="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,6 +27,13 @@ depot() { # depot <dossier> : en fait un dépôt git avec un premier commit.
 valeurs_de() {
   grep -vE '^(#|$)' "$1/.izanagi/config.env"
 }
+
+# Système courant, pour `systemes` : `check.sh --host` ne lance alors que lui.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) ici=windows ;;
+  Darwin*) ici=macos ;;
+  *) ici=linux ;;
+esac
 
 # ============ Migration 0.4.0 ============
 [[ -f $migration ]] || echoue "scripts/migrations/0.4.0.sh absent"
@@ -129,12 +136,17 @@ config04="$tmp/p04/.izanagi/config.env"
 [[ $(kv_get "$config04" izanagi_version) == 0.6.0 ]] || echoue "migration 0.6.0 : izanagi_version"
 [[ $(grep -A1 '^hook_verification=' "$config04" | tail -1) == 'hook_destructif=demande' ]] || echoue "migration 0.6.0 : hook_destructif mal placé"
 [[ $(kv_get "$config04" projet) == 'Essai Rapide' ]] || echoue "migration 0.6.0 a perdu une valeur"
-# La pose courante, relancée avec ces valeurs, trouve ces trois fichiers identiques au gabarit.
+# La pose courante, relancée avec ces valeurs, trouve ces fichiers identiques au gabarit.
+# config.env ne diffère que par les clés de la 0.7, que la migration 0.7.0 ajoutera.
 { echo pile=rust; valeurs_de "$tmp/p04"; } >"$tmp/p04v6"
 sortie="$("$install" "$tmp/p04" "$tmp/p04v6")"
-for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json; do
+for f in .izanagi/.gitignore .claude/settings.json; do
   grep -qxF "identique  $f" <<<"$sortie" || echoue "migration 0.6.0 : $f différent du gabarit : $sortie"
 done
+rapport06="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+ecarts06="$(grep -E '^[-+][^-+]' "$rapport06/diff/.izanagi/config.env.diff" 2>/dev/null || true)"
+[[ $ecarts06 == $'+navigateur=non\n+mutation=oui\n+mutation_delai=15' ]] ||
+  echoue "migration 0.6.0 : config.env diffère du gabarit hors des clés de la 0.7 : $ecarts06"
 [[ $(bash "$migration06" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.6.0 relancée"
 
 # Un .claude/settings.json du projet, avec d'autres réglages, n'est jamais réécrit.
@@ -239,15 +251,215 @@ else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
 fi
 
+# ============ Migration 0.7.0 ============
+migration07="$racine/scripts/migrations/0.7.0.sh"
+[[ -f $migration07 ]] || echoue "scripts/migrations/0.7.0.sh absent"
+
+# valeurs_upgrade <projet> : le fichier de valeurs que la section 3 d'upgrade écrit,
+# fait des clés de config.env et des lignes de harness.md. Le cinquième champ de
+# `composant=` vient des lignes `- couche :`, le sixième de la commande unitaire.
+valeurs_upgrade() {
+  local ligne nom chemin pile lancement couches ancienne
+  valeurs_de "$1"
+  while IFS= read -r ligne; do
+    IFS='|' read -r nom chemin pile lancement <<<"${ligne#- composant : }"
+    nom="${nom// /}" chemin="${chemin// /}" pile="${pile// /}"
+    lancement="${lancement# }"
+    couches="$(sed -n "s/^- couche : $nom | \([a-z]*\) |.*/\1/p" "$1/docs/agents/harness.md" | paste -sd, -)"
+    # Python et TypeScript : la commande unitaire de harness.md en sixième champ.
+    # Jamais pour Rust, dont la colonne commande est une phrase.
+    ancienne=""
+    if [[ $pile == python || $pile == typescript ]]; then
+      ancienne="$(sed -n "s/^- couche : $nom | unitaire | [^|]* | \(.*\)$/\1/p" "$1/docs/agents/harness.md" | tr -d '\r')"
+      [[ $ancienne == 'à préciser' ]] && ancienne=""
+    fi
+    printf 'composant=%s|%s|%s|%s|%s|%s\n' "$nom" "$chemin" "$pile" "$lancement" "$couches" "$ancienne"
+  done < <(grep -E '^- composant : ' "$1/docs/agents/harness.md" | tr -d '\r')
+  sed -n 's/^- \*\*Systèmes cibles\*\* : \(.*\)\.$/systemes=\1/p; s/^- \*\*Type\*\* : \(.*\)\.$/type=\1/p' "$1/docs/agents/harness.md"
+}
+
+git -C "$racine" cat-file -e 'v0.6.0^{commit}' 2>/dev/null || echoue "tag v0.6.0 absent du dépôt : lance git fetch --tags"
+mkdir -p "$tmp/v06"
+git -C "$racine" archive v0.6.0 scripts templates .claude-plugin | tar -x -C "$tmp/v06"
+
+# --- Projet Rust posé par la 0.6.0 : unitaire et intégration détectées ---
+mkdir -p "$tmp/r06/src" "$tmp/r06/tests/commun"
+printf 'composant=outil|.|rust|cargo run\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntype=cli\nsystemes=%s\n' "$ici" >"$tmp/r06v"
+bash "$tmp/v06/scripts/install.sh" "$tmp/r06" "$tmp/r06v" >/dev/null
+printf 'fn main() {}\n' >"$tmp/r06/src/main.rs"
+printf '#[test]\nfn aide() {}\n' >"$tmp/r06/tests/cli.rs"
+printf 'pub fn x() {}\n' >"$tmp/r06/tests/commun/mod.rs"
+depot "$tmp/r06"
+sortie="$(bash "$migration07" "$tmp/r06")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md' ]] || echoue "migration 0.7.0 rust : $sortie"
+config_r="$tmp/r06/.izanagi/config.env"
+harness_r="$tmp/r06/docs/agents/harness.md"
+[[ $(kv_get "$config_r" izanagi_version) == 0.7.0 ]] || echoue "migration 0.7.0 : izanagi_version"
+[[ $(kv_get "$config_r" mutation) == oui ]] || echoue "migration 0.7.0 : mutation pour rust : $(kv_get "$config_r" mutation)"
+[[ $(kv_get "$config_r" mutation_delai) == 15 ]] || echoue "migration 0.7.0 : mutation_delai"
+[[ $(kv_get "$config_r" navigateur) == non ]] || echoue "migration 0.7.0 : navigateur sans Playwright"
+[[ $(grep -A3 '^hook_destructif=' "$config_r" | tail -3 | tr '\n' ' ') == 'navigateur=non mutation=oui mutation_delai=15 ' ]] ||
+  echoue "migration 0.7.0 : clés mal placées : $(cat "$config_r")"
+grep -q 'Couches de test\*\*' "$harness_r" && echoue "migration 0.7.0 : ligne « Couches de test » gardée"
+grep -qxF '## Couches de test' "$harness_r" || echoue "migration 0.7.0 : section des couches absente"
+grep -qxF -- '- couche : outil | unitaire | src | cargo test --workspace --locked' "$harness_r" || echoue "migration 0.7.0 : couche unitaire : $(cat "$harness_r")"
+grep -qxF -- '- couche : outil | integration | tests | cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*' "$harness_r" ||
+  echoue "migration 0.7.0 : couche intégration : $(cat "$harness_r")"
+grep -q '^- couche : outil | fonctionnelle' "$harness_r" && echoue "migration 0.7.0 : couche fonctionnelle sans test"
+grep -qxF '| outil | fonctionnelle | sans objet | sans objet |' "$harness_r" || echoue "migration 0.7.0 : tableau : $(cat "$harness_r")"
+grep -qxF '| outil | unitaire | `src` | `cargo test --workspace --locked` |' "$harness_r" || echoue "migration 0.7.0 : tableau unitaire : $(cat "$harness_r")"
+# check.sh et ci.yml ne sont pas écrits par la migration.
+[[ -z $(git -C "$tmp/r06" status --porcelain -- scripts .github) ]] || echoue "migration 0.7.0 : check.sh ou ci.yml écrit"
+git -C "$tmp/r06" add -A && git -C "$tmp/r06" commit -q -m migration
+
+# La pose d'upgrade : config.env identique, harness.md ne diffère que par la commande
+# unitaire, check.sh et ci.yml diffèrent. Repris, ils passent le contrat.
+valeurs_upgrade "$tmp/r06" >"$tmp/r06v7"
+grep -qxF 'composant=outil|.|rust|cargo run|unitaire,integration|' "$tmp/r06v7" || echoue "upgrade 0.7 : composant : $(cat "$tmp/r06v7")"
+sortie="$("$install" "$tmp/r06" "$tmp/r06v7")"
+grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "migration 0.7.0 : config.env différent du gabarit : $sortie"
+for f in scripts/check.sh .github/workflows/ci.yml docs/agents/harness.md; do
+  grep -qxF "différent  $f" <<<"$sortie" || echoue "upgrade 0.7 : $f pas différent : $sortie"
+done
+rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+ecarts07="$(grep -E '^[-+][^-+]' "$rapport07/diff/docs/agents/harness.md.diff")"
+grep -v 'unitaire' <<<"$ecarts07" && echoue "migration 0.7.0 : harness.md diffère hors de la commande unitaire : $ecarts07"
+grep -qF -- '--complet' "$rapport07/diff/.github/workflows/ci.yml.diff" || echoue "upgrade 0.7 : l'écart de ci.yml ne montre pas --complet"
+for f in scripts/check.sh .github/workflows/ci.yml docs/agents/harness.md; do
+  cp "$rapport07/rendu/$f" "$tmp/r06/$f"
+done
+sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/r06" 2>&1)" || echoue "upgrade 0.7 : contrat après la pose : $sortie"
+
+# Relancée : rien à faire, rien de changé.
+git -C "$tmp/r06" checkout -q -- scripts .github docs
+[[ $(bash "$migration07" "$tmp/r06") == 'déjà migré' ]] || echoue "migration 0.7.0 relancée"
+[[ -z $(git -C "$tmp/r06" status --porcelain) ]] || echoue "migration 0.7.0 relancée : fichiers changés"
+
+# --- Projet Python posé par la 0.6.0, tests à plat ---
+mkdir -p "$tmp/y06/src/app" "$tmp/y06/tests/outils"
+printf 'composant=app|.|python|\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntest_manuel=uv run app\ntype=library\nsystemes=%s\n' "$ici" >"$tmp/y06v"
+bash "$tmp/v06/scripts/install.sh" "$tmp/y06" "$tmp/y06v" >/dev/null
+printf 'def somme(a, b):\n    return a + b\n' >"$tmp/y06/src/app/calc.py"
+printf 'def test_somme():\n    pass\n' >"$tmp/y06/tests/test_calc.py"
+printf 'def test_aide():\n    pass\n' >"$tmp/y06/tests/outils/test_aide.py"
+printf 'import pytest\n' >"$tmp/y06/tests/conftest.py"
+depot "$tmp/y06"
+sortie="$(bash "$migration07" "$tmp/y06")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md\nà ranger   tests/outils/test_aide.py\nà ranger   tests/test_calc.py' ]] ||
+  echoue "migration 0.7.0 python : $sortie"
+harness_y="$tmp/y06/docs/agents/harness.md"
+[[ $(grep -c '^- couche : ' "$harness_y") -eq 1 ]] || echoue "migration 0.7.0 python : une seule couche attendue : $(cat "$harness_y")"
+grep -qxF -- '- couche : app | unitaire | tests/unitaires | uv run pytest' "$harness_y" || echoue "migration 0.7.0 python : couche unitaire : $(cat "$harness_y")"
+[[ $(kv_get "$tmp/y06/.izanagi/config.env" mutation) == oui ]] || echoue "migration 0.7.0 python : mutation"
+# Rien n'est déplacé.
+[[ -f $tmp/y06/tests/test_calc.py && ! -e $tmp/y06/tests/unitaires ]] || echoue "migration 0.7.0 : un test a été déplacé"
+# La pose d'upgrade reprend check.sh et ci.yml. Tant que tests/unitaires/ n'a pas de
+# test, l'étape unitaire garde l'ancienne commande du projet (`uv run pytest`), et
+# harness.md reste tel que la migration l'a écrit. Des faux uv et gitleaks rendent 0.
+valeurs_upgrade "$tmp/y06" >"$tmp/y06v7"
+grep -qxF 'composant=app|.|python||unitaire|uv run pytest' "$tmp/y06v7" || echoue "upgrade 0.7 python : composant : $(cat "$tmp/y06v7")"
+sortie="$("$install" "$tmp/y06" "$tmp/y06v7")"
+grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 python : harness.md réécrit : $sortie"
+rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+for f in scripts/check.sh .github/workflows/ci.yml; do
+  cp "$rapport07/rendu/$f" "$tmp/y06/$f"
+done
+grep -A1 -F 'echo "-- app : unitaire"' "$tmp/y06/scripts/check.sh" | grep -qxF '    uv run pytest' ||
+  echoue "upgrade 0.7 python : l'étape unitaire ne lance pas l'ancienne commande : $(cat "$tmp/y06/scripts/check.sh")"
+grep -qF 'pytest tests/unitaires' "$tmp/y06/scripts/check.sh" && echoue "upgrade 0.7 python : check.sh lance tests/unitaires, vide"
+sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/y06" 2>&1)" || echoue "upgrade 0.7 python : contrat après la pose : $sortie"
+mkdir -p "$tmp/y06f"
+printf '#!/bin/sh\necho "$*" >>"%s/uv.args"\nexit 0\n' "$tmp/y06f" >"$tmp/y06f/uv"
+printf '#!/bin/sh\nexit 0\n' >"$tmp/y06f/gitleaks"
+chmod +x "$tmp/y06f/uv" "$tmp/y06f/gitleaks"
+code=0
+sortie="$(cd "$tmp/y06" && PATH="$tmp/y06f:$PATH" bash scripts/check.sh --host --complet 2>&1)" || code=$?
+[[ $code -eq 0 ]] || echoue "upgrade 0.7 python : vérification en échec : $sortie"
+grep -qxF -- '-- app : unitaire' <<<"$sortie" || echoue "upgrade 0.7 python : pas d'étape unitaire : $sortie"
+grep -qF -- '-- app : integration' <<<"$sortie" && echoue "upgrade 0.7 python : étape d'intégration sans test : $sortie"
+grep -qxF 'run pytest' "$tmp/y06f/uv.args" || echoue "upgrade 0.7 python : commande unitaire : $(cat "$tmp/y06f/uv.args")"
+git -C "$tmp/y06" checkout -q -- scripts .github
+# Une fois un test rangé dans tests/unitaires/, la pose reprend la commande du gabarit.
+mkdir -p "$tmp/y06/tests/unitaires"
+printf 'def test_somme():\n    pass\n' >"$tmp/y06/tests/unitaires/test_calc.py"
+sortie="$("$install" "$tmp/y06" "$tmp/y06v7")"
+rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+grep -A10 -F 'echo "-- app : unitaire"' "$rapport07/rendu/scripts/check.sh" | grep -qF 'uv run pytest tests/unitaires' ||
+  echoue "upgrade 0.7 python : tests rangés, commande du gabarit absente : $(cat "$rapport07/rendu/scripts/check.sh")"
+grep -qxF -- '- couche : app | unitaire | tests/unitaires | uv run pytest tests/unitaires' "$rapport07/rendu/docs/agents/harness.md" ||
+  echoue "upgrade 0.7 python : tests rangés, harness.md : $(cat "$rapport07/rendu/docs/agents/harness.md")"
+rm -rf "$tmp/y06/tests/unitaires"
+
+# --- Projet TypeScript posé par la 0.6.0, sans les scripts npm des couches ---
+mkdir -p "$tmp/w06/src" "$tmp/w06/tests/integration"
+printf 'composant=web|.|typescript|npm run dev\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntest_manuel=npm run dev\ntype=web-frontend\nsystemes=%s\n' "$ici" >"$tmp/w06v"
+bash "$tmp/v06/scripts/install.sh" "$tmp/w06" "$tmp/w06v" >/dev/null
+printf '{\n  "scripts": {\n    "test": "vitest run"\n  }\n}\n' >"$tmp/w06/package.json"
+echo 'x' >"$tmp/w06/src/a.test.ts"
+echo 'x' >"$tmp/w06/tests/integration/b.test.ts"
+depot "$tmp/w06"
+sortie="$(bash "$migration07" "$tmp/w06")"
+# Sans script test:integration, le dossier d'intégration ne fait pas une couche : ses tests sont à ranger.
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md\nà ranger   tests/integration/b.test.ts' ]] ||
+  echoue "migration 0.7.0 typescript 0.6 : $sortie"
+grep -qxF -- '- couche : web | unitaire | src | npm test' "$tmp/w06/docs/agents/harness.md" || echoue "migration 0.7.0 typescript 0.6 : $(cat "$tmp/w06/docs/agents/harness.md")"
+grep -q '^- couche : web | integration' "$tmp/w06/docs/agents/harness.md" && echoue "migration 0.7.0 typescript 0.6 : intégration sans script npm"
+valeurs_upgrade "$tmp/w06" >"$tmp/w06v7"
+sortie="$("$install" "$tmp/w06" "$tmp/w06v7")"
+rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 typescript : harness.md réécrit : $sortie"
+grep -A1 -F 'echo "-- web : unitaire"' "$rapport07/rendu/scripts/check.sh" | grep -qxF '    npm test' ||
+  echoue "upgrade 0.7 typescript : l'étape unitaire ne lance pas npm test : $(cat "$rapport07/rendu/scripts/check.sh")"
+grep -qF 'test:unitaire' "$rapport07/rendu/scripts/check.sh" && echoue "upgrade 0.7 typescript : check.sh lance test:unitaire, absent de package.json"
+cp "$rapport07/rendu/scripts/check.sh" "$tmp/w06/scripts/check.sh"
+cp "$rapport07/rendu/.github/workflows/ci.yml" "$tmp/w06/.github/workflows/ci.yml"
+sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/w06" 2>&1)" || echoue "upgrade 0.7 typescript : contrat après la pose : $sortie"
+
+# --- Projet à la main : TypeScript avec Playwright, et une pile sans gabarit ---
+pt="$tmp/t06"
+mkdir -p "$pt/.izanagi" "$pt/docs/agents" "$pt/scripts" "$pt/web/src" "$pt/web/tests/integration" "$pt/web/e2e" \
+  "$pt/web/node_modules/x" "$pt/outil/tests/integration"
+printf 'izanagi_version=0.6.0\nhook_destructif=demande\nmutation_delai=30\n' >"$pt/.izanagi/config.env"
+printf -- '# Harnais\n\n- **Couches de test** : à préciser.\n\n## Composants\n\n- composant : web | web | typescript | npm run dev\n- composant : outil | outil | zig |\n' \
+  >"$pt/docs/agents/harness.md"
+printf '# --- composant web (typescript) ---\nverifier_web() {\n  (\n    cd "web"\n    echo "-- web : tests"\n    npx vitest run\n  )\n}\n' \
+  >"$pt/scripts/check.sh"
+printf '{\n  "scripts": {\n    "test:integration": "vitest run --project integration"\n  }\n}\n' >"$pt/web/package.json"
+for f in src/a.test.ts tests/integration/b.test.ts e2e/c.spec.ts node_modules/x/d.test.js playwright.config.ts; do
+  echo 'x' >"$pt/web/$f"
+done
+echo 'x' >"$pt/outil/tests/integration/essai.zig"
+sortie="$(bash "$migration07" "$pt")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md\nà ranger   web/e2e/c.spec.ts' ]] || echoue "migration 0.7.0 typescript : $sortie"
+[[ $(kv_get "$pt/.izanagi/config.env" navigateur) == oui ]] || echoue "migration 0.7.0 : navigateur avec playwright.config.ts"
+[[ $(kv_get "$pt/.izanagi/config.env" mutation) == non ]] || echoue "migration 0.7.0 : mutation avec une pile sans gabarit"
+[[ $(kv_get "$pt/.izanagi/config.env" mutation_delai) == 30 ]] || echoue "migration 0.7.0 : mutation_delai du projet écrasé"
+[[ $(grep -c '^mutation_delai=' "$pt/.izanagi/config.env") -eq 1 ]] || echoue "migration 0.7.0 : mutation_delai en double"
+for l in '- couche : web | unitaire | web/src | npx vitest run' '- couche : web | integration | web/tests/integration | npm run test:integration' \
+  '- couche : outil | unitaire | à préciser | à préciser' '- couche : outil | integration | outil/tests/integration | à préciser'; do
+  grep -qxF -- "$l" "$pt/docs/agents/harness.md" || echoue "migration 0.7.0 : ligne « $l » absente : $(cat "$pt/docs/agents/harness.md")"
+done
+[[ $(bash "$migration07" "$pt") == 'déjà migré' ]] || echoue "migration 0.7.0 relancée sur le projet à la main"
+
+# --- Enchaînée de la 0.4.0 à la 0.7.0 sur le projet posé en 0.3.0 ---
+[[ $(kv_get "$config" mutation) == non ]] || echoue "migration 0.4.0 : mutation devrait valoir non"
+sortie="$(bash "$migration05" "$tmp/p03" >/dev/null; bash "$migration06" "$tmp/p03" >/dev/null; bash "$migration07" "$tmp/p03")"
+grep -qxF 'écrit      .izanagi/config.env' <<<"$sortie" || echoue "migration 0.7.0 après 0.6.0 : $sortie"
+[[ $(kv_get "$config" izanagi_version) == 0.7.0 ]] || echoue "migration 0.7.0 après 0.6.0 : izanagi_version"
+[[ $(kv_get "$config" mutation) == oui ]] || echoue "migration 0.7.0 après 0.4.0 : mutation non recalculée"
+[[ $(grep -c '^mutation=' "$config") -eq 1 && $(grep -c '^navigateur=' "$config") -eq 1 ]] || echoue "migration 0.7.0 après 0.4.0 : clé en double : $(cat "$config")"
+[[ $(kv_get "$config" projet) == 'Essai Rapide' ]] || echoue "migration 0.7.0 a perdu une valeur"
+grep -q '^- couche : rust | unitaire | ' "$tmp/p03/docs/agents/harness.md" || echoue "migration 0.7.0 sur 0.3.0 : harness.md : $(cat "$tmp/p03/docs/agents/harness.md")"
+git -C "$tmp/p03" checkout -q -- .izanagi docs
+rm -rf "$tmp/p03/.claude"
+
+code=0; bash "$migration07" "$tmp/nu" >/dev/null 2>&1 || code=$?
+[[ $code -eq 2 ]] || echoue "migration 0.7.0 sans config.env : code $code"
+
 # ============ check.sh : recherche de secrets ============
 # Un faux gitleaks note ses arguments et rend le code de $GITLEAKS_CODE. Le projet n'a
 # qu'un composant sans gabarit, dont la section ne lance rien, et pour seul système
 # cible le système courant : `check.sh --host` ne lance que la recherche de secrets.
-case "$(uname -s)" in
-  MINGW* | MSYS* | CYGWIN*) ici=windows ;;
-  Darwin*) ici=macos ;;
-  *) ici=linux ;;
-esac
 mkdir -p "$tmp/faux" "$tmp/sec"
 cat >"$tmp/faux/gitleaks" <<'FAUX'
 #!/usr/bin/env bash
@@ -475,6 +687,67 @@ sed -i '/^verification=/d' "$config"
 ecart config.env 'verification'
 retablir
 
+
+# Navigateurs Playwright et outils de mutation : `navigateur` et `mutation` viennent de
+# config.env, une clé absente vaut `non`. Des faux outils rendent 0 (présents) ou 1 (absents).
+harness_dr="$tmp/dr/docs/agents/harness.md"
+cp "$harness_dr" "$tmp/dr-harness"
+printf -- '- composant : web | web | typescript |\n- composant : api | api | python |\n- couche : web | fonctionnelle | web/e2e | npx playwright test\n' >>"$harness_dr"
+mkdir -p "$tmp/dr/web" "$tmp/dr/api" "$tmp/fm"
+for f in cargo npx uv; do
+  printf '#!/bin/sh\npwd >>"%s/$(basename "$0").cwd"\nexit "${FAUX_CODE:-0}"\n' "$tmp/fm" >"$tmp/fm/$f"
+  chmod +x "$tmp/fm/$f"
+done
+path_initial="$PATH"
+export PATH="$tmp/fm:$PATH" PLAYWRIGHT_BROWSERS_PATH="$tmp/pw"
+mkdir -p "$tmp/pw"
+# La pose écrit `mutation=oui` pour Rust : le cas de départ remet les deux clés à
+# `non`, et les lignes ajoutées plus bas l'emportent (kv_get lit la dernière).
+sed -i -e 's/^navigateur=.*/navigateur=non/' -e 's/^mutation=.*/mutation=non/' "$config" "$tmp/dr-config"
+
+# Clés à `non` : aucun contrôle, aucun écart.
+diagnostic
+grep -qE 'Playwright|mutants|stryker|mutmut' <<<"$sortie" && echoue "doctor : contrôle sans navigateur ni mutation : $sortie"
+
+printf 'navigateur=oui\n' >>"$config"
+ecart 'navigateurs Playwright' 'absents : npx playwright install chromium'
+mkdir "$tmp/pw/chromium-1234"
+diagnostic
+grep -qxF 'ok      navigateurs Playwright' <<<"$sortie" || echoue "doctor : navigateurs présents refusés : $sortie"
+rmdir "$tmp/pw/chromium-1234"
+# Chemin de style Windows (antislash) : le cache est trouvé quand même.
+if command -v cygpath >/dev/null 2>&1; then
+  mkdir "$tmp/pw/chromium-1234"
+  PLAYWRIGHT_BROWSERS_PATH="$(cygpath -w "$tmp/pw")" diagnostic
+  grep -qxF 'ok      navigateurs Playwright' <<<"$sortie" || echoue "doctor : chemin Windows du cache refusé : $sortie"
+  rmdir "$tmp/pw/chromium-1234"
+fi
+# Sans couche fonctionnelle, navigateur=oui ne contrôle rien.
+cp "$tmp/dr-harness" "$harness_dr"
+diagnostic
+grep -q 'Playwright' <<<"$sortie" && echoue "doctor : Playwright contrôlé sans couche fonctionnelle : $sortie"
+printf -- '- composant : web | web | typescript |\n- composant : api | api | python |\n- couche : web | fonctionnelle | web/e2e | npx playwright test\n' >>"$harness_dr"
+retablir
+
+printf 'mutation=oui\n' >>"$config"
+# Stryker sans le lanceur Vitest prendrait son lanceur par défaut : écart.
+FAUX_CODE=0 ecart stryker 'absent pour web : npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner'
+mkdir -p "$tmp/dr/web/node_modules/@stryker-mutator/vitest-runner"
+FAUX_CODE=0 diagnostic
+for c in 'cargo-mutants' 'stryker' 'mutmut'; do
+  grep -qE "^ok      $c" <<<"$sortie" || echoue "doctor : $c présent refusé : $sortie"
+done
+grep -qF "$tmp/dr/web" "$tmp/fm/npx.cwd" || echoue "doctor : stryker pas lancé dans le dossier du composant"
+export FAUX_CODE=1
+ecart cargo-mutants 'absent pour .* : cargo install cargo-mutants'
+ecart stryker 'absent pour web : npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner'
+ecart mutmut 'absent pour api : uv add --dev mutmut'
+unset FAUX_CODE
+export PATH="$path_initial"
+unset PLAYWRIGHT_BROWSERS_PATH
+retablir
+cp "$tmp/dr-harness" "$harness_dr"
+
 git config --unset core.hooksPath
 ecart 'hook pre-push' 'core.hooksPath'
 git config core.hooksPath .githooks
@@ -502,5 +775,191 @@ ecart jalon.md 'upgrade'
 rm docs/agents/jalon.md
 
 if (cd "$tmp/hors" && bash "$doctor" "$tmp/hors" >/dev/null 2>&1); then echoue "doctor hors projet Izanagi accepté"; fi
+
+
+# ============ mutation.sh ============
+mutation="$racine/scripts/mutation.sh"
+[[ -f $mutation ]] || echoue "scripts/mutation.sh absent"
+
+# Projet à quatre composants : une pile par outil, et une pile sans outil.
+mu="$tmp/mu"
+mkdir -p "$mu/.izanagi" "$mu/docs/agents" "$mu/rs/src" "$mu/web/src" "$mu/api/src/app" "$mu/api/tests/unitaires" "$mu/outils"
+printf 'mutation=oui\nmutation_delai=15\n' >"$mu/.izanagi/config.env"
+printf -- '# Harnais\n\n- composant : rs | rs | rust |\n- composant : web | web | typescript |\n- composant : api | api | python |\n- composant : outils | outils | go |\n' >"$mu/docs/agents/harness.md"
+printf 'pub fn somme(a: i32, b: i32) -> i32 {\n    a + b\n}\n' >"$mu/rs/src/lib.rs"
+printf 'export function max(a: number, b: number) {\n  return a > b ? a : b;\n}\n' >"$mu/web/src/calc.ts"
+printf '"""Calcul."""\n\ndef somme(a, b):\n    return a + b\n' >"$mu/api/src/app/calc.py"
+printf 'package outils\n' >"$mu/outils/main.go"
+echo '# Lisez-moi' >"$mu/README.md"
+depot "$mu"
+git -C "$mu" switch -q -c jalon/mu
+base_mu="$(git -C "$mu" rev-parse HEAD)"
+
+# Faux outils. Chacun note ses arguments et son dossier, et écrit le résultat que
+# l'outil réel produit : missed.txt pour cargo-mutants, le rapport clear-text de
+# Stryker, et `mutmut results` puis `mutmut show` pour mutmut.
+# FAUX_ABSENT=<outil> : sa sonde `--version` échoue. FAUX_DORT=<s> : il dort avant d'agir.
+fx="$tmp/fx"
+mkdir -p "$fx"
+cat >"$fx/cargo" <<'FAUX'
+#!/bin/sh
+[ "$1 $2" = "mutants --version" ] && { [ "$FAUX_ABSENT" = cargo ] && exit 1; exit 0; }
+[ -n "$FAUX_DORT" ] && exec sleep "$FAUX_DORT"
+pwd >"$FAUX_JOURNAL/cargo.cwd"
+echo "$*" >"$FAUX_JOURNAL/cargo.args"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --in-diff) cp "$2" "$FAUX_JOURNAL/cargo.diff"; shift ;;
+    --output) sortie="$2"; shift ;;
+  esac
+  shift
+done
+mkdir -p "$sortie/mutants.out"
+# FAUX_ECHEC=1 : tests de base en échec, listes vides et code 4.
+[ -n "$FAUX_ECHEC" ] && { : >"$sortie/mutants.out/missed.txt"; exit 4; }
+printf 'src/lib.rs:2:5: replace + with - in somme\n' >"$sortie/mutants.out/missed.txt"
+printf 'src/lib.rs:2:5: replace somme -> i32 with 0\n' >"$sortie/mutants.out/caught.txt"
+exit 2
+FAUX
+cat >"$fx/npx" <<'FAUX'
+#!/bin/sh
+[ "$*" = "--no-install stryker --version" ] && { [ "$FAUX_ABSENT" = npx ] && exit 1; exit 0; }
+[ -n "$FAUX_DORT" ] && exec sleep "$FAUX_DORT"
+pwd >"$FAUX_JOURNAL/npx.cwd"
+echo "$*" >"$FAUX_JOURNAL/npx.args"
+e=$(printf '\033')
+printf '%s[Survived]%s ConditionalExpression\n' "$e[31m" "$e[39m"
+printf '%ssrc/calc.ts%s:%s2%s:%s10%s\n' "$e[36m" "$e[39m" "$e[33m" "$e[39m" "$e[33m" "$e[39m"
+printf '%s-     return a > b ? a : b;%s\n' "$e[31m" "$e[39m"
+printf '%s+     return true ? a : b;%s\n' "$e[32m" "$e[39m"
+printf 'Tests ran:\n    calc > max\n\n'
+printf '[NoCoverage] StringLiteral\nsrc/calc.ts:9:1\n-   "a"\n+   ""\n'
+exit 0
+FAUX
+cat >"$fx/uv" <<'FAUX'
+#!/bin/sh
+[ "$*" = "run mutmut --version" ] && { [ "$FAUX_ABSENT" = uv ] && exit 1; exit 0; }
+case "$3" in
+  run)
+    [ -n "$FAUX_DORT" ] && exec sleep "$FAUX_DORT"
+    pwd >"$FAUX_JOURNAL/uv.cwd"
+    echo "$*" >"$FAUX_JOURNAL/uv.args"
+    echo "$PYTEST_ADDOPTS" >"$FAUX_JOURNAL/uv.addopts"
+    ;;
+  results)
+    printf '    app.calc.x_somme__mutmut_1: survived\n    autre.x_f__mutmut_1: survived\n    app.calc.x_somme__mutmut_2: no tests\n'
+    ;;
+  show)
+    printf '# %s: survived\n--- src/app/calc.py\n+++ src/app/calc.py\n@@ -1,2 +1,2 @@\n def somme(a, b):\n-    return b + a\n+    return b - a\n' "$4"
+    ;;
+esac
+exit 0
+FAUX
+chmod +x "$fx/cargo" "$fx/npx" "$fx/uv"
+path_initial="$PATH"
+export PATH="$fx:$PATH" FAUX_JOURNAL="$tmp/fxj"
+mkdir -p "$FAUX_JOURNAL"
+
+# passe [arguments] : remplit $sortie et $code.
+passe() {
+  code=0
+  sortie="$(bash "$mutation" "$@" 2>&1)" || code=$?
+}
+
+# Usage faux : code 2.
+passe
+[[ $code -eq 2 ]] || echoue "mutation : sans argument : code $code : $sortie"
+passe "$mu"
+[[ $code -eq 2 ]] || echoue "mutation : un seul argument : code $code : $sortie"
+passe "$tmp/introuvable" "$base_mu"
+[[ $code -eq 2 ]] || echoue "mutation : dossier introuvable : code $code : $sortie"
+passe "$mu" inconnu-xyz
+[[ $code -eq 2 ]] || echoue "mutation : point fixe inconnu : code $code : $sortie"
+
+# mutation=non, puis clé absente : désactivée, aucun outil lancé.
+sed -i 's/^mutation=oui/mutation=non/' "$mu/.izanagi/config.env"
+passe "$mu" "$base_mu"
+[[ $code -eq 0 && $sortie == 'mutation : désactivée' ]] || echoue "mutation=non : $code : $sortie"
+sed -i '/^mutation=/d' "$mu/.izanagi/config.env"
+passe "$mu" "$base_mu"
+[[ $code -eq 0 && $sortie == 'mutation : désactivée' ]] || echoue "mutation absente : $code : $sortie"
+printf 'mutation=oui\n' >>"$mu/.izanagi/config.env"
+
+# Diff de documentation et de test seuls : rien à muter.
+echo 'Suite.' >>"$mu/README.md"
+printf 'def test_x():\n    pass\n' >"$mu/api/tests/unitaires/test_calc.py"
+git -C "$mu" add -A && git -C "$mu" commit -q -m doc
+passe "$mu" "$base_mu"
+[[ $code -eq 0 && $sortie == 'mutation : rien à muter' ]] || echoue "mutation : diff de documentation : $code : $sortie"
+[[ -z $(ls "$FAUX_JOURNAL") ]] || echoue "mutation : outil lancé sur un diff de documentation"
+
+# Un fichier de code par composant : un survivant par pile.
+sed -i 's/a + b/b + a/' "$mu/rs/src/lib.rs" "$mu/api/src/app/calc.py"
+sed -i 's/a > b ?/b < a ?/' "$mu/web/src/calc.ts"
+# Un nom accentué : git le citerait en octal sans core.quotePath=false.
+git -C "$mu" config core.quotePath true
+printf 'export const e = 1;\n' >"$mu/web/src/éclat.ts"
+printf 'import { max } from "./calc";\n' >"$mu/web/src/calc.test.ts"
+echo '// x' >>"$mu/outils/main.go"
+git -C "$mu" add -A && git -C "$mu" commit -q -m code
+passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : code $code : $sortie"
+attendu='survivant | rs | rs/src/lib.rs:2 | replace + with - in somme
+survivant | web | web/src/calc.ts:2 | ConditionalExpression : return true ? a : b;
+survivant | api | api/src/app/calc.py:4 | app.calc.x_somme__mutmut_1
+non muté | outils | pile sans outil
+mutation : 3 survivants'
+[[ $sortie == "$attendu" ]] || echoue "mutation : rapport faux : $sortie"
+grep -qF "$mu/rs" "$FAUX_JOURNAL/cargo.cwd" || echoue "mutation : cargo pas lancé dans rs"
+grep -qE '^mutants --in-diff .* --output ' "$FAUX_JOURNAL/cargo.args" || echoue "mutation : arguments cargo : $(cat "$FAUX_JOURNAL/cargo.args")"
+grep -qF -- '+++ b/src/lib.rs' "$FAUX_JOURNAL/cargo.diff" || echoue "mutation : diff de cargo pas relatif au composant : $(cat "$FAUX_JOURNAL/cargo.diff")"
+grep -qF 'main.go' "$FAUX_JOURNAL/cargo.diff" && echoue "mutation : diff de cargo hors du composant"
+grep -qF "$mu/web" "$FAUX_JOURNAL/npx.cwd" || echoue "mutation : stryker pas lancé dans web"
+[[ $(cat "$FAUX_JOURNAL/npx.args") == '--no-install stryker run --testRunner vitest --mutate src/calc.ts,src/éclat.ts --reporters clear-text' ]] ||
+  echoue "mutation : arguments stryker : $(cat "$FAUX_JOURNAL/npx.args")"
+grep -qF "$mu/api" "$FAUX_JOURNAL/uv.cwd" || echoue "mutation : mutmut pas lancé dans api"
+[[ $(cat "$FAUX_JOURNAL/uv.args") == 'run mutmut run app.calc.x*' ]] || echoue "mutation : arguments mutmut : $(cat "$FAUX_JOURNAL/uv.args")"
+grep -qF -- '--ignore=tests/fonctionnels' "$FAUX_JOURNAL/uv.addopts" || echoue "mutation : mutmut lance la couche fonctionnelle"
+
+# cargo-mutants en échec (code 4) avec un missed.txt vide : échec signalé, pas
+# « 0 survivant » en silence.
+FAUX_ECHEC=1 passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : échec de cargo : code $code"
+grep -qxF "non muté | rs | échec de l'outil (code 4)" <<<"$sortie" || echoue "mutation : échec de cargo non signalé : $sortie"
+grep -q '^survivant | rs ' <<<"$sortie" && echoue "mutation : survivant rs malgré l'échec : $sortie"
+
+# Un outil absent : le composant n'est pas muté, les autres le sont.
+rm -f "$FAUX_JOURNAL"/*
+FAUX_ABSENT=npx passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : outil absent : code $code"
+grep -qxF 'non muté | web | outil absent' <<<"$sortie" || echoue "mutation : outil absent non signalé : $sortie"
+[[ -f $FAUX_JOURNAL/npx.args ]] && echoue "mutation : stryker lancé alors qu'absent"
+grep -qxF 'mutation : 2 survivants' <<<"$sortie" || echoue "mutation : outil absent : décompte faux : $sortie"
+
+# Délai nul : aucun outil ne tourne.
+rm -f "$FAUX_JOURNAL"/*
+sed -i 's/^mutation_delai=.*/mutation_delai=0/' "$mu/.izanagi/config.env"
+FAUX_DORT=30 passe "$mu" "$base_mu"
+[[ $code -eq 0 ]] || echoue "mutation : délai nul : code $code"
+for c in rs web api; do
+  grep -qxF "non muté | $c | délai dépassé" <<<"$sortie" || echoue "mutation : délai nul : $c : $sortie"
+done
+grep -qxF 'mutation : 0 survivants' <<<"$sortie" || echoue "mutation : délai nul : décompte faux : $sortie"
+[[ -z $(ls "$FAUX_JOURNAL") ]] || echoue "mutation : outil lancé avec un délai nul"
+sed -i 's/^mutation_delai=.*/mutation_delai=15/' "$mu/.izanagi/config.env"
+
+# Délai dépassé en cours de passe : timeout arrête l'outil qui dort, et le délai
+# usé ne revient pas aux composants suivants.
+if command -v timeout >/dev/null; then
+  debut=$SECONDS
+  IZANAGI_MUTATION_DELAI=2 FAUX_DORT=30 passe "$mu" "$base_mu"
+  [[ $code -eq 0 ]] || echoue "mutation : délai dépassé : code $code"
+  ((SECONDS - debut < 20)) || echoue "mutation : outil pas arrêté au délai"
+  for c in rs web api; do
+    grep -qxF "non muté | $c | délai dépassé" <<<"$sortie" || echoue "mutation : délai dépassé : $c : $sortie"
+  done
+fi
+export PATH="$path_initial"
+unset FAUX_JOURNAL
 
 echo "tools.sh : tous les cas passent"

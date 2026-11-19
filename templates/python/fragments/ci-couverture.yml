@@ -1,0 +1,3 @@
+      # Couverture pytest : `uv run --with pytest-cov==7.1.0` ajoute pytest-cov
+      # au lancement, sans toucher au verrou du projet. Rien à installer ici
+      # après setup-uv.
