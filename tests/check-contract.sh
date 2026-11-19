@@ -99,7 +99,7 @@ cp -r "$tmp/ok" "$tmp/sl"
 printf '#!/usr/bin/env bash\n# --- composant cli (rust) ---\ncase "${1:-}" in\n  --host|-h) ;;\n  --clean) exit 0 ;;\n  *) sleep 60 ;;\nesac\n' >"$tmp/sl/scripts/check.sh"
 if sortie="$(IZANAGI_CONTRAT_DELAI=1 "$contrat" "$tmp/sl")"; then echoue "délai dépassé accepté"; fi
 grep -q 'option inconnue doit sortir avec le code 2' <<<"$sortie" || echoue "délai : $sortie"
-grep -q 'ne gère pas' <<<"$sortie" && echoue "--host|-h) non reconnu : $sortie"
+grep -qE 'ne gère pas --(host|clean)' <<<"$sortie" && echoue "--host|-h) non reconnu : $sortie"
 rm -rf "$tmp/sl"
 
 # Cas entre guillemets : `"--host")` et `'--clean')` sont reconnus.
@@ -123,6 +123,38 @@ sed -i 's/$/\r/' "$tmp/cr/scripts/check.sh"
 if sortie="$("$contrat" "$tmp/cr")"; then echoue "npm install en CRLF accepté"; fi
 grep -q 'verrou' <<<"$sortie" || echoue "CRLF : $sortie"
 rm -rf "$tmp/cr"
+
+# Règle 10 : une étape par couche déclarée dans harness.md.
+poser couches composant='cli|.|rust|cargo run|unitaire,integration,fonctionnelle' systemes=linux,windows \
+  fonctionnel_projet='e2e|bash e2e/run.sh'
+sortie="$("$contrat" "$tmp/couches")" || echoue "projet à trois couches refusé : $sortie"
+[[ $sortie == 'contrat : respecté' ]] || echoue "trois couches : $sortie"
+for couche in unitaire integration fonctionnelle; do
+  cp -r "$tmp/couches" "$tmp/manque"
+  sed -i "/echo \"-- cli : $couche\"/d" "$tmp/manque/scripts/check.sh"
+  if sortie="$("$contrat" "$tmp/manque")"; then echoue "étape $couche manquante acceptée"; fi
+  grep -qF "contrat : scripts/check.sh : pas d'étape $couche pour le composant cli" <<<"$sortie" || echoue "étape $couche : $sortie"
+  rm -rf "$tmp/manque"
+done
+cp -r "$tmp/couches" "$tmp/manque"
+sed -i '/echo "-- projet : fonctionnelle"/d' "$tmp/manque/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/manque")"; then echoue "étape projet manquante acceptée"; fi
+grep -qF "contrat : scripts/check.sh : pas d'étape fonctionnelle pour le composant projet" <<<"$sortie" || echoue "étape projet : $sortie"
+rm -rf "$tmp/manque"
+
+# Règle 11 : check.sh gère --complet.
+cp -r "$tmp/ok" "$tmp/comp"
+sed -i 's/--complet)/--entier)/' "$tmp/comp/scripts/check.sh"
+if sortie="$("$contrat" "$tmp/comp")"; then echoue "--complet absent accepté"; fi
+grep -qF 'contrat : scripts/check.sh : ne gère pas --complet' <<<"$sortie" || echoue "--complet : $sortie"
+rm -rf "$tmp/comp"
+
+# Des composants et aucune couche déclarée : écart.
+cp -r "$tmp/ok" "$tmp/nc"
+sed -i '/^- couche : /d' "$tmp/nc/docs/agents/harness.md"
+if sortie="$("$contrat" "$tmp/nc")"; then echoue "aucune couche déclarée acceptée"; fi
+grep -qF 'contrat : docs/agents/harness.md : aucune couche de test déclarée' <<<"$sortie" || echoue "aucune couche : $sortie"
+rm -rf "$tmp/nc"
 
 # harness.md supprimé.
 rm "$tmp/ok/docs/agents/harness.md"

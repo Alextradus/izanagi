@@ -88,11 +88,25 @@ if [[ -f $projet/$check ]]; then
   fi
   # Règle 9 : la recherche de secrets.
   grep -qF 'gitleaks git' "$projet/$check" || ecart "$check" "ne lance pas la recherche de secrets (gitleaks git)"
+  # Règle 11 : --complet, avec la même recherche que la règle 3.
+  grep -qE -- "(^|[|[:space:]])[\"']?--complet[\"']?[|)]" "$projet/$check" || ecart "$check" "ne gère pas --complet"
+  # Règle 10 : une étape par couche déclarée dans harness.md. Seuls les deux
+  # premiers champs comptent, la commande peut contenir n'importe quel texte.
+  while IFS= read -r ligne; do
+    ligne="${ligne%$'\r'}"
+    IFS='|' read -r c_nom c_couche _ <<<"${ligne#- couche : }"
+    c_nom="${c_nom#"${c_nom%%[![:space:]]*}"}"; c_nom="${c_nom%"${c_nom##*[![:space:]]}"}"
+    c_couche="${c_couche#"${c_couche%%[![:space:]]*}"}"; c_couche="${c_couche%"${c_couche##*[![:space:]]}"}"
+    grep -qF -- "-- $c_nom : $c_couche" "$projet/$check" || ecart "$check" "pas d'étape $c_couche pour le composant $c_nom"
+  done < <(grep -E '^- couche : ' "$projet/$harness" || true)
   # Règle 5 : une section par composant.
   for nom in "${noms[@]}"; do
     grep -qF -- "# --- composant $nom (" "$projet/$check" || ecart "$check" "pas de section pour le composant $nom"
   done
 fi
+
+# Règle 10, suite : des composants sans aucune couche déclarée.
+grep -qE '^- couche : ' "$projet/$harness" || ecart "$harness" "aucune couche de test déclarée"
 
 # Règle 4 : aucun À ÉCRIRE.
 for f in "$check" "$ci" "$secu" "$dev"; do
