@@ -47,7 +47,7 @@ Fin : la branche existe, avec son état commité.
 Lance `izanagi:grilling` sur le changement, pour cinq questions au plus. Tu cherches quatre réponses :
 
 - **ce que le changement fait**, en une ou deux phrases que l'utilisateur confirme ;
-- **la couture** : l'interface par laquelle un test le prouve ;
+- **la couture** : l'interface par laquelle un test le prouve, et sa couche (`unitaire`, `integration` ou `fonctionnelle`, selon la section « Couches » du skill `tdd`) ;
 - **le critère de fin** : ce que l'utilisateur pourra faire ou voir une fois le changement fusionné ;
 - **le niveau de risque**, que tu proposes d'après `references/risk.md` et que l'utilisateur confirme.
 
@@ -64,7 +64,7 @@ Fin : l'utilisateur a confirmé les quatre réponses, et le journal les porte.
 ## 4. Travail
 
 1. Lance `state.sh set phase=travail risque=<niveau> --commit`. Si tu reviens ici après un retour de test, garde le niveau que l'état porte déjà (`state.sh get risque`) : la revue a pu le monter.
-2. Écris le brief de l'implémenteur : le titre et le numéro de l'issue, les quatre réponses du cadrage, la couture, la consigne de ne rien faire d'autre, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`.
+2. Écris le brief de l'implémenteur : le titre et le numéro de l'issue, les quatre réponses du cadrage, la couture et sa couche, la consigne de ne rien faire d'autre, et le chemin absolu de `${CLAUDE_PLUGIN_ROOT}/references/langages/index.md`.
 3. Lance un sous-agent `izanagi:implementer` avec ce brief. Un hook du plugin relance la vérification à son arrêt et le renvoie au travail si elle échoue.
 4. Lis son rapport. Au statut « question » ou « bloqué », réponds ou demande à l'utilisateur, puis relance un implémenteur avec la réponse. Au statut « fait avec réserves », note les réserves au journal et commite-le.
 

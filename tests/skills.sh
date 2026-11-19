@@ -228,6 +228,10 @@ grep -qF 'scénario d'"'"'acceptation' skills/task-loop/SKILL.md || echoue "task
 grep -qF -- '- couche :' agents/reviewer-spec.md || echoue "reviewer-spec ne lit pas les lignes « - couche : »"
 grep -qF 'couche la plus basse' agents/diagnostician.md || echoue "diagnostician ne nomme pas la couche la plus basse"
 grep -qF 'couche de ta couture' agents/implementer.md || echoue "implementer ne lit pas la couche de sa couture"
+# Hors jalon, la couche vient du brief : task la nomme au cadrage et la recopie.
+grep -qF 'Lis dans le plan ou le brief la couche de ta couture' agents/implementer.md || echoue "implementer ne lit la couche que dans le plan"
+grep -E '^- \*\*la couture\*\*' skills/task/SKILL.md | grep -qF 'sa couche' || echoue "le cadrage de task ne nomme pas la couche de la couture"
+grep -E "^2\. Écris le brief de l'implémenteur" skills/task/SKILL.md | grep -qF 'la couture et sa couche' || echoue "le brief de task ne donne pas la couche de la couture"
 
 # Mutation dans la revue (0.7).
 grep -qF 'mutation.txt' skills/review/SKILL.md || echoue "review ne nomme pas mutation.txt"
