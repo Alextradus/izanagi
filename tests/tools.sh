@@ -475,6 +475,54 @@ sed -i '/^verification=/d' "$config"
 ecart config.env 'verification'
 retablir
 
+
+# Navigateurs Playwright et outils de mutation : `navigateur` et `mutation` viennent de
+# config.env, une clé absente vaut `non`. Des faux outils rendent 0 (présents) ou 1 (absents).
+harness_dr="$tmp/dr/docs/agents/harness.md"
+cp "$harness_dr" "$tmp/dr-harness"
+printf -- '- composant : web | web | typescript |\n- composant : api | api | python |\n- couche : web | fonctionnelle | web/e2e | npx playwright test\n' >>"$harness_dr"
+mkdir -p "$tmp/dr/web" "$tmp/dr/api" "$tmp/fm"
+for f in cargo npx uv; do
+  printf '#!/bin/sh\npwd >>"%s/$(basename "$0").cwd"\nexit "${FAUX_CODE:-0}"\n' "$tmp/fm" >"$tmp/fm/$f"
+  chmod +x "$tmp/fm/$f"
+done
+path_initial="$PATH"
+export PATH="$tmp/fm:$PATH" PLAYWRIGHT_BROWSERS_PATH="$tmp/pw"
+mkdir -p "$tmp/pw"
+
+# Sans clé : aucun contrôle, aucun écart.
+diagnostic
+grep -qE 'Playwright|mutants|stryker|mutmut' <<<"$sortie" && echoue "doctor : contrôle sans navigateur ni mutation : $sortie"
+
+printf 'navigateur=oui\n' >>"$config"
+ecart 'navigateurs Playwright' 'absents : npx playwright install chromium'
+mkdir "$tmp/pw/chromium-1234"
+diagnostic
+grep -qxF 'ok      navigateurs Playwright' <<<"$sortie" || echoue "doctor : navigateurs présents refusés : $sortie"
+rmdir "$tmp/pw/chromium-1234"
+# Sans couche fonctionnelle, navigateur=oui ne contrôle rien.
+cp "$tmp/dr-harness" "$harness_dr"
+diagnostic
+grep -q 'Playwright' <<<"$sortie" && echoue "doctor : Playwright contrôlé sans couche fonctionnelle : $sortie"
+printf -- '- composant : web | web | typescript |\n- composant : api | api | python |\n- couche : web | fonctionnelle | web/e2e | npx playwright test\n' >>"$harness_dr"
+retablir
+
+printf 'mutation=oui\n' >>"$config"
+FAUX_CODE=0 diagnostic
+for c in 'cargo-mutants' 'stryker' 'mutmut'; do
+  grep -qE "^ok      $c" <<<"$sortie" || echoue "doctor : $c présent refusé : $sortie"
+done
+grep -qF "$tmp/dr/web" "$tmp/fm/npx.cwd" || echoue "doctor : stryker pas lancé dans le dossier du composant"
+export FAUX_CODE=1
+ecart cargo-mutants 'absent pour .* : cargo install cargo-mutants'
+ecart stryker 'absent pour web : npm install --save-dev @stryker-mutator/core'
+ecart mutmut 'absent pour api : uv add --dev mutmut'
+unset FAUX_CODE
+export PATH="$path_initial"
+unset PLAYWRIGHT_BROWSERS_PATH
+retablir
+cp "$tmp/dr-harness" "$harness_dr"
+
 git config --unset core.hooksPath
 ecart 'hook pre-push' 'core.hooksPath'
 git config core.hooksPath .githooks
