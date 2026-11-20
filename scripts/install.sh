@@ -18,7 +18,8 @@
 # valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`,
 # `hook_destructif` vaut `demande`, `bloque` ou `avertit`. `mutation` vaut `oui`
 # quand toutes les piles des composants ont un gabarit, `non` sinon, sauf si le
-# fichier de valeurs la donne.
+# fichier de valeurs la donne. `version_composant` nomme le composant dont
+# release.yml lit la version (vide : le premier) ; un nom inconnu sort avec 1.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -191,6 +192,13 @@ lire_valeurs "$valeurs_utilisateur"
 # Posées de nouveau : le fichier de valeurs ne doit pas écraser les valeurs calculées.
 valeurs[systemes]="$systemes"
 valeurs[ci_os]="[$ci_os]"
+
+# `version_composant` : le composant qui porte la version du projet, lue par
+# release.yml. Vide, elle vaut le premier composant.
+if [[ -n ${valeurs[version_composant]:-} && -z ${noms_vus[${valeurs[version_composant]}]:-} ]]; then
+  echo "install.sh : version_composant « ${valeurs[version_composant]} » n'est pas un composant" >&2
+  exit 1
+fi
 
 # `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`
 # casserait la chaîne. Git les accepte, le gabarit non.
@@ -458,6 +466,57 @@ if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
   tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
   lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"
 fi
+# release.yml : la version se lit dans le composant `version_composant` (le
+# premier par défaut), puis un job de livrable par composant selon `type` et sa
+# pile (décision 126) : `binaires` pour un cli en Rust, `publier` pour un cli en
+# TypeScript ou en Python et pour une library. desktop, game, mobile et data-ml
+# ont un job `livrable` à écrire ; les autres types n'ont que verifier et release.
+release_matrice=""
+for s in "${liste_systemes[@]}"; do
+  case "$s" in
+    linux) os=ubuntu-latest ;;
+    windows) os=windows-latest ;;
+    macos) os=macos-latest ;;
+  esac
+  release_matrice+="${release_matrice:+$'\n'}          - { systeme: $s, os: $os }"
+done
+release_version=""
+release_jobs=""
+release_needs="verifier"
+# ajouter_job_release <job> <fragment> [clé=valeur]… : rend le fragment, qui commence
+# par une ligne vide, et l'ajoute aux jobs ; une ligne vide sépare deux jobs.
+ajouter_job_release() {
+  local job="$1" f="$2"
+  shift 2
+  release_jobs+="${release_jobs:+$'\n'}$(rendre_fragment "$f" "$@")"
+  release_needs+=", $job"
+}
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile _ <<<"$entree"
+  cles=("composant=$c_nom" "chemin=$c_chemin" "pile=$c_pile")
+  if [[ -z $release_version && ( -z ${valeurs[version_composant]:-} || ${valeurs[version_composant]} == "$c_nom" ) ]]; then
+    release_version="$(rendre_fragment "$(fragment release-version.yml "$c_pile")" "${cles[@]}")"
+  fi
+  case "${valeurs[type]:-}|$c_pile" in
+    cli\|rust)
+      ajouter_job_release "binaires-$c_nom" "$racine/templates/rust/fragments/release-binaires.yml" "${cles[@]}" "matrice=$release_matrice"
+      ;;
+    cli\|typescript | cli\|python | library\|*)
+      # Une pile sans gabarit de publication n'a pas de job : le projet l'écrit.
+      if [[ -f $racine/templates/$c_pile/fragments/release-registre.yml ]]; then
+        ajouter_job_release "publier-$c_nom" "$racine/templates/$c_pile/fragments/release-registre.yml" "${cles[@]}"
+      fi
+      ;;
+  esac
+done
+case "${valeurs[type]:-}" in
+  desktop | game | mobile | data-ml)
+    ajouter_job_release livrable "$racine/templates/core/fragments/release-livrable.yml" "type=${valeurs[type]}"
+    ;;
+esac
+valeurs[release_version]="$release_version"
+valeurs[release_jobs]="$release_jobs"
+valeurs[release_needs]="$release_needs"
 valeurs[tableau_couches]="$(tableau_des_couches "$tableau_couches")"
 valeurs[lignes_couches]="$lignes_couches"
 valeurs[tableau_composants]="$tableau"

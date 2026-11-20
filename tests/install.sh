@@ -20,7 +20,7 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 19 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 20 ]] || echoue "première pose : $sortie"
 grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
 grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
 for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
@@ -64,7 +64,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 18 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 19 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -792,6 +792,150 @@ rm "$tmp/nd/CHANGELOG.md"
 lancer_nd 0.2.0
 [[ $code_nd -eq 1 ]] || echoue "notes-de-version sans CHANGELOG.md : code $code_nd au lieu de 1"
 [[ $(cat "$tmp/nd-err") == 'notes-de-version.sh : CHANGELOG.md absent' ]] || echoue "notes-de-version sans CHANGELOG.md : message : $(cat "$tmp/nd-err")"
+
+# --- release.yml : le livrable du type d'application ---
+# controle_release <fichier> : `permissions: {}` en tête, une ligne `permissions:` par
+# job, chaque action épinglée par SHA, aucun `${{` dans un `run:` (en ligne ou en bloc).
+controle_release() {
+  local f="$1" ecarts
+  [[ -f $f ]] || echoue "$f absent"
+  grep -qx 'permissions: {}' "$f" || echoue "$f : pas de « permissions: {} » en tête"
+  ecarts="$(awk '
+    /^jobs:$/ { dans = 1; next }
+    dans && /^  [a-z][a-z0-9_-]*:$/ { if (job != "" && !perm) print "job " job " sans permissions"; job = $1; perm = 0 }
+    dans && /^    permissions:/ { perm = 1 }
+    END { if (job != "" && !perm) print "job " job " sans permissions" }' "$f")"
+  [[ -z $ecarts ]] || echoue "$f : $ecarts"
+  ecarts="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$f" | grep -vE '@[0-9a-f]{40} # ' || true)"
+  [[ -z $ecarts ]] || echoue "$f : actions non épinglées : $ecarts"
+  ecarts="$(awk '
+    bloc && match($0, /^ */) && RLENGTH <= retrait && $0 !~ /^ *$/ { bloc = 0 }
+    bloc && /\$\{\{/ { print }
+    /^ *(- )?run: *\|/ { bloc = 1; match($0, /^ */); retrait = RLENGTH; next }
+    /^ *(- )?run: / && /\$\{\{/ { print }' "$f")"
+  [[ -z $ecarts ]] || echoue "$f : expression dans un run: : $ecarts"
+}
+# job_release <fichier> <job> : les lignes du job, jusqu'au job suivant.
+job_release() { sed -n "/^  $2:\$/,/^  [a-z][a-z0-9_-]*:\$/p" "$1"; }
+# jobs_release <fichier> : les noms des jobs, un par ligne.
+jobs_release() { sed -n '/^jobs:$/,$p' "$1" | sed -n 's/^  \([a-z][a-z0-9_-]*\):$/\1/p'; }
+
+# Projet posé au début, sans type : verifier et release seulement.
+controle_release "$tmp/p/.github/workflows/release.yml"
+[[ $(jobs_release "$tmp/p/.github/workflows/release.yml") == $'verifier\nrelease' ]] ||
+  echoue "release.yml sans type : jobs : $(jobs_release "$tmp/p/.github/workflows/release.yml")"
+grep -qE '\{\{[a-z_]+\}\}' "$tmp/p/.github/workflows/release.yml" && echoue "release.yml garde un {{clé}}"
+
+# cli Rust sur linux et windows : une archive par système, rien sur un registre.
+mkdir "$tmp/rl1"
+printf '%s\n' 'composant=cli|.|rust|' type=cli systemes=linux,windows "${base[@]}" >"$tmp/rl1v"
+"$install" "$tmp/rl1" "$tmp/rl1v" >/dev/null
+rl="$tmp/rl1/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\nbinaires-cli\nrelease' ]] || echoue "cli rust : jobs : $(jobs_release "$rl")"
+grep -qxF '    tags: ["v*"]' "$rl" || echoue "cli rust : release.yml ne part pas au push d'un tag v*"
+for mot in 'cargo pkgid' 'TAG: ${{ github.ref_name }}' 'bash scripts/notes-de-version.sh "$VERSION" >notes.md' \
+  "::error::release.yml : le tag \$TAG ne vaut pas la version \$VERSION du fichier de version"; do
+  job_release "$rl" verifier | grep -qF -- "$mot" || echoue "cli rust : verifier sans « $mot »"
+done
+job_binaires="$(job_release "$rl" binaires-cli)"
+for mot in 'cargo build --release --locked' '- { systeme: linux, os: ubuntu-latest }' '- { systeme: windows, os: windows-latest }' \
+  'needs: verifier' 'contents: read' 'cli-$TAG-$SYSTEME.tar.gz' 'target/release'; do
+  grep -qF -- "$mot" <<<"$job_binaires" || echoue "cli rust : binaires sans « $mot »"
+done
+[[ $(grep -c '{ systeme: ' <<<"$job_binaires") -eq 2 ]] || echoue "cli rust : deux systèmes attendus"
+grep -qF 'id-token' "$rl" && echoue "cli rust : id-token sans publication"
+job_rel="$(job_release "$rl" release)"
+for mot in 'contents: write' 'needs: [verifier, binaires-cli]' 'gh release create "$TAG" --verify-tag --notes-file livraison/notes.md' 'GH_TOKEN: ${{ github.token }}'; do
+  grep -qF -- "$mot" <<<"$job_rel" || echoue "cli rust : release sans « $mot »"
+done
+
+# library Python : publication sur PyPI, sans archive.
+mkdir "$tmp/rl2"
+printf '%s\n' 'composant=lib|.|python|' type=library "${base[@]}" >"$tmp/rl2v"
+"$install" "$tmp/rl2" "$tmp/rl2v" >/dev/null
+rl="$tmp/rl2/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\npublier-lib\nrelease' ]] || echoue "library python : jobs : $(jobs_release "$rl")"
+job_pub="$(job_release "$rl" publier-lib)"
+for mot in 'id-token: write' 'contents: read' 'needs: verifier' 'uv build' 'uv publish' 'astral-sh/setup-uv@'; do
+  grep -qF -- "$mot" <<<"$job_pub" || echoue "library python : publier sans « $mot »"
+done
+job_release "$rl" verifier | grep -qF 'uv version --short' || echoue "library python : version par uv"
+[[ $(grep -cxF '      id-token: write' "$rl") -eq 1 ]] || echoue "library python : id-token hors du job publier"
+
+# library à trois piles : un job de publication par composant, sur son registre.
+mkdir "$tmp/rl3"
+printf '%s\n' 'composant=noyau|noyau|rust|' 'composant=web|web|typescript|' 'composant=py|py|python|' type=library \
+  version_composant=web "${base[@]}" >"$tmp/rl3v"
+"$install" "$tmp/rl3" "$tmp/rl3v" >/dev/null
+rl="$tmp/rl3/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\npublier-noyau\npublier-web\npublier-py\nrelease' ]] || echoue "library trois piles : jobs : $(jobs_release "$rl")"
+for ligne in \
+  'publier-noyau|rust-lang/crates-io-auth-action@' 'publier-noyau|CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}' \
+  'publier-noyau|cargo publish --locked' 'publier-noyau|working-directory: noyau' \
+  'publier-web|actions/setup-node@' 'publier-web|registry-url: https://registry.npmjs.org' 'publier-web|npm install -g npm@11.21.3' \
+  'publier-web|npm ci' 'publier-web|npm publish' 'publier-web|working-directory: web' \
+  'publier-py|uv publish' 'publier-py|working-directory: py' \
+  'verifier|node -p "require('"'"'./package.json'"'"').version"' 'verifier|working-directory: web'; do
+  job_release "$rl" "${ligne%%|*}" | grep -qF -- "${ligne#*|}" || echoue "library trois piles : ${ligne%%|*} sans « ${ligne#*|} »"
+done
+[[ $(grep -cxF '      id-token: write' "$rl") -eq 3 ]] || echoue "library trois piles : id-token par job de publication"
+job_release "$rl" verifier | grep -qE 'cargo pkgid|uv version' && echoue "library trois piles : version lue hors de version_composant"
+job_release "$rl" release | grep -qF 'needs: [verifier, publier-noyau, publier-web, publier-py]' || echoue "library trois piles : needs de release"
+
+# cli à deux composants, Rust et Python : une archive pour l'un, PyPI pour l'autre.
+mkdir "$tmp/rl4"
+printf '%s\n' 'composant=moteur|moteur|rust|' 'composant=outil|outil|python|' type=cli systemes=linux,windows,macos \
+  version_composant=outil "${base[@]}" >"$tmp/rl4v"
+"$install" "$tmp/rl4" "$tmp/rl4v" >/dev/null
+rl="$tmp/rl4/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\nbinaires-moteur\npublier-outil\nrelease' ]] || echoue "cli deux piles : jobs : $(jobs_release "$rl")"
+[[ $(job_release "$rl" binaires-moteur | grep -c '{ systeme: ') -eq 3 ]] || echoue "cli deux piles : trois systèmes attendus"
+job_release "$rl" binaires-moteur | grep -qF 'working-directory: moteur' || echoue "cli deux piles : binaires hors du dossier du composant"
+job_release "$rl" verifier | grep -qF 'uv version --short' || echoue "cli deux piles : version de outil"
+job_release "$rl" verifier | grep -qF 'cargo pkgid' && echoue "cli deux piles : version lue dans moteur"
+# Une ligne vide sépare deux jobs de livrable (le commentaire du job suit la ligne vide).
+[[ $(sed -n '/^  binaires-moteur:$/,/^  publier-outil:$/p' "$rl" | grep -c '^$') -eq 1 ]] || echoue "cli deux piles : jobs collés"
+
+# api TypeScript : verifier et release seulement.
+mkdir "$tmp/rl5"
+printf '%s\n' 'composant=api|.|typescript|' type=api "${base[@]}" >"$tmp/rl5v"
+"$install" "$tmp/rl5" "$tmp/rl5v" >/dev/null
+rl="$tmp/rl5/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\nrelease' ]] || echoue "api : jobs : $(jobs_release "$rl")"
+job_release "$rl" release | grep -qF 'needs: [verifier]' || echoue "api : needs de release"
+grep -qF 'id-token' "$rl" && echoue "api : id-token"
+
+# game : un livrable à écrire, qui échoue.
+mkdir "$tmp/rl6"
+printf '%s\n' 'composant=jeu|.|rust|' type=game "${base[@]}" >"$tmp/rl6v"
+"$install" "$tmp/rl6" "$tmp/rl6v" >/dev/null
+rl="$tmp/rl6/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\nlivrable\nrelease' ]] || echoue "game : jobs : $(jobs_release "$rl")"
+for mot in '# À ÉCRIRE : livrable de game' 'echo "::error::release.yml : le livrable de game est à écrire"' 'exit 1' 'contents: read'; do
+  job_release "$rl" livrable | grep -qF -- "$mot" || echoue "game : livrable sans « $mot »"
+done
+
+# Pile sans gabarit : la lecture de la version est à écrire.
+mkdir "$tmp/rl7"
+printf '%s\n' 'composant=srv|.|go|' type=api "${base[@]}" >"$tmp/rl7v"
+"$install" "$tmp/rl7" "$tmp/rl7v" >/dev/null
+rl="$tmp/rl7/.github/workflows/release.yml"
+controle_release "$rl"
+job_release "$rl" verifier | grep -qF 'echo "::error::release.yml : lecture de la version à écrire pour go"' || echoue "go : lecture de version à écrire"
+
+# version_composant inconnu : refus avant toute écriture, code 1.
+mkdir "$tmp/rl8"
+printf '%s\n' 'composant=cli|.|rust|' version_composant=absent "${base[@]}" >"$tmp/rl8v"
+set +e; "$install" "$tmp/rl8" "$tmp/rl8v" >/dev/null 2>"$tmp/err"; code=$?; set -e
+[[ $code -eq 1 ]] || echoue "version_composant inconnu : code $code au lieu de 1"
+[[ $(cat "$tmp/err") == 'install.sh : version_composant « absent » n'"'"'est pas un composant' ]] || echoue "version_composant inconnu : message : $(cat "$tmp/err")"
+[[ -z $(ls -A "$tmp/rl8") ]] || echoue "version_composant inconnu : écriture malgré le refus"
 
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.

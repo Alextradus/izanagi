@@ -1,0 +1,30 @@
+
+  # Publication sur npm par la publication de confiance : déclarer ce dépôt et
+  # le fichier release.yml comme éditeur de confiance du paquet sur npmjs.com.
+  # Elle demande npm 11.5.1 ou plus, Node 22.14.0 ou plus, `id-token: write`,
+  # un runner hébergé par GitHub et un `npm publish` sans jeton (lu le
+  # 2026-11-20 sur https://docs.npmjs.com/trusted-publishers). npm est fixé à
+  # 11.21.3, la dernière 11 publiée ce jour-là.
+  publier-{{composant}}:
+    name: publication de {{composant}} sur npm
+    needs: verifier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Publication de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        run: |
+          npm install -g npm@11.21.3
+          npm ci
+          npm publish

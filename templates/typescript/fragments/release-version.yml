@@ -1,0 +1,7 @@
+      # Node est installé sur les runners Ubuntu de GitHub : la lecture du
+      # package.json n'a pas besoin de setup-node.
+      - name: Version de {{composant}}
+        id: version
+        working-directory: {{chemin}}
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >>"$GITHUB_OUTPUT"

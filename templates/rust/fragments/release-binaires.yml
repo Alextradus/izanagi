@@ -1,0 +1,51 @@
+
+  binaires-{{composant}}:
+    name: binaires de {{composant}} (${{ matrix.systeme }})
+    needs: verifier
+    strategy:
+      matrix:
+        include:
+{{matrice}}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+      - name: Construction de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        # Le dossier target/ dans celui du composant, même membre d'un workspace.
+        env:
+          CARGO_TARGET_DIR: target
+        run: cargo build --release --locked
+      - name: Archive de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          SYSTEME: ${{ matrix.systeme }}
+        # Les exécutables posés à la racine de target/release : les .exe sous
+        # Windows, les fichiers exécutables ailleurs. L'archive s'écrit par un
+        # chemin relatif : le tar de Windows lit `D:` comme un hôte distant.
+        run: |
+          if [[ $RUNNER_OS == Windows ]]; then
+            mapfile -t executables < <(cd target/release && find . -maxdepth 1 -type f -name '*.exe' | sed 's|^\./||')
+          else
+            mapfile -t executables < <(cd target/release && find . -maxdepth 1 -type f -perm -u+x | sed 's|^\./||')
+          fi
+          if [[ ${#executables[@]} -eq 0 ]]; then
+            echo "::error::release.yml : aucun exécutable dans target/release pour {{composant}}"
+            exit 1
+          fi
+          tar -czf "{{composant}}-$TAG-$SYSTEME.tar.gz" -C target/release "${executables[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: binaires-{{composant}}-${{ matrix.systeme }}
+          path: {{chemin}}/{{composant}}-${{ github.ref_name }}-${{ matrix.systeme }}.tar.gz
+          if-no-files-found: error

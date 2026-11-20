@@ -1,0 +1,12 @@
+      # `cargo pkgid` affiche l'identifiant du paquet du dossier, de la forme
+      # `path+file:///…/<dossier>#X.Y.Z` ou `…#<nom>@X.Y.Z` : la version suit le
+      # dernier `@` ou `#`. La commande demande le Cargo.lock commité (lu le
+      # 2026-11-20 sur https://doc.rust-lang.org/cargo/commands/cargo-pkgid.html,
+      # forme essayée avec cargo le même jour).
+      - name: Version de {{composant}}
+        id: version
+        working-directory: {{chemin}}
+        shell: bash
+        run: |
+          id="$(cargo pkgid)"
+          echo "version=${id##*[@#]}" >>"$GITHUB_OUTPUT"

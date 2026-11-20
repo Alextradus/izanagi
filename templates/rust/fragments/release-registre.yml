@@ -1,0 +1,33 @@
+
+  # Publication sur crates.io par la publication de confiance : déclarer ce
+  # dépôt et le fichier release.yml comme éditeur de confiance de la crate sur
+  # crates.io. `rust-lang/crates-io-auth-action` échange le jeton OIDC du job
+  # contre un jeton crates.io, donné dans sa sortie `token`, et le révoque à la
+  # fin du job (lu le 2026-11-20 sur
+  # https://github.com/rust-lang/crates-io-auth-action, README). Le passage du
+  # jeton par `CARGO_REGISTRY_TOKEN` suit la page « Trusted Publishing » de
+  # crates.io, que la lecture du 2026-11-20 n'a pas pu ouvrir : à vérifier à la
+  # première release.
+  publier-{{composant}}:
+    name: publication de {{composant}} sur crates.io
+    needs: verifier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+        id: auth
+      - name: Publication de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked

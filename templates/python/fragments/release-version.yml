@@ -1,0 +1,8 @@
+      # `uv version --short` affiche la seule version du projet, sans toucher à
+      # uv.lock (lu le 2026-11-20 dans `uv version --help`, essayé le même jour).
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - name: Version de {{composant}}
+        id: version
+        working-directory: {{chemin}}
+        shell: bash
+        run: echo "version=$(uv version --short)" >>"$GITHUB_OUTPUT"
