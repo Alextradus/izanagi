@@ -20,7 +20,7 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 18 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 19 ]] || echoue "première pose : $sortie"
 grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
 grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
 for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
@@ -64,7 +64,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 17 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 18 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -725,6 +725,73 @@ printf '%s\n' 'composant=app|.|python||unitaire|à préciser' "${base[@]}" >"$tm
 "$install" "$tmp/ap" "$tmp/apv" >/dev/null
 grep -qF 'à préciser' "$tmp/ap/scripts/check.sh" && echoue "ancienne « à préciser » rendue dans check.sh : $(grep -nF 'à préciser' "$tmp/ap/scripts/check.sh")"
 grep -qF 'uv run pytest tests/unitaires' "$tmp/ap/scripts/check.sh" || echoue "ancienne « à préciser » : commande du gabarit absente"
+
+# --- notes-de-version.sh : la section d'une version dans CHANGELOG.md ---
+mkdir "$tmp/nd"
+"$install" "$tmp/nd" "$tmp/v" >/dev/null
+[[ -x $tmp/nd/scripts/notes-de-version.sh ]] || echoue "notes-de-version.sh absent ou non exécutable"
+bash -n "$tmp/nd/scripts/notes-de-version.sh" || echoue "notes-de-version.sh invalide"
+grep -qF '{{' "$tmp/nd/scripts/notes-de-version.sh" && echoue "notes-de-version.sh garde un {{"
+cat >"$tmp/nd/CHANGELOG.md" <<'FIN'
+# Journal des modifications
+
+## [Non publié]
+
+### Ajouté
+
+- Une chose à venir.
+
+## [0.2.0] - 2026-11-20
+
+### Ajouté
+
+- Le deuxième ajout.
+
+### Corrigé
+
+- Une correction.
+
+## [0.1.0] - 2026-11-01
+
+### Ajouté
+
+- Le premier ajout.
+FIN
+lancer_nd() {
+  set +e
+  sortie_nd="$(cd "$tmp/nd" && bash scripts/notes-de-version.sh "$@" 2>"$tmp/nd-err")"
+  code_nd=$?
+  set -e
+}
+lancer_nd 0.2.0
+[[ $code_nd -eq 0 ]] || echoue "notes-de-version 0.2.0 : code $code_nd"
+attendu_nd=$'### Ajouté\n\n- Le deuxième ajout.\n\n### Corrigé\n\n- Une correction.'
+[[ $sortie_nd == "$attendu_nd" ]] || echoue "notes-de-version 0.2.0 : sortie : $sortie_nd"
+lancer_nd 0.1.0
+[[ $code_nd -eq 0 ]] || echoue "notes-de-version 0.1.0 : code $code_nd"
+[[ $sortie_nd == $'### Ajouté\n\n- Le premier ajout.' ]] || echoue "notes-de-version 0.1.0 : sortie : $sortie_nd"
+for arg_nd in "Non publié" 1.2 v0.2.0 0.2.0.1 ""; do
+  lancer_nd "$arg_nd"
+  [[ $code_nd -eq 2 ]] || echoue "notes-de-version « $arg_nd » : code $code_nd au lieu de 2"
+  [[ $(cat "$tmp/nd-err") == 'usage : scripts/notes-de-version.sh <X.Y.Z>' ]] || echoue "notes-de-version « $arg_nd » : usage : $(cat "$tmp/nd-err")"
+done
+lancer_nd
+[[ $code_nd -eq 2 ]] || echoue "notes-de-version sans argument : code $code_nd au lieu de 2"
+lancer_nd 0.3.0
+[[ $code_nd -eq 1 ]] || echoue "notes-de-version 0.3.0 : code $code_nd au lieu de 1"
+[[ $(cat "$tmp/nd-err") == "notes-de-version.sh : CHANGELOG.md n'a pas de section [0.3.0]" ]] || echoue "notes-de-version 0.3.0 : message : $(cat "$tmp/nd-err")"
+# Une section vide compte comme absente.
+printf '## [0.4.0] - 2026-12-01\n\n## [0.3.0] - 2026-11-25\n\n- x\n' >"$tmp/nd/CHANGELOG.md"
+lancer_nd 0.4.0
+[[ $code_nd -eq 1 ]] || echoue "notes-de-version section vide : code $code_nd au lieu de 1"
+# Fichier en CRLF : la sortie ne garde aucun retour chariot.
+printf '## [0.2.0] - 2026-11-20\r\n\r\n- Un ajout.\r\n\r\n## [0.1.0] - 2026-11-01\r\n\r\n- Un autre.\r\n' >"$tmp/nd/CHANGELOG.md"
+lancer_nd 0.2.0
+[[ $code_nd -eq 0 && $sortie_nd == '- Un ajout.' ]] || echoue "notes-de-version CRLF : code $code_nd, sortie : $sortie_nd"
+rm "$tmp/nd/CHANGELOG.md"
+lancer_nd 0.2.0
+[[ $code_nd -eq 1 ]] || echoue "notes-de-version sans CHANGELOG.md : code $code_nd au lieu de 1"
+[[ $(cat "$tmp/nd-err") == 'notes-de-version.sh : CHANGELOG.md absent' ]] || echoue "notes-de-version sans CHANGELOG.md : message : $(cat "$tmp/nd-err")"
 
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.

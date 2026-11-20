@@ -242,10 +242,10 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md scripts/notes-de-version.sh; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 7 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 8 ]] || echoue "0.1.1 : créations en trop : $sortie"
   grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
@@ -333,7 +333,7 @@ sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/r06" 2>&1)" || echoue "
 # Relancée : rien à faire, rien de changé.
 git -C "$tmp/r06" checkout -q -- scripts .github docs
 [[ $(bash "$migration07" "$tmp/r06") == 'déjà migré' ]] || echoue "migration 0.7.0 relancée"
-[[ -z $(git -C "$tmp/r06" status --porcelain) ]] || echoue "migration 0.7.0 relancée : fichiers changés"
+[[ -z $(git -C "$tmp/r06" status --porcelain --untracked-files=no) ]] || echoue "migration 0.7.0 relancée : fichiers changés"
 
 # --- Projet Python posé par la 0.6.0, tests à plat ---
 mkdir -p "$tmp/y06/src/app" "$tmp/y06/tests/outils"
