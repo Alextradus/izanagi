@@ -366,6 +366,33 @@ git -C "$tmp/r06" checkout -q -- scripts .github docs
 [[ $(bash "$migration07" "$tmp/r06") == 'déjà migré' ]] || echoue "migration 0.7.0 relancée"
 [[ -z $(git -C "$tmp/r06" status --porcelain --untracked-files=no) ]] || echoue "migration 0.7.0 relancée : fichiers changés"
 
+# --- Espace de travail Cargo posé par la 0.6.0 : tests dans les membres (#44) ---
+# Les tests de crates/*/tests/ comptent comme ceux de tests/. Un test fonctionnel
+# d'un membre qui déclare la feature `fonctionnel` est rangé, celui d'un membre
+# sans la feature va dans « à ranger ». target/ n'est pas lu.
+mkdir -p "$tmp/w06/crates/coeur/src" "$tmp/w06/crates/coeur/tests" "$tmp/w06/crates/cli/src" "$tmp/w06/crates/cli/tests" \
+  "$tmp/w06/target/debug/build/x/tests"
+printf 'composant=outil|.|rust|cargo run\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntype=cli\nsystemes=%s\n' "$ici" >"$tmp/w06v"
+bash "$tmp/v06/scripts/install.sh" "$tmp/w06" "$tmp/w06v" >/dev/null
+printf '[workspace]\nmembers = ["crates/*"]\nresolver = "2"\n' >"$tmp/w06/Cargo.toml"
+printf '[package]\nname = "coeur"\n\n[features]\nfonctionnel = []\n' >"$tmp/w06/crates/coeur/Cargo.toml"
+printf '[package]\nname = "cli"\n' >"$tmp/w06/crates/cli/Cargo.toml"
+printf 'pub fn x() {}\n' >"$tmp/w06/crates/coeur/src/lib.rs"
+printf 'fn main() {}\n' >"$tmp/w06/crates/cli/src/main.rs"
+printf '#[test]\nfn calcul() {}\n' >"$tmp/w06/crates/coeur/tests/calcul.rs"
+printf '#[test]\nfn parcours() {}\n' >"$tmp/w06/crates/coeur/tests/fonctionnel_parcours.rs"
+printf '#[test]\nfn aide() {}\n' >"$tmp/w06/crates/cli/tests/fonctionnel_aide.rs"
+printf 'fn genere() {}\n' >"$tmp/w06/target/debug/build/x/tests/genere.rs"
+depot "$tmp/w06"
+sortie="$(bash "$migration07" "$tmp/w06")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md\nà ranger   crates/cli/tests/fonctionnel_aide.rs' ]] ||
+  echoue "migration 0.7.0 espace de travail : $sortie"
+harness_w="$tmp/w06/docs/agents/harness.md"
+grep -qxF -- '- couche : outil | integration | tests | cargo test --workspace --locked --test <nom>, pour chaque test hors fonctionnel_*' "$harness_w" ||
+  echoue "migration 0.7.0 espace de travail : couche intégration : $(cat "$harness_w")"
+grep -q '^- couche : outil | fonctionnelle | ' "$harness_w" ||
+  echoue "migration 0.7.0 espace de travail : couche fonctionnelle : $(cat "$harness_w")"
+
 # --- Projet Python posé par la 0.6.0, tests à plat ---
 mkdir -p "$tmp/y06/src/app" "$tmp/y06/tests/outils"
 printf 'composant=app|.|python|\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntest_manuel=uv run app\ntype=library\nsystemes=%s\n' "$ici" >"$tmp/y06v"

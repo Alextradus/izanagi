@@ -98,6 +98,8 @@ grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture d
 # `task` s'arrête au cadrage quand le changement est trop gros, et clôt comme `jalon`.
 grep -qF '**Garde-fou.**' skills/task/SKILL.md || echoue "skills/task n'a pas de garde-fou"
 grep -qF '/izanagi:jalon' skills/task/SKILL.md || echoue "le garde-fou de task ne propose pas /izanagi:jalon"
+grep -qF '❓ **Q1** - ' skills/grilling/SKILL.md || echoue "le tour de grilling n'a pas le repère ❓ (#45)"
+grep -qF '➡️ <la réponse' skills/grilling/SKILL.md || echoue "le tour de grilling n'a pas le repère ➡️ (#45)"
 grep -qF 'git add -u -- .izanagi' skills/task/SKILL.md || echoue "la clôture de task ne retire pas state.env de l'index"
 # `fix` : `jalon` le lance par l'outil Skill, ce que `disable-model-invocation` interdit.
 # Lu le 2026-11-13 dans https://code.claude.com/docs/en/skills.md : avec ce champ,

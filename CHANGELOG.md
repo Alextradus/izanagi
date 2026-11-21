@@ -2,6 +2,16 @@
 
 Ce fichier suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le projet suit le [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.8.1] - 2026-11-21
+
+### Modifié
+
+- `izanagi:grilling` remet `❓` devant chaque question et `➡️` devant chaque recommandation, pour repérer les questions d'un long tour.
+
+### Corrigé
+
+- La migration 0.7.0 trouve les tests d'intégration des membres d'un espace de travail Cargo (`crates/<membre>/tests/`). Avant, elle ne cherchait que dans `tests/` et déclarait la couche intégration « sans objet », ce qui sortait ces tests de `check.sh --complet`. Un projet déjà migré garde sa section « Couches de test ». S'il lui manque la ligne `- couche : <composant> | integration | tests | …`, ajoute-la à la main.
+
 ## [0.8.0] - 2026-11-21
 
 ### Ajouté

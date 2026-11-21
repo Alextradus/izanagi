@@ -15,16 +15,18 @@ Tu avances par tours. La **frontière** est l'ensemble des décisions dont les p
 Un tour a cette forme :
 
 ```
-**Q1** - **<titre de la question>** : <corps de la question, sur plusieurs paragraphes au besoin, avec ses choix>
+❓ **Q1** - **<titre de la question>** : <corps de la question, sur plusieurs paragraphes au besoin, avec ses choix>
 
-Recommandation : <la réponse que tu recommandes, et pourquoi>
+➡️ <la réponse que tu recommandes, et pourquoi>
 
 ---
 
-**Q2** - **<titre de la question>** : <corps de la question>
+❓ **Q2** - **<titre de la question>** : <corps de la question>
 
-Recommandation : <la réponse que tu recommandes, et pourquoi>
+➡️ <la réponse que tu recommandes, et pourquoi>
 ```
+
+Garde `❓` devant chaque question et `➡️` devant chaque recommandation. Ces deux icônes ne décorent pas. Sur un tour de dix questions, elles montrent où commence chaque question et où est la réponse proposée. Elles font exception à la règle qui retire les émojis d'un texte.
 
 Les numéros continuent d'un tour à l'autre, pour que l'utilisateur réponde « Q7 : oui ».
 
