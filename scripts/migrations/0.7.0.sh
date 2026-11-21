@@ -13,7 +13,8 @@
 #   la commande de l'étape `tests` de sa section de scripts/check.sh. Une couche
 #   `integration` ou `fonctionnelle` s'ajoute seulement si son dossier contient
 #   déjà des tests et que la commande du gabarit peut les lancer (scripts npm
-#   `test:integration` et `test:fonctionnel`, feature Cargo `fonctionnel`).
+#   `test:integration` et `test:fonctionnel`, feature Cargo `fonctionnel`). Pour
+#   Rust, les dossiers `tests` des membres d'un espace de travail comptent aussi.
 # - Affiche `à ranger   <chemin>` pour chaque fichier de test qu'elle ne range dans
 #   aucune couche. Elle ne déplace aucun test (décision 114).
 #
@@ -181,6 +182,24 @@ tests_dans() {
   find "$dossier" ${3:+-maxdepth "$3"} \( "${elagage[@]}" \) -prune -o -type f \( "${motif[@]}" \) -print
 }
 
+# dossiers_tests_rust <dossier> : affiche les dossiers `tests` d'un composant Rust,
+# celui du composant puis celui de chaque paquet de son espace de travail (un
+# dossier `tests` à côté d'un Cargo.toml, comme crates/<membre>/tests). L'étape
+# d'intégration du gabarit lit les cibles de test dans `cargo metadata`, qui
+# couvre tous les membres : leurs tests comptent donc comme ceux de tests/ (#44).
+dossiers_tests_rust() {
+  local dossier="$1" d autre
+  local -a elagage=(-name node_modules -o -name .venv -o -name venv -o -name .git -o -name target -o -name dist -o -name build)
+  [[ -d $dossier/tests ]] && printf '%s\n' "$dossier/tests"
+  for autre in ${chemins[@]+"${chemins[@]}"}; do
+    autre="$(dossier_de "$autre")"
+    [[ $autre != "$dossier" && $autre == "$dossier"/* ]] && elagage+=(-o -path "$autre")
+  done
+  while IFS= read -r d; do
+    [[ $d != "$dossier/tests" && -f $(dirname "$d")/Cargo.toml ]] && printf '%s\n' "$d"
+  done < <(find "$dossier" \( "${elagage[@]}" \) -prune -o -type d -name tests -print | LC_ALL=C sort)
+}
+
 # Couches détectées d'un composant : `integration` et `fonctionnelle` quand leur
 # dossier contient déjà des tests et que la commande du gabarit peut les lancer :
 # la feature `fonctionnel` dans Cargo.toml pour `tests/fonctionnel_*.rs`, les
@@ -193,9 +212,12 @@ detecter() {
   rangees=""
   case "$pile" in
     rust)
+      local d membre
       while IFS= read -r f; do
+        # Le paquet du test : le dossier qui contient son dossier `tests`.
+        membre="$(dirname "$(dirname "$f")")"
         if [[ $(basename "$f") == fonctionnel_* ]]; then
-          if grep -qE '^[[:space:]]*fonctionnel[[:space:]]*=' "$dir/Cargo.toml" 2>/dev/null; then
+          if grep -qE '^[[:space:]]*fonctionnel[[:space:]]*=' "$membre/Cargo.toml" "$dir/Cargo.toml" 2>/dev/null; then
             detectees+="fonctionnelle "
             rangees+="$f"$'\n'
           else
@@ -205,7 +227,7 @@ detecter() {
           detectees+="integration "
           rangees+="$f"$'\n'
         fi
-      done < <(tests_dans "$dir/tests" rust 1)
+      done < <(while IFS= read -r d; do tests_dans "$d" rust 1; done < <(dossiers_tests_rust "$dir"))
       ;;
     *)
       local couche sous script
