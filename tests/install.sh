@@ -980,6 +980,42 @@ printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" >"$tmp/dp2v"
 [[ ! -e $tmp/dp2/.github/workflows/deploiement.yml ]] || echoue "deploiement : fichier posé sans commande"
 grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/dp2/docs/agents/harness.md" || echoue "deploiement : ligne « à préciser » absente"
 
+# --- dependabot.yml : un écosystème par composant ---
+# Rust à la racine et Python dans api/ : trois entrées, github-actions comprise.
+mkdir "$tmp/db1"
+printf '%s\n' 'composant=noyau|.|rust|' 'composant=api|api|python|' type=cli "${base[@]}" >"$tmp/db1v"
+"$install" "$tmp/db1" "$tmp/db1v" >/dev/null
+db="$tmp/db1/.github/dependabot.yml"
+grep -q '{{' "$db" && echoue "dependabot : {{ restant"
+grep -qxF '  - package-ecosystem: github-actions' "$db" || echoue "dependabot : github-actions absent"
+[[ $(grep -c 'package-ecosystem:' "$db") -eq 3 ]] || echoue "dependabot : nombre d'entrées : $(grep -c 'package-ecosystem:' "$db")"
+grep -qxF '  - package-ecosystem: "cargo"' "$db" || echoue "dependabot : cargo absent"
+grep -qxF '  - package-ecosystem: "uv"' "$db" || echoue "dependabot : uv absent"
+grep -qxF '    directory: "/"' "$db" || echoue "dependabot : directory de la racine"
+grep -qxF '    directory: "/api"' "$db" || echoue "dependabot : directory /api"
+grep -qF 'directory: "/."' "$db" && echoue "dependabot : directory /."
+grep -qxF '      noyau-mineures:' "$db" && grep -qxF '      api-mineures:' "$db" || echoue "dependabot : groupes"
+[[ $(grep -cxF '        update-types: ["minor", "patch"]' "$db") -eq 2 ]] || echoue "dependabot : update-types"
+[[ $(grep -cxF '      interval: "weekly"' "$db") -eq 2 ]] || echoue "dependabot : intervalle des composants"
+# Le YAML est valide : chaque entrée reste sous « updates: ».
+[[ $(grep -c '^  - package-ecosystem' "$db") -eq 3 && $(grep -c '^[^ #]' "$db") -eq 2 ]] || echoue "dependabot : indentation"
+
+# TypeScript dans web/ : npm.
+mkdir "$tmp/db2"
+printf '%s\n' 'composant=web|web|typescript|' type=web-frontend "${base[@]}" >"$tmp/db2v"
+"$install" "$tmp/db2" "$tmp/db2v" >/dev/null
+grep -qxF '  - package-ecosystem: "npm"' "$tmp/db2/.github/dependabot.yml" || echoue "dependabot : npm absent"
+grep -qxF '    directory: "/web"' "$tmp/db2/.github/dependabot.yml" || echoue "dependabot : directory /web"
+
+# Pile sans gabarit : pas d'entrée, un commentaire le dit.
+mkdir "$tmp/db3"
+printf '%s\n' 'composant=srv|.|go|' type=api "${base[@]}" >"$tmp/db3v"
+"$install" "$tmp/db3" "$tmp/db3v" >/dev/null
+db="$tmp/db3/.github/dependabot.yml"
+[[ $(grep -c 'package-ecosystem:' "$db") -eq 1 ]] || echoue "dependabot : pile go : entrées"
+grep -qxF '  # srv (go) : pas de gabarit Dependabot, à ajouter à la main.' "$db" || echoue "dependabot : commentaire de la pile sans gabarit"
+grep -qxF '  - package-ecosystem: github-actions' "$db" || echoue "dependabot : github-actions absent (go)"
+
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.
 

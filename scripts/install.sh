@@ -514,6 +514,22 @@ case "${valeurs[type]:-}" in
     ajouter_job_release livrable "$racine/templates/core/fragments/release-livrable.yml" "type=${valeurs[type]}"
     ;;
 esac
+# dependabot.yml : une entrée par composant dont la pile a un gabarit ; les autres
+# piles laissent un commentaire. Le chemin `.` s'écrit `/`, un autre `/<chemin>`.
+dependabot_ecosystemes=""
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile _ <<<"$entree"
+  if [[ -f $racine/templates/$c_pile/fragments/dependabot.yml ]]; then
+    c_chemin_db="${c_chemin#./}"
+    c_chemin_db="${c_chemin_db%/}"
+    if [[ -z $c_chemin_db || $c_chemin_db == . ]]; then c_repertoire=/; else c_repertoire="/$c_chemin_db"; fi
+    dependabot_ecosystemes+="${dependabot_ecosystemes:+$'\n'}$(rendre_fragment "$racine/templates/$c_pile/fragments/dependabot.yml" \
+      "composant=$c_nom" "repertoire=$c_repertoire")"
+  else
+    dependabot_ecosystemes+="${dependabot_ecosystemes:+$'\n'}  # $c_nom ($c_pile) : pas de gabarit Dependabot, à ajouter à la main."
+  fi
+done
+valeurs[dependabot_ecosystemes]="$dependabot_ecosystemes"
 valeurs[release_version]="$release_version"
 valeurs[release_jobs]="$release_jobs"
 valeurs[release_needs]="$release_needs"
