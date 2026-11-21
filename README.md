@@ -27,9 +27,9 @@ Les flux chargent huit autres skills du plugin, absents du menu des commandes : 
 
 Un projet posé a trois fichiers propres à Izanagi :
 
-- `.izanagi/config.env` porte les réglages, une valeur par ligne (`clé=valeur`) : version du cadre, chemin de la spec, lieu des décisions, dossier des plans, branche principale, commande de vérification, commande et lieu du test manuel, taille d'une tranche, chemins sensibles, fichier de version, chemin du vault ou `non`, une clé par hook, `navigateur` (`oui` quand une couche fonctionnelle emploie Playwright), et les clés de la mutation, `mutation` et `mutation_delai`.
+- `.izanagi/config.env` porte les réglages, une valeur par ligne (`clé=valeur`) : version du cadre, chemin de la spec, lieu des décisions, dossier des plans, branche principale, commande de vérification, commande et lieu du test manuel, taille d'une tranche, chemins sensibles, fichier de version, chemin du vault ou `non`, une clé par hook, `navigateur` (`oui` quand une couche fonctionnelle emploie Playwright), les clés de la mutation, `mutation` et `mutation_delai`, et celles de la release, `langue_publique` et `version_composant`.
 - `.izanagi/state.env` porte l'état du flux de la branche courante : flux, nom, phase, tranche, tour de revue, niveau de risque. Il est versionné sur la branche du flux, et la branche principale n'en porte jamais. Seul `scripts/state.sh` du plugin l'écrit.
-- `docs/agents/harness.md` décrit le harnais : composants, systèmes cibles, type d'application, et le tableau des couches de test, avec le dossier et la commande de chaque couche de chaque composant.
+- `docs/agents/harness.md` décrit le harnais : composants, systèmes cibles, type d'application, commande de déploiement, et le tableau des couches de test, avec le dossier et la commande de chaque couche de chaque composant.
 
 Le journal d'un jalon, `.izanagi/journal/<plan>.md`, est versionné sur la branche du jalon. La clôture le supprime avec l'état, dans le dernier commit avant la fusion.
 
@@ -71,7 +71,8 @@ Chaque refus, avertissement ou demande d'un hook s'ajoute à `.izanagi/refus.log
 - `scripts/check.sh` cherche des secrets avec `gitleaks` dans les commits de la branche absents de la branche principale, avant de vérifier les composants. Un faux positif s'écarte dans `.gitleaks.toml`, avec sa raison.
 - Le job `audit` de la CI audite les dépendances de chaque composant. Une faille haute ou critique fait échouer la PR (`cargo audit`, `npm audit`). Pour Python, `pip-audit` ne filtre pas par gravité : toute faille connue fait échouer la PR.
 - `.github/workflows/securite.yml` relance chaque lundi l'audit et `gitleaks` sur tout l'historique. En cas d'échec, il ouvre une issue `securite` ou commente celle qui est ouverte.
-- Les actions de la CI sont épinglées par SHA, et `.github/dependabot.yml` propose leurs mises à jour.
+- Le job `analyse` de la CI lance Semgrep CE avec les règles du registre (`p/default`). Il affiche tous les constats, et un constat de sévérité ERROR fait échouer la PR. Un faux positif s'écarte par un commentaire `# nosemgrep: <règle>` sur sa ligne, avec la raison juste au-dessus. `securite.yml` relance aussi cette analyse chaque lundi.
+- Les actions de la CI sont épinglées par SHA. Chaque lundi, `.github/dependabot.yml` propose leurs mises à jour et celles des dépendances de chaque composant (`cargo`, `npm`, `uv`). Les mineures et les patchs d'un composant se groupent en une PR, et chaque majeure a la sienne. La CI les vérifie comme les autres PR, et tu les fusionnes. Une majeure qui casse la vérification passe par `/izanagi:task`, sur la PR de Dependabot.
 - Au niveau de risque élevé, un troisième relecteur, `reviewer-security`, cherche dans le diff les failles que liste la fiche du type d'application.
 
 ## Règles par langage
@@ -122,6 +123,31 @@ La CI lance `bash scripts/check.sh --host --complet` sur chaque système cible. 
 
 Deux clés de `.izanagi/config.env` la règlent. `mutation=oui` l'active, et `init` l'écrit quand toutes les piles des composants ont un gabarit. `mutation_delai` borne sa durée, en minutes (15 par défaut). Son rapport cite ce qui n'a pas été muté, faute d'outil ou de temps. `/izanagi:doctor` contrôle l'outil de chaque pile et donne sa commande d'installation.
 
+## Release et livraison
+
+La clôture d'un jalon écrit la section de la version dans `CHANGELOG.md`, au format Keep a Changelog, et te la fait relire. Elle pose ensuite le tag `vX.Y.Z` sur le commit de fusion et ne le pousse qu'avec ton accord. Un correctif de `/izanagi:fix` fait de même quand tu choisis de le publier. `/izanagi:task` ne publie jamais. Son changement part dans la prochaine version. La première release crée `CHANGELOG.md`. Un projet migré n'y reçoit pas ses versions passées.
+
+La clé `langue_publique` de `.izanagi/config.env` donne la langue du changelog et des notes de version, `fr` ou `en`. `init` la demande, et elle vaut `fr` par défaut.
+
+Au push du tag, `.github/workflows/release.yml` contrôle que le tag vaut la version du fichier de version, puis `scripts/notes-de-version.sh` extrait la section de la version dans `CHANGELOG.md`. Un tag faux, ou une version sans section, arrête le workflow avant toute publication. Sinon, il construit le livrable et crée la release GitHub avec ces notes. Avec plusieurs composants, la version se lit dans celui que nomme la clé `version_composant`, le premier par défaut.
+
+Le livrable dépend du type d'application, d'après sa fiche dans `references/types/` :
+
+| Type | Livrable |
+|---|---|
+| cli | Rust : une archive des binaires par système cible, jointe à la release. TypeScript : le paquet sur npm. Python : le paquet sur PyPI. |
+| library | le paquet sur crates.io, npm ou PyPI |
+| api, web-frontend, plugin | aucun fichier, le tag et la release marquent la version |
+| data-ml, desktop, game, mobile | aucun par défaut, le projet écrit le sien dans le job `livrable` de `release.yml` |
+
+La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Toi seul peux la configurer, côté registre, avant le premier tag.
+
+Izanagi ne choisit pas d'hébergeur. La ligne « Déploiement » de `docs/agents/harness.md` porte la commande qui déploie un tag, ou « à préciser ». Quand elle porte une commande, le projet reçoit `.github/workflows/deploiement.yml`, que tu lances à la main sur un tag (`gh workflow run deploiement.yml -f tag=vX.Y.Z`). Le workflow contrôle la forme du tag avant le checkout, puis lance la commande telle quelle. Les secrets que la commande lit sont des secrets du dépôt GitHub, que toi seul peux poser.
+
+`.github/pull_request_template.md` donne à chaque PR quatre titres : Quoi, Pourquoi, Vérification et Risque. Les PR que les flux ouvrent suivent ces titres.
+
+`check-contract.sh` demande `release.yml` à un projet qui a des composants, et `deploiement.yml` quand la ligne « Déploiement » porte une commande. Il contrôle dans les deux que chaque action est épinglée par SHA et que chaque job déclare ses permissions.
+
 ## Prérequis
 
 Izanagi n'a aucun prérequis de skill. Il lui faut :
@@ -161,9 +187,11 @@ Depuis un clone local, remplace `Alextradus/izanagi` par le chemin du clone : Cl
 
 ## Feuille de route
 
-La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, d'après `docs/specs/2026-11-18-izanagi-0.6-securite-amelioration.md`. La 0.7 ajoute les couches de test, la couverture et la mutation, d'après `docs/specs/2026-11-19-izanagi-0.7-couches-de-test.md`. La 1.0 sortira après un projet mené de bout en bout avec la 0.7, sur lequel se font aussi les essais de réception des 0.5, 0.6 et 0.7.
+La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, d'après `docs/specs/2026-11-18-izanagi-0.6-securite-amelioration.md`. La 0.7 ajoute les couches de test, la couverture et la mutation, d'après `docs/specs/2026-11-19-izanagi-0.7-couches-de-test.md`. La 0.8 ajoute le changelog, la release, le livrable par type, le déploiement, le template de PR, le suivi des dépendances par Dependabot et l'analyse Semgrep, d'après `docs/specs/2026-11-20-izanagi-0.8-release-livraison.md`.
 
-Restent sans version prévue : un template de PR, la release et le déploiement d'un projet, et des évals du plugin sur un projet témoin.
+La 1.0 est la version où le harnais mène un projet de son cadrage jusqu'à une version publiée et livrée. Elle sortira après un projet mené de bout en bout. Ce projet démarre sur la 0.7 et y fait la réception de la 0.7. Il passe ensuite en 0.8 par `/izanagi:upgrade`, ce qui essaie la migration 0.8.0, et sa première release sert de réception à la 0.8.
+
+Ce que la 0.8 n'ajoute pas passe en 1.x et ne retarde pas la 1.0 : des évals du plugin sur un projet témoin, une CI pour les tests d'Izanagi, les migrations de base de données, l'observabilité, la pile Go, entre autres. La spec de la 0.8 en donne la liste.
 
 ## Contribuer
 
