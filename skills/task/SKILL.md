@@ -88,7 +88,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 ## 6. PR et test
 
 1. **Version.** Monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) : lis la version sur la branche principale à jour juste avant, et commite (`chore: <version>`). Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas.
-2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps dit ce que le changement fait, comment l'essayer, colle la sortie de la vérification complète, et finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
+2. **PR.** Pousse la branche. Si la PR n'existe pas (`gh pr view` échoue), ouvre-la : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps suit les quatre titres de `.github/pull_request_template.md` : `## Quoi` dit ce que le changement fait, `## Pourquoi` renvoie à l'issue, `## Vérification` dit comment l'essayer et colle la sortie de la vérification complète, `## Risque` donne le niveau retenu. Il finit par `Closes #<n>`. Si elle existe, mets son corps à jour avec `gh pr edit --body-file`.
 3. Lance `state.sh set phase=test --commit` et pousse.
 4. **Test manuel.** L'utilisateur essaie le changement avec le test manuel, depuis la branche. Si la revue a retenu le niveau faible (`state.sh get risque`), il n'y a pas de test manuel : passe à la clôture.
 
@@ -109,6 +109,8 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 4. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
 5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 6. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
+
+`task` ne publie jamais : il ne pose aucun tag et n'écrit pas dans `CHANGELOG.md`. Le changement part dans la prochaine version publiée par `izanagi:jalon`, ou par `izanagi:fix` pour un correctif.
 
 Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni journal, la branche du changement supprimée.
 

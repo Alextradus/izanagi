@@ -273,6 +273,20 @@ for s in task fix; do
     echoue "skills/$s ne lance pas risk.sh avant mutation.sh"
 done
 
+# Changelog, tag et déploiement dans les clôtures (0.8).
+for mot in 'CHANGELOG.md' 'langue_publique' 'deploiement.yml' 'release.yml'; do
+  grep -qF "$mot" skills/jalon/SKILL.md || echoue "jalon ne nomme pas « $mot »"
+done
+for mot in 'CHANGELOG.md' 'deploiement.yml'; do
+  grep -qF "$mot" skills/fix/SKILL.md || echoue "fix ne nomme pas « $mot »"
+done
+grep -qF 'publier ce correctif ?' skills/fix/SKILL.md || echoue "fix ne pose pas la question « publier ce correctif ? »"
+grep -qF 'ne publie jamais' skills/task/SKILL.md || echoue "task ne dit pas qu'il ne publie pas"
+for s in jalon fix task; do
+  grep -qF '## Quoi' "skills/$s/SKILL.md" || echoue "skills/$s ne nomme pas le titre « ## Quoi » du template de PR"
+done
+grep -qF 'Release' references/versions.md || echoue "versions.md n'a pas de paragraphe « Release »"
+
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
   grep -qF "$mot" NOTICE || echoue "NOTICE ne cite pas « $mot »"

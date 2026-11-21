@@ -100,7 +100,7 @@ Fin : la revue est finie, et au niveau élevé l'utilisateur a relu le diff.
 ## 6. PR et test
 
 1. **Version.** Hors jalon, monte le patch dans le fichier de version (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`) et commite. Si la version de la branche dépasse déjà celle de la branche principale, tu l'as montée lors d'un passage précédent : ne la remonte pas. Dans un jalon, ne touche pas à la version.
-2. **PR.** Pousse la branche. Si la PR existe déjà (`gh pr view` réussit), mets son corps à jour avec `gh pr edit --body-file`. Sinon, ouvre-la : `gh pr create --base <base>`, corps passé par `--body-file`. Le corps dit le geste qui montrait le bug, la cause, le correctif, colle la sortie de la vérification complète, et finit par `Closes #<n>` si une issue existe.
+2. **PR.** Pousse la branche. Si la PR existe déjà (`gh pr view` réussit), mets son corps à jour avec `gh pr edit --body-file`. Sinon, ouvre-la : `gh pr create --base <base>`, corps passé par `--body-file`. Le corps suit les quatre titres de `.github/pull_request_template.md` : `## Quoi` dit le geste qui montrait le bug et le correctif, `## Pourquoi` dit la cause, `## Vérification` colle la sortie de la vérification complète, `## Risque` donne le niveau retenu. Il finit par `Closes #<n>` si une issue existe.
 3. Hors jalon, lance `state.sh set phase=test --commit` et pousse.
 4. **Test.** L'utilisateur refait le geste qui montrait le bug, depuis la branche. Si la revue a retenu le niveau faible, il n'y a pas de test : passe à la clôture.
 
@@ -114,10 +114,12 @@ Fin : la PR est ouverte et l'utilisateur confirme que le bug a disparu.
 
 1. Lance `state.sh set phase=cloture --commit`.
 2. **Leçon.** Si le tour de revue de l'état vaut 2 ou plus, ou si `bash "${CLAUDE_PLUGIN_ROOT}/scripts/refus.sh" fix/<nom court>` affiche une ligne, demande à l'utilisateur : « une leçon à garder ? », en citant ce qui a coûté. Sur un oui, lance `izanagi:retro` avec l'outil Skill pour cette seule leçon : il l'écrit et la commite sur la branche. Sinon, ne demande rien.
-3. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
-4. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
-5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
-6. Reviens sur la branche principale à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
+3. **Publication.** Demande à l'utilisateur : « publier ce correctif ? ». Sur un non, ne change rien : le correctif n'a pas de tag, et les étapes 4 et 8 se sautent. Sur un oui, écris la section du patch dans `CHANGELOG.md` : `## [X.Y.Z] - <date du jour>`, avec la version que la section 6 a montée, une ligne sous la rubrique Corrigé (`### Corrigé` en français, `### Fixed` en anglais, selon `langue_publique` dans `.izanagi/config.env`, `fr` par défaut), qui dit ce que l'utilisateur du projet ne voit plus. Si `CHANGELOG.md` n'existe pas, crée-le avec son en-tête comme le fait `izanagi:jalon`. Commite la section (`docs: changelog <version>`). `release.yml` échoue sans elle, et elle doit être sur le commit de fusion avant le tag.
+4. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
+5. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner, et reporte le numéro dans le titre de la section du changelog si tu l'as écrite.
+6. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+7. Reviens sur la branche principale à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
+8. Si l'utilisateur a voulu publier, pose le tag `vX.Y.Z` sur le commit de fusion, puis demande son accord avant de le pousser. Après le push, dis que `release.yml` publie la release. Si la ligne `Déploiement` de `docs/agents/harness.md` porte une commande (et non « à préciser »), propose `gh workflow run deploiement.yml -f tag=vX.Y.Z` et ne le lance que sur l'accord de l'utilisateur.
 
 **Dans un jalon.**
 
