@@ -169,6 +169,62 @@ if sortie="$("$contrat" "$tmp/nc")"; then echoue "aucune couche déclarée accep
 grep -qF 'contrat : docs/agents/harness.md : aucune couche de test déclarée' <<<"$sortie" || echoue "aucune couche : $sortie"
 rm -rf "$tmp/nc"
 
+# Règles 12 et 13 : release.yml, deploiement.yml, épinglage, permissions, analyse.
+# Le projet « ok » posé par install.sh passe déjà plus haut (contrat : respecté).
+refus() { # refus <nom> <ligne exacte attendue>
+  local sortie code=0
+  sortie="$("$contrat" "$tmp/$1")" || code=$?
+  [[ $code -eq 1 ]] || echoue "$1 : code $code au lieu de 1 ($sortie)"
+  [[ $sortie == "$2" ]] || echoue "$1 : sortie « $sortie » au lieu de « $2 »"
+}
+wf=.github/workflows
+
+cp -r "$tmp/ok" "$tmp/r12a"
+rm "$tmp/r12a/$wf/release.yml"
+refus r12a 'contrat : .github/workflows/release.yml : fichier absent'
+
+# Une commande de déploiement impose deploiement.yml.
+poser deploy composant='cli|.|rust|cargo run' systemes=linux,windows deploiement='./deploy.sh'
+sortie="$("$contrat" "$tmp/deploy")" || echoue "projet avec déploiement refusé : $sortie"
+[[ $sortie == 'contrat : respecté' ]] || echoue "déploiement : $sortie"
+[[ -f $tmp/deploy/$wf/deploiement.yml ]] || echoue "déploiement : deploiement.yml non posé"
+rm "$tmp/deploy/$wf/deploiement.yml"
+refus deploy 'contrat : .github/workflows/deploiement.yml : fichier absent'
+
+# « à préciser » : pas de deploiement.yml, pas d'écart.
+[[ ! -f $tmp/ok/$wf/deploiement.yml ]] || echoue "à préciser : deploiement.yml posé"
+grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/ok/docs/agents/harness.md" || echoue "à préciser : ligne absente"
+
+# Action sans SHA, dans release.yml puis dans deploiement.yml.
+cp -r "$tmp/ok" "$tmp/r12b"
+sed -i '0,/uses: actions\/checkout@[0-9a-f]\{40\}.*/s||uses: actions/checkout@v4|' "$tmp/r12b/$wf/release.yml"
+refus r12b 'contrat : .github/workflows/release.yml : action non épinglée : actions/checkout@v4'
+cp -r "$tmp/deploy" "$tmp/r12c"
+cp "$tmp/ok/$wf/release.yml" "$tmp/r12c/$wf/release.yml"
+sed -e 's/@[0-9a-f]\{40\} # v[0-9.]*/@main/' "$tmp/ok/$wf/release.yml" >"$tmp/r12c/$wf/deploiement.yml"
+sortie="$("$contrat" "$tmp/r12c")" || true
+grep -qF 'contrat : .github/workflows/deploiement.yml : action non épinglée : actions/' <<<"$sortie" || echoue "deploiement non épinglé : $sortie"
+
+# Actions locales et image docker:// par condensat : acceptées. Docker sans condensat : refusée.
+cp -r "$tmp/ok" "$tmp/r12d"
+printf '      - uses: ./.github/actions/x\n      - uses: docker://alpine@sha256:abc\n' >>"$tmp/r12d/$wf/release.yml"
+"$contrat" "$tmp/r12d" >/dev/null || echoue "action locale ou docker@sha256 refusée"
+printf '      - uses: docker://alpine:3\n' >>"$tmp/r12d/$wf/release.yml"
+refus r12d 'contrat : .github/workflows/release.yml : action non épinglée : docker://alpine:3'
+
+# Un job sans permissions (le nom du job vient de release.yml, les clés steps:/with: ne comptent pas).
+cp -r "$tmp/ok" "$tmp/r12e"
+printf '  nouveau:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo x\n        with:\n          a: b\n' >>"$tmp/r12e/$wf/release.yml"
+refus r12e 'contrat : .github/workflows/release.yml : le job nouveau ne déclare pas ses permissions'
+
+# Règle 13 : ci.yml sans job analyse, ou dont le job ne lance pas semgrep.
+cp -r "$tmp/ok" "$tmp/r13a"
+sed -i 's/^  analyse:/  analyser:/' "$tmp/r13a/$wf/ci.yml"
+refus r13a 'contrat : .github/workflows/ci.yml : pas de job analyse'
+cp -r "$tmp/ok" "$tmp/r13b"
+sed -i 's/semgrep scan/echo scan/' "$tmp/r13b/$wf/ci.yml"
+refus r13b 'contrat : .github/workflows/ci.yml : pas de job analyse'
+
 # harness.md supprimé.
 rm "$tmp/ok/docs/agents/harness.md"
 if sortie="$("$contrat" "$tmp/ok")"; then echoue "harness.md absent accepté"; fi
