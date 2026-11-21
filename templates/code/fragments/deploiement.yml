@@ -5,7 +5,9 @@
 #
 # Le tag passe au contrôle par `env:`, jamais par une expression dans un `run:`.
 # Le contrôle de forme s'arrête avant le checkout. La commande de déploiement,
-# écrite par le projet, est lancée telle quelle.
+# écrite par le projet, est lancée telle quelle. GitHub ne met pas les secrets du
+# dépôt dans l'environnement. La commande les lit par une expression, par exemple
+# `FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy`.
 name: Déploiement
 
 on:

@@ -36,7 +36,9 @@ La release publie ce que la pile du composant produit, selon les systèmes de `s
 - TypeScript : le paquet, publié sur npm.
 - Python : le paquet, publié sur PyPI.
 
-La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Elle se configure côté registre (npmjs.com, PyPI), et seul l'utilisateur peut le faire. Le skill `wizard` guide cette configuration, à faire avant le premier tag.
+Quand le projet a un composant Rust et un autre en TypeScript ou en Python, la publication sur le registre attend la construction des archives, parce qu'une publication ne se reprend pas.
+
+La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Seul l'utilisateur peut la configurer, sur npmjs.com ou PyPI. Le skill `wizard` guide cette configuration, à faire avant le premier tag.
 
 ## Prérequis
 

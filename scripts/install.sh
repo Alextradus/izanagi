@@ -475,7 +475,8 @@ fi
 # release.yml : la version se lit dans le composant `version_composant` (le
 # premier par défaut), puis un job de livrable par composant selon `type` et sa
 # pile (décision 126) : `binaires` pour un cli en Rust, `publier` pour un cli en
-# TypeScript ou en Python et pour une library. desktop, game, mobile et data-ml
+# TypeScript ou en Python et pour une library (à écrire, depuis le fragment du cœur,
+# pour une pile sans gabarit de publication). desktop, game, mobile et data-ml
 # ont un job `livrable` à écrire ; les autres types n'ont que verifier et release.
 release_matrice=""
 for s in "${liste_systemes[@]}"; do
@@ -492,11 +493,23 @@ release_needs="verifier"
 # ajouter_job_release <job> <fragment> [clé=valeur]… : rend le fragment, qui commence
 # par une ligne vide, et l'ajoute aux jobs ; une ligne vide sépare deux jobs.
 ajouter_job_release() {
-  local job="$1" f="$2"
+  local job="$1" f="$2" texte
   shift 2
-  release_jobs+="${release_jobs:+$'\n'}$(rendre_fragment "$f" "$@")"
+  texte="$(rendre_fragment "$f" "$@")"
+  # Une publication sur un registre est irréversible : elle attend les binaires.
+  [[ $job == publier-* ]] && texte="${texte//$'\n'"    needs: verifier"$'\n'/$'\n'"    needs: $needs_publier"$'\n'}"
+  release_jobs+="${release_jobs:+$'\n'}$texte"
   release_needs+=", $job"
 }
+# needs des jobs publier-* : verifier, plus les binaires d'un cli mixte.
+needs_publier=verifier
+if [[ ${valeurs[type]:-} == cli ]]; then
+  for entree in "${composants[@]}"; do
+    IFS='|' read -r c_nom _ c_pile _ <<<"$entree"
+    [[ $c_pile == rust ]] && needs_publier+=", binaires-$c_nom"
+  done
+  [[ $needs_publier == verifier ]] || needs_publier="[$needs_publier]"
+fi
 for entree in "${composants[@]}"; do
   IFS='|' read -r c_nom c_chemin c_pile _ <<<"$entree"
   cles=("composant=$c_nom" "chemin=$c_chemin" "pile=$c_pile")
@@ -508,10 +521,8 @@ for entree in "${composants[@]}"; do
       ajouter_job_release "binaires-$c_nom" "$racine/templates/rust/fragments/release-binaires.yml" "${cles[@]}" "matrice=$release_matrice"
       ;;
     cli\|typescript | cli\|python | library\|*)
-      # Une pile sans gabarit de publication n'a pas de job : le projet l'écrit.
-      if [[ -f $racine/templates/$c_pile/fragments/release-registre.yml ]]; then
-        ajouter_job_release "publier-$c_nom" "$racine/templates/$c_pile/fragments/release-registre.yml" "${cles[@]}"
-      fi
+      # Une pile sans gabarit de publication reçoit le job du cœur, à écrire.
+      ajouter_job_release "publier-$c_nom" "$(fragment release-registre.yml "$c_pile")" "${cles[@]}"
       ;;
   esac
 done
@@ -600,6 +611,8 @@ $manque && exit 1
 # deploiement.yml n'est posé que si une commande existe ; il est rendu ici, avec
 # chaque ligne de la commande indentée sous `run: |`, puis posé sans autre rendu.
 repere_deploiement="@@deploiement-ligne@@"
+# Une valeur vide, ou faite d'espaces, vaut « à préciser ».
+[[ ${valeurs[deploiement]:-} =~ [^[:space:]] ]] || valeurs[deploiement]="à préciser"
 if [[ ${valeurs[deploiement]} == "à préciser" ]]; then
   ligne_deploiement="à préciser."
 else

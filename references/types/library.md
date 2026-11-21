@@ -30,9 +30,9 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 
 ## Livrable
 
-La release publie le paquet de la bibliothèque sur son registre : crates.io pour Rust, npm pour TypeScript, PyPI pour Python.
+La release publie le paquet de la bibliothèque sur son registre : crates.io pour Rust, npm pour TypeScript, PyPI pour Python. Pour une autre pile, `release.yml` reçoit un job `publier-<composant>` à écrire, qui échoue tant que le projet ne l'a pas écrit.
 
-La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Elle se configure côté registre, et seul l'utilisateur peut le faire. Le skill `wizard` guide cette configuration, à faire avant le premier tag.
+La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Seul l'utilisateur peut la configurer, sur le registre. Le skill `wizard` guide cette configuration, à faire avant le premier tag.
 
 ## Prérequis
 

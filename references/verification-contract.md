@@ -63,7 +63,7 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 
 ## Règles du contrôle
 
-`check-contract.sh` applique ces onze règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
+`check-contract.sh` applique ces treize règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
 
 1. `scripts/check.sh` existe, est exécutable et passe `bash -n`.
 2. `check.sh --inconnu` sort avec le code 2 sans rien lancer. Cette règle ne court que si `check.sh` a un cas `--host`. Elle tourne sous `timeout`, avec un délai de 20 s (variable `IZANAGI_CONTRAT_DELAI`).

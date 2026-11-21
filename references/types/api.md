@@ -32,13 +32,13 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 
 ## Livrable
 
-La release ne joint aucun fichier. Le tag et la release marquent la version, et le déploiement porte la livraison.
+La release ne joint aucun fichier. Le tag et la release marquent la version, et `deploiement.yml` met cette version en service.
 
 ## Déploiement
 
 Izanagi ne choisit pas d'hébergeur. Le projet écrit la commande qui déploie un tag, dans l'entrée `deploiement` de `docs/agents/harness.md`, et `deploiement.yml` la lance à la main sur un tag. Tant qu'elle vaut « à préciser », le workflow n'existe pas.
 
-Les secrets que la commande lit (jeton de l'hébergeur, chaîne de connexion à la base de production) sont des secrets du dépôt. Le skill `wizard` aide à les poser dans les réglages du dépôt.
+La commande lit des secrets du dépôt, par exemple le jeton de l'hébergeur ou la chaîne de connexion à la base de production. GitHub ne les met pas dans son environnement. La commande les écrit donc en expression `${{ secrets.NOM }}`, par exemple `FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy`. Le skill `wizard` aide à poser ces secrets dans les réglages du dépôt.
 
 ## Prérequis
 

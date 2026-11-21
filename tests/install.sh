@@ -940,6 +940,22 @@ job_release "$rl" verifier | grep -qF 'uv version --short' || echoue "cli deux p
 job_release "$rl" verifier | grep -qF 'cargo pkgid' && echoue "cli deux piles : version lue dans moteur"
 # Une ligne vide sépare deux jobs de livrable (le commentaire du job suit la ligne vide).
 [[ $(sed -n '/^  binaires-moteur:$/,/^  publier-outil:$/p' "$rl" | grep -c '^$') -eq 1 ]] || echoue "cli deux piles : jobs collés"
+# Une publication sur un registre est irréversible : elle attend les binaires.
+job_release "$rl" publier-outil | grep -qxF '    needs: [verifier, binaires-moteur]' ||
+  echoue "cli deux piles : publier n'attend pas les binaires : $(job_release "$rl" publier-outil | grep needs)"
+job_release "$rl" binaires-moteur | grep -qxF '    needs: verifier' || echoue "cli deux piles : needs des binaires"
+
+# library d'une pile sans gabarit de publication : un job à écrire, qui échoue.
+mkdir "$tmp/rl9"
+printf '%s\n' 'composant=lib|.|go|' type=library "${base[@]}" >"$tmp/rl9v"
+"$install" "$tmp/rl9" "$tmp/rl9v" >/dev/null
+rl="$tmp/rl9/.github/workflows/release.yml"
+controle_release "$rl"
+[[ $(jobs_release "$rl") == $'verifier\npublier-lib\nrelease' ]] || echoue "library go : jobs : $(jobs_release "$rl")"
+for mot in '# À ÉCRIRE : publication de lib (go)' 'echo "::error::release.yml : publication de lib à écrire pour go"' 'exit 1' 'needs: verifier' 'contents: read'; do
+  job_release "$rl" publier-lib | grep -qF -- "$mot" || echoue "library go : publier sans « $mot »"
+done
+job_release "$rl" release | grep -qF 'needs: [verifier, publier-lib]' || echoue "library go : needs de release"
 
 # api TypeScript : verifier et release seulement.
 mkdir "$tmp/rl5"
@@ -996,7 +1012,15 @@ grep -qF '[[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]' "$dy" || echoue "deploiemen
 grep -qF 'echo "::error::deploiement.yml : tag « $TAG » refusé : vX.Y.Z attendu"' "$dy" || echoue "deploiement : message de refus absent"
 [[ $(grep -n 'TAG =~' "$dy" | cut -d: -f1) -lt $(grep -n 'actions/checkout@' "$dy" | cut -d: -f1) ]] || echoue "deploiement : contrôle du tag après le checkout"
 grep -qx 'permissions: {}' "$dy" || echoue "deploiement : pas de permissions: {} en tête"
-grep -qF 'inputs.tag' <(grep -E '^[[:space:]]+run:' "$dy") && echoue "deploiement : inputs.tag dans un run:"
+# Les lignes `run:` et le corps des blocs `run: |`.
+lignes_run() {
+  awk '
+    bloc && match($0, /^ */) && RLENGTH <= retrait && $0 !~ /^ *$/ { bloc = 0 }
+    bloc { print }
+    /^ *(- )?run:/ { print; if ($0 ~ /run: *\|/) { bloc = 1; match($0, /^ */); retrait = RLENGTH } }' "$1"
+}
+lignes_run "$dy" | grep -qF './deploy.sh "prod"' || echoue "deploiement : lignes_run ne lit pas le corps du bloc"
+grep -qF 'inputs.tag' <(lignes_run "$dy") && echoue "deploiement : inputs.tag dans un run:"
 grep -qxF -- '- **Déploiement** : `./deploy.sh "prod" $HOME {{x}}`.' "$tmp/dp1/docs/agents/harness.md" || echoue "deploiement : ligne de harness.md : $(grep Déploiement "$tmp/dp1/docs/agents/harness.md")"
 # Le contrôle du tag, lancé tel quel : vX.Y.Z passe, le reste sort avec 1.
 sed -n '/^        run: |$/,/^          fi$/{p;/^          fi$/q}' "$dy" | sed '1d; s/^          //' >"$tmp/dp1ctl"
@@ -1020,6 +1044,21 @@ printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" >"$tmp/dp2v"
 "$install" "$tmp/dp2" "$tmp/dp2v" >/dev/null
 [[ ! -e $tmp/dp2/.github/workflows/deploiement.yml ]] || echoue "deploiement : fichier posé sans commande"
 grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/dp2/docs/agents/harness.md" || echoue "deploiement : ligne « à préciser » absente"
+
+# Valeur vide : traitée comme « à préciser ».
+mkdir "$tmp/dp4"
+printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" 'deploiement=' >"$tmp/dp4v"
+"$install" "$tmp/dp4" "$tmp/dp4v" >/dev/null
+[[ ! -e $tmp/dp4/.github/workflows/deploiement.yml ]] || echoue "deploiement vide : fichier posé"
+grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/dp4/docs/agents/harness.md" ||
+  echoue "deploiement vide : ligne de harness.md : $(grep Déploiement "$tmp/dp4/docs/agents/harness.md")"
+
+# Un secret lu par une expression `${{ secrets.X }}` passe tel quel.
+mkdir "$tmp/dp5"
+printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" 'deploiement=FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy' >"$tmp/dp5v"
+"$install" "$tmp/dp5" "$tmp/dp5v" >/dev/null
+grep -qxF '          FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy' "$tmp/dp5/.github/workflows/deploiement.yml" ||
+  echoue "deploiement : expression de secret modifiée"
 
 # --- dependabot.yml : un écosystème par composant ---
 # Rust à la racine et Python dans api/ : trois entrées, github-actions comprise.

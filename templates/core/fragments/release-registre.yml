@@ -1,0 +1,17 @@
+
+  # La pile {{pile}} n'a pas de publication par défaut. Le projet écrit ici la
+  # publication de {{composant}} sur son registre. Si le registre permet la
+  # publication de confiance, le job reçoit aussi `id-token: write`.
+  publier-{{composant}}:
+    name: publication de {{composant}}
+    needs: verifier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # À ÉCRIRE : publication de {{composant}} ({{pile}})
+      - name: Publication de {{composant}}
+        shell: bash
+        run: |
+          echo "::error::release.yml : publication de {{composant}} à écrire pour {{pile}}"
+          exit 1

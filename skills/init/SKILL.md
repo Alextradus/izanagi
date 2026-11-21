@@ -72,7 +72,7 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase | réponse, sinon la fiche du type |
 | `vault` | chemin du vault Obsidian du projet, ou `non` | réponse ou argument, sinon `non` |
 | `chemins_sensibles` | motifs des chemins dont tout changement est de niveau de risque élevé, séparés par des virgules | réponse, sinon vide |
-| `langue_publique` | langue des textes publics (notes de version, README), `fr` ou `en` | réponse ou argument, sinon `fr` |
+| `langue_publique` | langue du changelog et des notes de version, `fr` ou `en` | réponse ou argument, sinon `fr` |
 | `deploiement` | commande qui déploie un tag, sur une ligne | seulement pour `api` et `web-frontend` : réponse, sinon omets-la (valeur `à préciser`, pas de `deploiement.yml`) |
 | `version_composant` | nom du composant qui porte la version du projet, lue par `release.yml` | seulement avec plusieurs composants : réponse, sinon omets-la (le premier composant) |
 | `fichier_version` | fichier qui porte la version | seulement si les piles diffèrent ou si une pile n'a pas de gabarit |
@@ -142,9 +142,10 @@ Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune 
 
 1. Commit du cadre : `git add <fichiers> && git commit -m "chore: cadre Izanagi"`. Sur un dossier vide, le commit prend aussi le projet créé et son fichier de verrou.
 2. Outils à installer : chaque outil refusé à la section 3 et chaque prérequis de la fiche du type (`npx playwright install`), avec sa commande.
-3. Pour un type à registre (`library`, ou `cli` en TypeScript ou en Python), la publication de confiance se configure côté registre avant le premier tag. Seul l'utilisateur peut le faire. Propose `mattpocock-skills:wizard` pour le guider.
-4. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type. Les fichiers `docs/standards/<langage>.md` peuvent rester vides : les règles générales du plugin pour Rust, TypeScript et Python s'appliquent déjà, et les rétrospectives des jalons les compléteront.
-5. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
+3. Pour un type à registre (`library`, ou `cli` en TypeScript ou en Python), l'utilisateur configure la publication de confiance sur le registre avant le premier tag. Lui seul peut le faire. Propose `mattpocock-skills:wizard` pour le guider.
+4. Pour un type `desktop`, `game`, `mobile` ou `data-ml`, le projet écrit le job `livrable` de `.github/workflows/release.yml` avant la première release. Tant que ce job garde son `À ÉCRIRE`, il sort avec 1 et la release échoue.
+5. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type. Les fichiers `docs/standards/<langage>.md` peuvent rester vides : les règles générales du plugin pour Rust, TypeScript et Python s'appliquent déjà, et les rétrospectives des jalons les compléteront.
+6. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
 
 Propose de lancer tout de suite la première étape que tu peux faire toi-même, en général le commit, et fais-la sur son accord.
 

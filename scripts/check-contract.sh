@@ -170,8 +170,8 @@ fi
 # (« à préciser. » n'en est pas une). Dans les deux : chaque `uses:` est épinglé
 # par un SHA de 40 caractères et chaque job déclare ses permissions. Les actions
 # locales (`./…`) n'ont pas de SHA ; une image `docker://` doit l'être par un
-# condensat `@sha256:`. Un job est une clé à deux espaces d'indentation sous
-# `jobs:` ; `steps:` ou `with:` plus profonds ne comptent pas.
+# condensat `@sha256:`. Un job est une clé à deux espaces d'indentation, suivie ou
+# non d'un commentaire, sous `jobs:` ; `steps:` ou `with:` plus profonds ne comptent pas.
 deploiement="$(sed -n 's/^- \*\*Déploiement\*\* : \(.*\)\r\{0,1\}$/\1/p' "$projet/$harness" | head -1)"
 deploiement="${deploiement%$'\r'}"
 fichiers_livraison=(.github/workflows/release.yml)
@@ -197,9 +197,9 @@ for f in "${fichiers_livraison[@]}"; do
     [[ -n $job ]] && ecart "$f" "le job $job ne déclare pas ses permissions"
   done < <(sans_commentaires "$projet/$f" | awk '
     function fin() { if (job != "" && !perm) print job }
-    /^jobs:[[:space:]]*$/ { dans = 1; next }
+    /^jobs:[[:space:]]*(#.*)?$/ { dans = 1; next }
     /^[^[:space:]]/ { if (dans) { fin(); job = "" } dans = 0 }
-    dans && /^  [A-Za-z_][A-Za-z0-9_-]*:[[:space:]]*$/ { fin(); job = $1; sub(/:$/, "", job); perm = 0; next }
+    dans && /^  [A-Za-z_][A-Za-z0-9_-]*:[[:space:]]*(#.*)?$/ { fin(); job = $1; sub(/:$/, "", job); perm = 0; next }
     dans && /^    permissions:/ { perm = 1 }
     END { if (dans) fin() }')
 done
@@ -207,7 +207,7 @@ done
 # Règle 13 : ci.yml a un job `analyse` qui lance semgrep scan.
 if [[ -f $projet/$ci ]]; then
   sans_commentaires "$projet/$ci" | awk '
-    /^  [A-Za-z_][A-Za-z0-9_-]*:[[:space:]]*$/ { dans = ($1 == "analyse:"); next }
+    /^  [A-Za-z_][A-Za-z0-9_-]*:[[:space:]]*(#.*)?$/ { dans = ($1 == "analyse:"); next }
     /^[^[:space:]]/ { dans = 0 }
     dans && /semgrep scan/ { trouve = 1 }
     END { exit !trouve }' || ecart "$ci" "pas de job analyse"

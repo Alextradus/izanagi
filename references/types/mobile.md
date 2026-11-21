@@ -30,7 +30,7 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 
 ## Livrable
 
-Ce type n'a pas de livrable par défaut. Le projet écrit le sien dans `release.yml` (le job `livrable`), selon ce qu'il distribue : une application mobile.
+Ce type n'a pas de livrable par défaut. Le projet écrit dans `release.yml` le job `livrable`, qui construit l'application mobile qu'il distribue. Tant que le projet ne l'a pas écrit, ce job échoue et la release ne se crée pas.
 
 ## Prérequis
 

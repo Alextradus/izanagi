@@ -188,6 +188,7 @@ poser deploy composant='cli|.|rust|cargo run' systemes=linux,windows deploiement
 sortie="$("$contrat" "$tmp/deploy")" || echoue "projet avec déploiement refusé : $sortie"
 [[ $sortie == 'contrat : respecté' ]] || echoue "déploiement : $sortie"
 [[ -f $tmp/deploy/$wf/deploiement.yml ]] || echoue "déploiement : deploiement.yml non posé"
+cp "$tmp/deploy/$wf/deploiement.yml" "$tmp/deploiement-ok.yml"
 rm "$tmp/deploy/$wf/deploiement.yml"
 refus deploy 'contrat : .github/workflows/deploiement.yml : fichier absent'
 
@@ -200,10 +201,8 @@ cp -r "$tmp/ok" "$tmp/r12b"
 sed -i '0,/uses: actions\/checkout@[0-9a-f]\{40\}.*/s||uses: actions/checkout@v4|' "$tmp/r12b/$wf/release.yml"
 refus r12b 'contrat : .github/workflows/release.yml : action non épinglée : actions/checkout@v4'
 cp -r "$tmp/deploy" "$tmp/r12c"
-cp "$tmp/ok/$wf/release.yml" "$tmp/r12c/$wf/release.yml"
-sed -e 's/@[0-9a-f]\{40\} # v[0-9.]*/@main/' "$tmp/ok/$wf/release.yml" >"$tmp/r12c/$wf/deploiement.yml"
-sortie="$("$contrat" "$tmp/r12c")" || true
-grep -qF 'contrat : .github/workflows/deploiement.yml : action non épinglée : actions/' <<<"$sortie" || echoue "deploiement non épinglé : $sortie"
+sed -e 's/@[0-9a-f]\{40\} # v[0-9.]*/@main/' "$tmp/deploiement-ok.yml" >"$tmp/r12c/$wf/deploiement.yml"
+refus r12c 'contrat : .github/workflows/deploiement.yml : action non épinglée : actions/checkout@main'
 
 # Actions locales et image docker:// par condensat : acceptées. Docker sans condensat : refusée.
 cp -r "$tmp/ok" "$tmp/r12d"
@@ -216,6 +215,10 @@ refus r12d 'contrat : .github/workflows/release.yml : action non épinglée : do
 cp -r "$tmp/ok" "$tmp/r12e"
 printf '  nouveau:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo x\n        with:\n          a: b\n' >>"$tmp/r12e/$wf/release.yml"
 refus r12e 'contrat : .github/workflows/release.yml : le job nouveau ne déclare pas ses permissions'
+# Une clé de job suivie d'un commentaire reste un job.
+cp -r "$tmp/ok" "$tmp/r12f"
+printf '  nouveau: # ajouté à la main\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo x\n' >>"$tmp/r12f/$wf/release.yml"
+refus r12f 'contrat : .github/workflows/release.yml : le job nouveau ne déclare pas ses permissions'
 
 # Règle 13 : ci.yml sans job analyse, ou dont le job ne lance pas semgrep.
 cp -r "$tmp/ok" "$tmp/r13a"

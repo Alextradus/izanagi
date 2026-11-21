@@ -142,7 +142,7 @@ Le livrable dépend du type d'application, d'après sa fiche dans `references/ty
 
 La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Toi seul peux la configurer, côté registre, avant le premier tag.
 
-Izanagi ne choisit pas d'hébergeur. La ligne « Déploiement » de `docs/agents/harness.md` porte la commande qui déploie un tag, ou « à préciser ». Quand elle porte une commande, le projet reçoit `.github/workflows/deploiement.yml`, que tu lances à la main sur un tag (`gh workflow run deploiement.yml -f tag=vX.Y.Z`). Le workflow contrôle la forme du tag avant le checkout, puis lance la commande telle quelle. Les secrets que la commande lit sont des secrets du dépôt GitHub, que toi seul peux poser.
+Izanagi ne choisit pas d'hébergeur. Pour une api ou un front web, `init` demande la commande qui déploie un tag. La ligne « Déploiement » de `docs/agents/harness.md` porte cette commande, ou « à préciser ». Quand elle porte une commande, le projet reçoit `.github/workflows/deploiement.yml`, que tu lances à la main sur un tag (`gh workflow run deploiement.yml -f tag=vX.Y.Z`). Le workflow contrôle la forme du tag avant le checkout, puis lance la commande telle quelle. Pour revenir en arrière, relance le même workflow avec le tag précédent. Les secrets que la commande lit sont des secrets du dépôt GitHub, que toi seul peux poser. GitHub ne les met pas dans l'environnement de la commande, donc elle les écrit en expression `${{ secrets.NOM }}`, par exemple `FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy`.
 
 `.github/pull_request_template.md` donne à chaque PR quatre titres : Quoi, Pourquoi, Vérification et Risque. Les PR que les flux ouvrent suivent ces titres.
 
