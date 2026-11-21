@@ -31,7 +31,7 @@ Fin : tu annonces le cas en une ligne.
 Une valeur donnée en argument de `/izanagi:init` (`type=cli`, `vault=non`) vaut réponse : ne pose pas sa question.
 
 - **Dossier vide.** Mène l'entretien de `references/interview.md` : deux appels à AskUserQuestion au plus, sans reposer une question déjà réglée par le message de l'utilisateur.
-- **Projet existant.** Détecte les composants (voir plus bas). Pose en un seul appel à AskUserQuestion le type d'application, la spec, le test manuel avec son lieu, et le vault. Chaque question a sa valeur proposée en premier : la fiche du type le plus probable pour le type, le test manuel et le lieu ; `docs/specs/<date>-<projet>-design.md` pour la spec, chemin où `izanagi:brainstorming` l'écrira ; `non` pour le vault. Les systèmes cibles viennent de `.github/workflows/ci.yml` s'il existe, sinon ils valent `linux,windows`.
+- **Projet existant.** Détecte les composants (voir plus bas). Pose en un seul appel à AskUserQuestion le type d'application, la spec, le test manuel avec son lieu, le vault et la langue publique. Pour le type `api` ou `web-frontend`, ajoute la commande de déploiement (« à préciser » si l'utilisateur ne la connaît pas). Avec plusieurs composants, ajoute celui qui porte la version du projet. Chaque question a sa valeur proposée en premier : la fiche du type le plus probable pour le type, le test manuel et le lieu ; `docs/specs/<date>-<projet>-design.md` pour la spec, chemin où `izanagi:brainstorming` l'écrira ; `non` pour le vault, `fr` pour la langue publique, le premier composant pour la version. Les systèmes cibles viennent de `.github/workflows/ci.yml` s'il existe, sinon ils valent `linux,windows`.
 
 **Détection des composants.** Un `Cargo.toml` donne `rust`, un `package.json` donne `typescript`, un `pyproject.toml` donne `python`. Cherche-les à la racine et un niveau en dessous, hors `node_modules`, `target` et `.venv`. Un manifeste sous un workspace racine de même pile (workspace Cargo, `workspaces` de npm) n'est pas un composant à part. Du code sans ces manifestes (`go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `Package.swift`…) donne aussi un composant. Propose-le avec le nom de sa pile (`go`, `java`, `csharp`, `swift`), et `install.sh` lui écrira une section `# À ÉCRIRE`. Le composant de la racine a pour nom sa pile et pour chemin `.`. Un composant d'un sous-dossier a pour nom celui du dossier. Noms et piles suivent `[a-z0-9-]`, et une pile ne vaut jamais `aucune`, `core`, `code`, `vault` ni `multi`. Le lancement vient du manifeste : `npm run dev` si `package.json` a un script `dev`, `cargo run` pour un binaire Rust, l'entrée de `[project.scripts]` pour Python, rien sinon. Si un projet TypeScript n'a pas de `package-lock.json` (pnpm, yarn), dis à l'utilisateur que le gabarit lance `npm ci`.
 
@@ -72,6 +72,9 @@ Fin : chaque composant existe sur le disque avec son fichier de verrou et un tes
 | `lieu_test` | où l'utilisateur essaie, en complément de phrase | réponse, sinon la fiche du type |
 | `vault` | chemin du vault Obsidian du projet, ou `non` | réponse ou argument, sinon `non` |
 | `chemins_sensibles` | motifs des chemins dont tout changement est de niveau de risque élevé, séparés par des virgules | réponse, sinon vide |
+| `langue_publique` | langue des textes publics (notes de version, README), `fr` ou `en` | réponse ou argument, sinon `fr` |
+| `deploiement` | commande qui déploie un tag, sur une ligne | seulement pour `api` et `web-frontend` : réponse, sinon omets-la (valeur `à préciser`, pas de `deploiement.yml`) |
+| `version_composant` | nom du composant qui porte la version du projet, lue par `release.yml` | seulement avec plusieurs composants : réponse, sinon omets-la (le premier composant) |
 | `fichier_version` | fichier qui porte la version | seulement si les piles diffèrent ou si une pile n'a pas de gabarit |
 
 N'écris pas la ligne `pile=` de la 0.1, car les lignes `composant=` la remplacent. N'écris pas non plus `mutation` : `install.sh` met `oui` quand toutes les piles des composants ont un gabarit (Rust, TypeScript, Python), `non` sinon. Les autres clés ont un défaut dans `templates/core/defaults.env` et `templates/<pile>/defaults.env`, et une ligne de ton fichier le remplace. `decisions` se lit après « dans », donc donne-la avec son article.
@@ -139,8 +142,9 @@ Finis par la liste ordonnée des prochaines étapes, propres au projet, chacune 
 
 1. Commit du cadre : `git add <fichiers> && git commit -m "chore: cadre Izanagi"`. Sur un dossier vide, le commit prend aussi le projet créé et son fichier de verrou.
 2. Outils à installer : chaque outil refusé à la section 3 et chaque prérequis de la fiche du type (`npx playwright install`), avec sa commande.
-3. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type. Les fichiers `docs/standards/<langage>.md` peuvent rester vides : les règles générales du plugin pour Rust, TypeScript et Python s'appliquent déjà, et les rétrospectives des jalons les compléteront.
-4. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
+3. Pour un type à registre (`library`, ou `cli` en TypeScript ou en Python), la publication de confiance se configure côté registre avant le premier tag. Seul l'utilisateur peut le faire. Propose `mattpocock-skills:wizard` pour le guider.
+4. Sections de `docs/CODING_STANDARDS.md` à remplir : celles qui gardent un commentaire `<!--` du gabarit. Propose les classes de défaillance de la section « Sections de CODING_STANDARDS.md » de la fiche du type. Les fichiers `docs/standards/<langage>.md` peuvent rester vides : les règles générales du plugin pour Rust, TypeScript et Python s'appliquent déjà, et les rétrospectives des jalons les compléteront.
+5. Premier jalon : `/izanagi:jalon`. Le cadrage écrit la spec, avec `izanagi:brainstorming`.
 
 Propose de lancer tout de suite la première étape que tu peux faire toi-même, en général le commit, et fais-la sur son accord.
 

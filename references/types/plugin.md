@@ -28,6 +28,10 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Secret stocké en clair.** Un jeton est rangé dans les réglages en clair au lieu du stockage de secrets de l'hôte.
 - **Code téléchargé à l'exécution.** Le plugin charge et lance du code distant, hors de la revue de son magasin.
 
+## Livrable
+
+Le tag et la release suffisent. Aucun fichier n'est joint par défaut. Si l'hôte distribue le plugin par un registre ou une place de marché, le projet ajoute cette publication à `release.yml`.
+
 ## Prérequis
 
 L'hôte installé, dans la version minimale que le plugin déclare, et la toolchain de la pile.

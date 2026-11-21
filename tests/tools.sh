@@ -28,6 +28,20 @@ valeurs_de() {
   grep -vE '^(#|$)' "$1/.izanagi/config.env"
 }
 
+# controle_config_08 <cas> <écarts> : config.env d'un projet migré avant la 0.8
+# diffère du gabarit par les seules lignes <écarts> (celles du diff, `-` et `+`
+# comprises, séparées par des retours à la ligne) : `langue_publique` et
+# `version_composant` (la migration 0.4.0 l'écrit vide, la pose y met le premier
+# composant ; une pose d'avant la 0.8 ne les a pas). Lit $sortie, la sortie
+# d'install.sh.
+controle_config_08() {
+  local rap diff_c
+  grep -qxF 'différent  .izanagi/config.env' <<<"$sortie" || echoue "$1 : config.env : $sortie"
+  rap="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+  diff_c="$(grep -E '^[+-]' "$rap/diff/.izanagi/config.env.diff" | grep -vE '^(\+\+\+|---) ' | tr -d '\r')"
+  [[ $diff_c == "$2" ]] || echoue "$1 : config.env diffère autrement que prévu : $diff_c"
+}
+
 # Système courant, pour `systemes` : `check.sh --host` ne lance alors que lui.
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*) ici=windows ;;
@@ -79,7 +93,7 @@ config="$tmp/p03/.izanagi/config.env"
 # La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
 { echo pile=rust; valeurs_de "$tmp/p03"; } >"$tmp/p03v2"
 sortie="$("$install" "$tmp/p03" "$tmp/p03v2")"
-grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "config.env migré différent du gabarit : $sortie"
+controle_config_08 "migration 0.4.0" $'-version_composant=\n+version_composant=rust'
 grep -qxF 'identique  .izanagi/.gitignore' <<<"$sortie" || echoue ".gitignore migré différent du gabarit : $sortie"
 
 # Seconde migration : rien à faire, rien de changé.
@@ -145,7 +159,7 @@ for f in .izanagi/.gitignore .claude/settings.json; do
 done
 rapport06="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 ecarts06="$(grep -E '^[-+][^-+]' "$rapport06/diff/.izanagi/config.env.diff" 2>/dev/null || true)"
-[[ $ecarts06 == $'+navigateur=non\n+mutation=oui\n+mutation_delai=15' ]] ||
+[[ $ecarts06 == $'+navigateur=non\n+mutation=oui\n+mutation_delai=15\n+langue_publique=fr\n+version_composant=rust' ]] ||
   echoue "migration 0.6.0 : config.env diffère du gabarit hors des clés de la 0.7 : $ecarts06"
 [[ $(bash "$migration06" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.6.0 relancée"
 
@@ -242,11 +256,11 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md scripts/notes-de-version.sh .github/workflows/release.yml; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md scripts/notes-de-version.sh .github/workflows/release.yml .github/pull_request_template.md; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 9 ]] || echoue "0.1.1 : créations en trop : $sortie"
-  grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 10 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  controle_config_08 "0.1.1" $'-version_composant=\n+version_composant=rust'
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
 fi
@@ -328,7 +342,7 @@ git -C "$tmp/r06" add -A && git -C "$tmp/r06" commit -q -m migration
 valeurs_upgrade "$tmp/r06" >"$tmp/r06v7"
 grep -qxF 'composant=outil|.|rust|cargo run|unitaire,integration|' "$tmp/r06v7" || echoue "upgrade 0.7 : composant : $(cat "$tmp/r06v7")"
 sortie="$("$install" "$tmp/r06" "$tmp/r06v7")"
-grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "migration 0.7.0 : config.env différent du gabarit : $sortie"
+controle_config_08 "migration 0.7.0" $'+langue_publique=fr\n+version_composant=outil'
 for f in scripts/check.sh .github/workflows/ci.yml docs/agents/harness.md; do
   grep -qxF "différent  $f" <<<"$sortie" || echoue "upgrade 0.7 : $f pas différent : $sortie"
 done

@@ -29,6 +29,10 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Donnée sensible versionnée.** Un jeu de données privé ou un modèle lourd est commité dans le dépôt.
 - **Secret dans un notebook.** Une clé d'API est écrite dans une cellule de notebook ou dans sa sortie enregistrée.
 
+## Livrable
+
+Ce type n'a pas de livrable par défaut. Le projet écrit le sien dans `release.yml` (le job `livrable`), selon ce qu'il distribue : un modèle ou un jeu de données.
+
 ## Prérequis
 
 Python et uv. Pour l'entraînement sur GPU : le pilote et la version de CUDA qu'exige la bibliothèque.

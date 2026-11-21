@@ -28,6 +28,16 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Secret en argument ou dans la sortie.** Un jeton passe par la ligne de commande, visible dans la liste des processus, ou s'affiche dans la sortie ou un journal.
 - **Fichier temporaire prévisible.** Un fichier temporaire a un nom fixe dans un dossier partagé, au lieu de `mktemp` ou de l'équivalent de la pile.
 
+## Livrable
+
+La release publie ce que la pile du composant produit, selon les systèmes de `systemes`.
+
+- Rust : une archive des binaires par système, construite par `cargo build --release` sur ce système et jointe à la release.
+- TypeScript : le paquet, publié sur npm.
+- Python : le paquet, publié sur PyPI.
+
+La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Elle se configure côté registre (npmjs.com, PyPI), et seul l'utilisateur peut le faire. Le skill `wizard` guide cette configuration, à faire avant le premier tag.
+
 ## Prérequis
 
 La toolchain de la pile (rustup, node, uv). Aucun outil de plus.

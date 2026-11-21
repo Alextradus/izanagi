@@ -28,6 +28,10 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Transport non chiffré.** Une requête part en HTTP, ou la vérification du certificat est désactivée.
 - **Secret dans le binaire.** Une clé privée ou un secret d'API est compilé dans l'application.
 
+## Livrable
+
+Ce type n'a pas de livrable par défaut. Le projet écrit le sien dans `release.yml` (le job `livrable`), selon ce qu'il distribue : une application mobile.
+
 ## Prérequis
 
 La toolchain de la pile, le SDK Android (Android Studio) et un émulateur. Pour iOS, un Mac avec Xcode : un poste Windows ou Linux ne peut pas compiler pour iOS.

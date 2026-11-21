@@ -28,6 +28,16 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Redirection ouverte.** L'application redirige vers une URL tirée de la requête sans liste d'hôtes permis.
 - **Secret dans le paquet livré.** Une clé privée ou un secret d'API entre dans le code envoyé au navigateur.
 
+## Livrable
+
+La release ne joint aucun fichier. Le tag et la release marquent la version, et le déploiement porte la livraison.
+
+## Déploiement
+
+Izanagi ne choisit pas d'hébergeur. Le projet écrit la commande qui publie le site construit d'un tag, dans l'entrée `deploiement` de `docs/agents/harness.md`, et `deploiement.yml` la lance à la main sur un tag. Tant qu'elle vaut « à préciser », le workflow n'existe pas.
+
+Les secrets que la commande lit (jeton de l'hébergeur du site, identifiant du projet chez lui) sont des secrets du dépôt. Le skill `wizard` aide à les poser dans les réglages du dépôt.
+
 ## Prérequis
 
 node et npm, puis `npx playwright install` pour les navigateurs des tests fonctionnels.

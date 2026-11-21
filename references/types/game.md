@@ -27,6 +27,10 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Script de mod sans bac à sable.** Un script tiers accède au système de fichiers ou au réseau.
 - **Secret dans le build.** Une clé de service en ligne est livrée dans les fichiers du jeu.
 
+## Livrable
+
+Ce type n'a pas de livrable par défaut. Le projet écrit le sien dans `release.yml` (le job `livrable`), selon ce qu'il distribue : un jeu.
+
 ## Prérequis
 
 La toolchain de la pile, un GPU ou un pilote logiciel pour le rendu, et l'éditeur du moteur s'il y en a un (Godot, Unity).

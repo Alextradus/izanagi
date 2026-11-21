@@ -20,10 +20,10 @@ decisions=le §14 de la spec
 FIN
 
 sortie="$("$install" "$tmp/p" "$tmp/v")"
-[[ $(grep -c '^créé' <<<"$sortie") -eq 20 ]] || echoue "première pose : $sortie"
+[[ $(grep -c '^créé' <<<"$sortie") -eq 21 ]] || echoue "première pose : $sortie"
 grep -qxF 'useDefault = true' "$tmp/p/.gitleaks.toml" || echoue ".gitleaks.toml n'étend pas la configuration par défaut"
 grep -qF 'gitleaks git' "$tmp/p/scripts/check.sh" || echoue "check.sh ne lance pas gitleaks"
-for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md; do
+for f in .izanagi/config.env .izanagi/.gitignore .claude/settings.json AGENTS.md .github/pull_request_template.md; do
   grep -qxF "créé       $f" <<<"$sortie" || echoue "$f non posé : $sortie"
 done
 [[ ! -e $tmp/p/docs/agents/jalon.md ]] || echoue "docs/agents/jalon.md encore posé"
@@ -44,6 +44,15 @@ grep -q '{{' "$config" && echoue "config.env garde un {{"
 [[ $(kv_get "$config" mutation) == oui ]] || echoue "config.env : mutation pour rust"
 [[ $(kv_get "$config" mutation_delai) == 15 ]] || echoue "config.env : mutation_delai"
 [[ $(kv_get "$config" navigateur) == non ]] || echoue "config.env : navigateur par défaut"
+[[ $(kv_get "$config" langue_publique) == fr ]] || echoue "config.env : langue_publique par défaut"
+[[ $(kv_get "$config" version_composant) == rust ]] || echoue "config.env : version_composant par défaut vaut le premier composant"
+# Le template de PR : quatre titres, chacun suivi d'un commentaire HTML.
+pr="$tmp/p/.github/pull_request_template.md"
+[[ $(grep -c '^## ' "$pr") -eq 4 ]] || echoue "template de PR : quatre titres attendus"
+for titre in Quoi Pourquoi Vérification Risque; do
+  grep -qxF "## $titre" "$pr" || echoue "template de PR : titre « $titre » absent"
+  [[ $(grep -A2 -xF "## $titre" "$pr" | grep -c '^<!-- .* -->$') -eq 1 ]] || echoue "template de PR : « $titre » sans ligne de commentaire HTML"
+done
 for regle in 'Read(.env*)' 'Read(!.env.example)' 'Read(*.pem)' 'Read(*.key)' 'Read(id_rsa*)' 'Read(id_ed25519*)' 'Read(id_ecdsa*)' 'Read(credentials*)' 'Edit(.env*)' 'Edit(!.env.example)' 'Edit(*.pem)' 'Edit(*.key)' 'Edit(id_rsa*)' 'Edit(id_ed25519*)' 'Edit(id_ecdsa*)' 'Edit(credentials*)'; do
   grep -qF "\"$regle\"" "$tmp/p/.claude/settings.json" || echoue ".claude/settings.json : règle $regle absente"
 done
@@ -64,7 +73,7 @@ echo "règle du projet" >>"$tmp/p/docs/CODING_STANDARDS.md"
 avant="$(cat "$tmp/p/docs/CODING_STANDARDS.md")"
 sortie="$("$install" "$tmp/p" "$tmp/v")"
 grep -q '^différent  docs/CODING_STANDARDS.md' <<<"$sortie" || echoue "écart non signalé : $sortie"
-[[ $(grep -c '^identique' <<<"$sortie") -eq 19 ]] || echoue "relance : $sortie"
+[[ $(grep -c '^identique' <<<"$sortie") -eq 20 ]] || echoue "relance : $sortie"
 [[ $(cat "$tmp/p/docs/CODING_STANDARDS.md") == "$avant" ]] || echoue "fichier écrasé"
 rapport="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 grep -q '^-règle du projet' "$rapport/diff/docs/CODING_STANDARDS.md.diff" || echoue "diff sans l'ajout du projet"
@@ -174,6 +183,19 @@ printf '%s\n' projet=Nu spec=s.md lieu_test=ici test_manuel=x fichier_version=y 
 "$install" "$tmp/nu" "$tmp/nuv" >/dev/null
 [[ ! -e $tmp/nu/docs/standards ]] || echoue "docs/standards posé sans composant"
 [[ $(kv_get "$tmp/nu/.izanagi/config.env" mutation) == non ]] || echoue "config.env : mutation sans composant"
+# Sans composant, le template de PR est posé et version_composant reste vide.
+[[ -f $tmp/nu/.github/pull_request_template.md ]] || echoue "template de PR absent sans composant"
+grep -qxF 'version_composant=' "$tmp/nu/.izanagi/config.env" || echoue "config.env : version_composant sans composant"
+# langue_publique et version_composant : la valeur donnée passe dans config.env.
+mkdir "$tmp/lp"
+printf '%s\n' langue_publique=en 'composant=api|api|rust|' 'composant=web|web|rust|' version_composant=web projet=Lp spec=s.md lieu_test=ici test_manuel=x fichier_version=y >"$tmp/lpv"
+"$install" "$tmp/lp" "$tmp/lpv" >/dev/null
+[[ $(kv_get "$tmp/lp/.izanagi/config.env" langue_publique) == en ]] || echoue "config.env : langue_publique=en refusée"
+[[ $(kv_get "$tmp/lp/.izanagi/config.env" version_composant) == web ]] || echoue "config.env : version_composant explicite"
+mkdir "$tmp/lp2"
+printf '%s\n' 'composant=api|api|rust|' 'composant=web|web|rust|' projet=Lp spec=s.md lieu_test=ici test_manuel=x fichier_version=y >"$tmp/lpv2"
+"$install" "$tmp/lp2" "$tmp/lpv2" >/dev/null
+[[ $(kv_get "$tmp/lp2/.izanagi/config.env" version_composant) == api ]] || echoue "config.env : version_composant par défaut avec deux composants"
 
 # Nom de projet hostile au shell : apostrophe, &, /, majuscule accentuée.
 mkdir "$tmp/r"

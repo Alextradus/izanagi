@@ -20,6 +20,7 @@
 # quand toutes les piles des composants ont un gabarit, `non` sinon, sauf si le
 # fichier de valeurs la donne. `version_composant` nomme le composant dont
 # release.yml lit la version (vide : le premier) ; un nom inconnu sort avec 1.
+# config.env porte la valeur effective, `langue_publique` (`fr` par défaut) et lui.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -198,6 +199,11 @@ valeurs[ci_os]="[$ci_os]"
 if [[ -n ${valeurs[version_composant]:-} && -z ${noms_vus[${valeurs[version_composant]}]:-} ]]; then
   echo "install.sh : version_composant « ${valeurs[version_composant]} » n'est pas un composant" >&2
   exit 1
+fi
+# La valeur effective va dans config.env, pour qu'upgrade la retrouve : le nom
+# donné, sinon le premier composant, sinon rien.
+if [[ -z ${valeurs[version_composant]:-} && ${#composants[@]} -gt 0 ]]; then
+  valeurs[version_composant]="${composants[0]%%|*}"
 fi
 
 # `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`

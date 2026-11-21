@@ -30,6 +30,16 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Requête vers une adresse fournie.** Le service appelle une URL donnée par le client sans liste d'hôtes permis.
 - **Secret dans le dépôt.** Une clé ou un mot de passe est écrit dans le code ou dans un fichier suivi.
 
+## Livrable
+
+La release ne joint aucun fichier. Le tag et la release marquent la version, et le déploiement porte la livraison.
+
+## Déploiement
+
+Izanagi ne choisit pas d'hébergeur. Le projet écrit la commande qui déploie un tag, dans l'entrée `deploiement` de `docs/agents/harness.md`, et `deploiement.yml` la lance à la main sur un tag. Tant qu'elle vaut « à préciser », le workflow n'existe pas.
+
+Les secrets que la commande lit (jeton de l'hébergeur, chaîne de connexion à la base de production) sont des secrets du dépôt. Le skill `wizard` aide à les poser dans les réglages du dépôt.
+
 ## Prérequis
 
 La toolchain de la pile, et la base de données de test (service local, conteneur ou SQLite). Ajoute le port utilisé à la documentation du projet.

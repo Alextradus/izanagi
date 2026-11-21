@@ -28,6 +28,12 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Dépendance ajoutée sans besoin.** Le diff ajoute une dépendance que tous les clients hériteront, pour un usage marginal.
 - **Script d'installation.** Le paquet gagne un script lancé à l'installation (`postinstall`, `build.rs` qui télécharge).
 
+## Livrable
+
+La release publie le paquet de la bibliothèque sur son registre : crates.io pour Rust, npm pour TypeScript, PyPI pour Python.
+
+La publication sur un registre passe par la publication de confiance, sans jeton stocké en secret. Elle se configure côté registre, et seul l'utilisateur peut le faire. Le skill `wizard` guide cette configuration, à faire avant le premier tag.
+
 ## Prérequis
 
 La toolchain de la pile. Pour publier : un compte sur le registre (crates.io, npm, PyPI). `init` ne publie rien.
