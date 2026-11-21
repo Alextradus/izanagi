@@ -555,6 +555,7 @@ if [[ ! ${valeurs[mutation]} =~ ^(oui|non)$ ]]; then
   exit 2
 fi
 
+valeurs[deploiement_ligne]="@@deploiement-ligne@@"
 declare -a fichiers=()
 manque=false
 for source in "${sources[@]}"; do
@@ -569,6 +570,27 @@ for source in "${sources[@]}"; do
   done < <(find "$source" -type f -print0 | sort -z)
 done
 $manque && exit 1
+
+# Déploiement : `deploiement` porte la commande, écrite par le projet. La ligne de
+# harness.md garde un repère, remplacé après le rendu : la commande peut contenir
+# `{{x}}`, qui ne doit pas passer pour une clé manquante. Le fichier
+# deploiement.yml n'est posé que si une commande existe ; il est rendu ici, avec
+# chaque ligne de la commande indentée sous `run: |`, puis posé sans autre rendu.
+repere_deploiement="@@deploiement-ligne@@"
+if [[ ${valeurs[deploiement]} == "à préciser" ]]; then
+  ligne_deploiement="à préciser."
+else
+  ligne_deploiement="\`${valeurs[deploiement]}\`."
+  commande_indentee=""
+  while IFS= read -r ligne || [[ -n $ligne ]]; do
+    ligne="${ligne%$'\r'}"
+    commande_indentee+="${commande_indentee:+$'\n'}          $ligne"
+  done <<<"${valeurs[deploiement]}"
+  mkdir -p "$rapport/deploiement/.github/workflows"
+  rendre_fragment "$racine/templates/code/fragments/deploiement.yml" "commande=$commande_indentee" \
+    >"$rapport/deploiement/.github/workflows/deploiement.yml"
+  [[ ${#composants[@]} -gt 0 ]] && fichiers+=("$rapport/deploiement|.github/workflows/deploiement.yml")
+fi
 
 # Règles par langage : un fichier docs/standards/<pile>.md par pile des composants,
 # rendu depuis le fragment, puis comparé comme les autres gabarits.
@@ -594,7 +616,16 @@ for entree in "${fichiers[@]}"; do
   dest="$cible/$rel"
   rendu="$rapport/rendu/$rel"
   mkdir -p "$(dirname "$rendu")"
-  rendre "$source/$rel" >"$rendu"
+  if [[ $source == "$rapport/deploiement" ]]; then
+    cp "$source/$rel" "$rendu"
+  else
+    rendre "$source/$rel" >"$rendu"
+  fi
+  if [[ $rel == docs/agents/harness.md ]]; then
+    texte="$(cat "$rendu"; printf x)"
+    texte="${texte%x}"
+    printf '%s' "${texte//"$repere_deploiement"/"$ligne_deploiement"}" >"$rendu"
+  fi
   if [[ ! -e $dest ]]; then
     mkdir -p "$(dirname "$dest")"
     cp "$rendu" "$dest"

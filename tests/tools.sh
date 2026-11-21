@@ -255,6 +255,17 @@ fi
 migration07="$racine/scripts/migrations/0.7.0.sh"
 [[ -f $migration07 ]] || echoue "scripts/migrations/0.7.0.sh absent"
 
+# controle_harness_08 <cas> : après la 0.8, harness.md d'un projet posé avant elle
+# diffère du gabarit par la seule ligne « Déploiement » ; install.sh n'y touche pas.
+# Lit $sortie, la sortie d'install.sh.
+controle_harness_08() {
+  local rap diff_h
+  grep -qxF 'différent  docs/agents/harness.md' <<<"$sortie" || echoue "$1 : harness.md : $sortie"
+  rap="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+  diff_h="$(grep -E '^[+-]' "$rap/diff/docs/agents/harness.md.diff" | grep -vE '^(\+\+\+|---) ' | tr -d '\r')"
+  [[ $diff_h == '+- **Déploiement** : à préciser.' ]] || echoue "$1 : harness.md diffère autrement que par la ligne Déploiement : $diff_h"
+}
+
 # valeurs_upgrade <projet> : le fichier de valeurs que la section 3 d'upgrade écrit,
 # fait des clés de config.env et des lignes de harness.md. Le cinquième champ de
 # `composant=` vient des lignes `- couche :`, le sixième de la commande unitaire.
@@ -359,7 +370,7 @@ grep -qxF -- '- couche : app | unitaire | tests/unitaires | uv run pytest' "$har
 valeurs_upgrade "$tmp/y06" >"$tmp/y06v7"
 grep -qxF 'composant=app|.|python||unitaire|uv run pytest' "$tmp/y06v7" || echoue "upgrade 0.7 python : composant : $(cat "$tmp/y06v7")"
 sortie="$("$install" "$tmp/y06" "$tmp/y06v7")"
-grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 python : harness.md réécrit : $sortie"
+controle_harness_08 "upgrade 0.7 python"
 rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 for f in scripts/check.sh .github/workflows/ci.yml; do
   cp "$rapport07/rendu/$f" "$tmp/y06/$f"
@@ -407,7 +418,7 @@ grep -q '^- couche : web | integration' "$tmp/w06/docs/agents/harness.md" && ech
 valeurs_upgrade "$tmp/w06" >"$tmp/w06v7"
 sortie="$("$install" "$tmp/w06" "$tmp/w06v7")"
 rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
-grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 typescript : harness.md réécrit : $sortie"
+controle_harness_08 "upgrade 0.7 typescript"
 grep -A1 -F 'echo "-- web : unitaire"' "$rapport07/rendu/scripts/check.sh" | grep -qxF '    npm test' ||
   echoue "upgrade 0.7 typescript : l'étape unitaire ne lance pas npm test : $(cat "$rapport07/rendu/scripts/check.sh")"
 grep -qF 'test:unitaire' "$rapport07/rendu/scripts/check.sh" && echoue "upgrade 0.7 typescript : check.sh lance test:unitaire, absent de package.json"

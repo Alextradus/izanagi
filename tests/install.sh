@@ -937,6 +937,49 @@ set +e; "$install" "$tmp/rl8" "$tmp/rl8v" >/dev/null 2>"$tmp/err"; code=$?; set 
 [[ $(cat "$tmp/err") == 'install.sh : version_composant « absent » n'"'"'est pas un composant' ]] || echoue "version_composant inconnu : message : $(cat "$tmp/err")"
 [[ -z $(ls -A "$tmp/rl8") ]] || echoue "version_composant inconnu : écriture malgré le refus"
 
+# --- deploiement.yml : la commande de déploiement d'un tag ---
+# Commande avec guillemets, `$` et `{{x}}` : posée telle quelle, sous `run: |`.
+mkdir "$tmp/dp1"
+printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" 'deploiement=./deploy.sh "prod" $HOME {{x}}' >"$tmp/dp1v"
+"$install" "$tmp/dp1" "$tmp/dp1v" >"$tmp/dp1out"
+grep -qxF 'créé       .github/workflows/deploiement.yml' "$tmp/dp1out" || echoue "deploiement : fichier non posé"
+dy="$tmp/dp1/.github/workflows/deploiement.yml"
+controle_release "$dy"
+grep -qxF '          ./deploy.sh "prod" $HOME {{x}}' "$dy" || echoue "deploiement : commande non recopiée telle quelle"
+grep -qxF 'on:' "$dy" && grep -qxF '  workflow_dispatch:' "$dy" || echoue "deploiement : pas de workflow_dispatch"
+grep -qxF '        type: string' "$dy" && grep -qxF '        required: true' "$dy" || echoue "deploiement : entrée tag mal déclarée"
+[[ $(jobs_release "$dy") == deployer ]] || echoue "deploiement : jobs : $(jobs_release "$dy")"
+job_release "$dy" deployer | grep -qxF '      contents: read' || echoue "deploiement : contents: read absent"
+grep -qxF '          TAG: ${{ inputs.tag }}' "$dy" || echoue "deploiement : TAG ne passe pas par env:"
+grep -qF '[[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]' "$dy" || echoue "deploiement : contrôle de forme absent"
+grep -qF 'echo "::error::deploiement.yml : tag « $TAG » refusé : vX.Y.Z attendu"' "$dy" || echoue "deploiement : message de refus absent"
+[[ $(grep -n 'TAG =~' "$dy" | cut -d: -f1) -lt $(grep -n 'actions/checkout@' "$dy" | cut -d: -f1) ]] || echoue "deploiement : contrôle du tag après le checkout"
+grep -qx 'permissions: {}' "$dy" || echoue "deploiement : pas de permissions: {} en tête"
+grep -qF 'inputs.tag' <(grep -E '^[[:space:]]+run:' "$dy") && echoue "deploiement : inputs.tag dans un run:"
+grep -qxF -- '- **Déploiement** : `./deploy.sh "prod" $HOME {{x}}`.' "$tmp/dp1/docs/agents/harness.md" || echoue "deploiement : ligne de harness.md : $(grep Déploiement "$tmp/dp1/docs/agents/harness.md")"
+# Le contrôle du tag, lancé tel quel : vX.Y.Z passe, le reste sort avec 1.
+sed -n '/^        run: |$/,/^          fi$/{p;/^          fi$/q}' "$dy" | sed '1d; s/^          //' >"$tmp/dp1ctl"
+TAG=v1.2.3 bash "$tmp/dp1ctl" || echoue "deploiement : v1.2.3 refusé"
+set +e; sortie_tag="$(TAG='main; rm -rf /' bash "$tmp/dp1ctl")"; code_tag=$?; set -e
+[[ $code_tag -eq 1 ]] || echoue "deploiement : tag faux : code $code_tag au lieu de 1"
+[[ $sortie_tag == '::error::deploiement.yml : tag « main; rm -rf / » refusé : vX.Y.Z attendu' ]] || echoue "deploiement : tag faux : message : $sortie_tag"
+# Une relance ne change rien.
+"$install" "$tmp/dp1" "$tmp/dp1v" >"$tmp/dp1bis"
+grep -qxF 'identique  .github/workflows/deploiement.yml' "$tmp/dp1bis" || echoue "deploiement : relance non identique"
+
+# Commande simple : indentée sous le bloc `run: |`.
+mkdir "$tmp/dp3"
+printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" 'deploiement=echo a' >"$tmp/dp3v"
+"$install" "$tmp/dp3" "$tmp/dp3v" >/dev/null
+grep -qxF '          echo a' "$tmp/dp3/.github/workflows/deploiement.yml" || echoue "deploiement : commande simple mal indentée"
+
+# Sans valeur : pas de fichier, ligne « à préciser ».
+mkdir "$tmp/dp2"
+printf '%s\n' 'composant=srv|.|typescript|' type=api "${base[@]}" >"$tmp/dp2v"
+"$install" "$tmp/dp2" "$tmp/dp2v" >/dev/null
+[[ ! -e $tmp/dp2/.github/workflows/deploiement.yml ]] || echoue "deploiement : fichier posé sans commande"
+grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/dp2/docs/agents/harness.md" || echoue "deploiement : ligne « à préciser » absente"
+
 # La mise à jour d'un projet posé avant la 0.4 est testée dans tests/tools.sh,
 # avec la migration.
 
