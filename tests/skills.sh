@@ -287,6 +287,14 @@ for s in jalon fix task; do
 done
 grep -qF 'Release' references/versions.md || echoue "versions.md n'a pas de paragraphe « Release »"
 
+# Ordre : le changelog avant la fusion, le tag après (0.8).
+awk '/^[0-9]+\. Écris la section de la version dans `CHANGELOG\.md`/ { c = NR } /^[0-9]+\. Fusionne la PR dans la branche principale/ { m = NR } /^[0-9]+\. Reviens sur la branche principale à jour\. Pose le tag/ { t = NR } END { exit !(c && m && t && c < m && m < t) }' skills/jalon/SKILL.md ||
+  echoue "jalon n'écrit pas le changelog avant la fusion et le tag après"
+awk '/^[0-9]+\. \*\*Publication\.\*\*/ { c = NR } /^[0-9]+\. Fusionne la PR dans la branche principale/ { m = NR } /^[0-9]+\. Si l.utilisateur a voulu publier, pose le tag/ { t = NR } END { exit !(c && m && t && c < m && m < t) }' skills/fix/SKILL.md ||
+  echoue "fix n'écrit pas le changelog avant la fusion et le tag après"
+grep -F 'Sur un non' skills/fix/SKILL.md | grep -qF "l'étape 8 se saute" || echoue "fix ne saute pas l'étape du tag sur un non"
+if grep -F 'Sur un non' skills/fix/SKILL.md | grep -qE 'étapes? 4'; then echoue "fix saute l'étape 4 sur un non"; fi
+
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
   grep -qF "$mot" NOTICE || echoue "NOTICE ne cite pas « $mot »"

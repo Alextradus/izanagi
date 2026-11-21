@@ -110,7 +110,7 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
 6. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
 
-`task` ne publie jamais : il ne pose aucun tag et n'écrit pas dans `CHANGELOG.md`. Le changement part dans la prochaine version publiée par `izanagi:jalon`, ou par `izanagi:fix` pour un correctif.
+`task` ne publie jamais. Il ne pose aucun tag et n'écrit pas dans `CHANGELOG.md`. Le changement part dans la prochaine version publiée par `izanagi:jalon`, ou par `izanagi:fix` pour un correctif.
 
 Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni journal, la branche du changement supprimée.
 
