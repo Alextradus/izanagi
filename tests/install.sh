@@ -107,13 +107,32 @@ non_epinglees="$(grep -hE '^[[:space:]]*-?[[:space:]]*uses:' "$tmp/p/.github/wor
 for mot in 'persist-credentials: false' 'fetch-depth: 0' 'gitleaks_8.30.1_' 'sha256' 'cargo audit' 'severity_threshold = "high"'; do
   grep -qF -- "$mot" "$tmp/p/.github/workflows/ci.yml" || echoue "ci.yml : « $mot » absent"
 done
-for mot in 'cron:' 'workflow_dispatch:' 'issues: write' 'needs: [secrets, audit]' 'gitleaks git --redact --no-banner .' 'cargo audit' 'securite'; do
+for mot in 'cron:' 'workflow_dispatch:' 'issues: write' 'gitleaks git --redact --no-banner .' 'cargo audit' 'securite'; do
   grep -qF -- "$mot" "$tmp/p/.github/workflows/securite.yml" || echoue "securite.yml : « $mot » absent"
 done
 # Seul le job de l'issue peut écrire, et il ne lance aucune action tierce.
 [[ $(grep -c 'issues: write' "$tmp/p/.github/workflows/securite.yml") -eq 1 ]] || echoue "securite.yml : issues: write hors du seul job de l'issue"
 [[ -z $(sed -n '/^  issue:/,$p' "$tmp/p/.github/workflows/securite.yml" | grep 'uses:') ]] || echoue "securite.yml : le job de l'issue lance une action"
 grep -qF 'package-ecosystem: github-actions' "$tmp/p/.github/dependabot.yml" || echoue "dependabot.yml : écosystème"
+
+# Analyse Semgrep : un job `analyse` dans ci.yml et securite.yml, la première étape sans échec,
+# la seconde qui échoue sur un constat ERROR.
+for wf in ci securite; do
+  w="$tmp/p/.github/workflows/$wf.yml"
+  grep -qxF "  analyse:" "$w" || echoue "$wf.yml : job analyse absent"
+  job="$(awk '/^  analyse:$/ {d=1; print; next} d && /^  [a-z]+:$/ {d=0} d' "$w")"
+  grep -qxF "    runs-on: ubuntu-latest" <<<"$job" || echoue "$wf.yml : analyse hors ubuntu-latest"
+  grep -qxF "    permissions:" <<<"$job" || echoue "$wf.yml : analyse sans permissions"
+  grep -qF "pipx install semgrep==1.186.0" <<<"$job" || echoue "$wf.yml : semgrep non épinglé"
+  grep -qxF "        run: semgrep scan --config p/default --metrics=off" <<<"$job" || echoue "$wf.yml : première étape Semgrep"
+  grep -qxF "        run: semgrep scan --config p/default --metrics=off --severity ERROR --error" <<<"$job" || echoue "$wf.yml : seconde étape Semgrep"
+  [[ $(grep -c -- "--error" <<<"$job") -eq 1 ]] || echoue "$wf.yml : --error hors de la seconde étape"
+  [[ $(grep -c -- "--metrics=off" <<<"$job") -eq 2 ]] || echoue "$wf.yml : --metrics=off manquant"
+  grep -qF "# nosemgrep: <règle>" "$w" || echoue "$wf.yml : faux positifs non expliqués"
+  grep -qF "continue-on-error: true" <<<"$job" || echoue "$wf.yml : première étape bloquante"
+done
+grep -qF "needs: [secrets, audit, analyse]" "$tmp/p/.github/workflows/securite.yml" || echoue "securite.yml : issue n'attend pas analyse"
+grep -qF 'echecs+="analyse statique ($ANALYSE) "' "$tmp/p/.github/workflows/securite.yml" || echoue "securite.yml : issue sans analyse"
 
 # Un projet à trois piles et une pile sans gabarit : un audit par composant.
 mkdir "$tmp/au"

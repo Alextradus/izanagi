@@ -63,3 +63,5 @@ jobs:
         with:
           persist-credentials: false
 {{ci_audit}}
+
+{{ci_analyse}}

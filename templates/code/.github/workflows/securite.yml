@@ -1,8 +1,8 @@
-# Contrôle hebdomadaire de sécurité : secrets sur tout l'historique et audit des
-# dépendances, dans deux jobs qui tournent l'un sans l'autre. Si l'un échoue, un
-# troisième job ouvre une issue étiquetée `securite`, ou commente celle qui est
-# ouverte. Seul ce dernier a le droit d'écrire des issues, et il ne lance aucun
-# outil tiers.
+# Contrôle hebdomadaire de sécurité : secrets sur tout l'historique, audit des
+# dépendances et analyse statique, dans trois jobs qui tournent l'un sans les
+# autres. Si l'un échoue, un quatrième job ouvre une issue étiquetée `securite`,
+# ou commente celle qui est ouverte. Seul ce dernier a le droit d'écrire des
+# issues, et il ne lance aucun outil tiers.
 name: Sécurité
 
 on:
@@ -36,9 +36,11 @@ jobs:
           persist-credentials: false
 {{ci_audit}}
 
+{{ci_analyse}}
+
   issue:
     name: issue de sécurité
-    needs: [secrets, audit]
+    needs: [secrets, audit, analyse]
     if: ${{ failure() }}
     runs-on: ubuntu-latest
     permissions:
@@ -52,10 +54,12 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SECRETS: ${{ needs.secrets.result }}
           AUDIT: ${{ needs.audit.result }}
+          ANALYSE: ${{ needs.analyse.result }}
         run: |
           echecs=""
           [[ $SECRETS == success ]] || echecs+="secrets ($SECRETS) "
           [[ $AUDIT == success ]] || echecs+="audit des dépendances ($AUDIT) "
+          [[ $ANALYSE == success ]] || echecs+="analyse statique ($ANALYSE) "
           gh label create securite --color B60205 --description "Contrôle de sécurité en échec" --force
           numero="$(gh issue list --label securite --state open --json number --jq '.[0].number')"
           if [[ -n $numero ]]; then

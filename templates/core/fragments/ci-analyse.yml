@@ -1,0 +1,32 @@
+  # Analyse statique avec Semgrep CE et les règles du registre (p/default).
+  # Faits lus le 2026-11-20 :
+  # - dernière version publiée de Semgrep : 1.186.0, du 18 novembre 2026
+  #   (https://pypi.org/project/semgrep/) ;
+  # - pipx est préinstallé sur l'image ubuntu-latest (pipx 1.16.7 sur Ubuntu 24.04,
+  #   https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md).
+  # Dependabot ne suit pas cette version : la changer ici à la main.
+  # La première étape affiche tous les constats et ne fait jamais échouer le job.
+  # La seconde échoue sur un constat de sévérité ERROR.
+  # Pour écarter un faux positif, mettre `# nosemgrep: <règle>` sur la ligne du
+  # constat, et écrire la raison dans un commentaire juste au-dessus.
+  analyse:
+    name: analyse statique
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Installation de Semgrep
+        shell: bash
+        run: pipx install semgrep==1.186.0
+      - name: Analyse, tous les constats
+        shell: bash
+        # Sans l'option d'erreur, Semgrep sort avec 0 malgré des constats. Une erreur de
+        # l'outil lui-même (règles injoignables) ne doit pas non plus bloquer ici.
+        continue-on-error: true
+        run: semgrep scan --config p/default --metrics=off
+      - name: Analyse, constats ERROR
+        shell: bash
+        run: semgrep scan --config p/default --metrics=off --severity ERROR --error
