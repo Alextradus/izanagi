@@ -1,0 +1,82 @@
+# Release au push d'un tag vX.Y.Z. Le job verifier contrôle que le tag vaut la
+# version du fichier de version, puis extrait la section de la version dans
+# CHANGELOG.md. Les jobs du livrable attendent ce contrôle : un tag faux ne
+# publie rien. Le job release crée la release GitHub avec ces notes et les
+# archives jointes, après tous les autres.
+#
+# Actions épinglées par SHA, avec l'étiquette en commentaire. Aucun droit par
+# défaut : chaque job déclare les siens. Le tag passe aux scripts par `env:`,
+# jamais par une expression dans un `run:`.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  verifier:
+    name: tag et notes de version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+{{release_version}}
+      - name: Tag et version
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [[ $TAG != "v$VERSION" ]]; then
+            echo "::error::release.yml : le tag $TAG ne vaut pas la version $VERSION du fichier de version"
+            exit 1
+          fi
+      - name: Notes de version
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash scripts/notes-de-version.sh "$VERSION" >notes.md
+      # upload-artifact v7.0.2, lu le 2026-11-20 sur
+      # https://github.com/actions/upload-artifact (README) : `name`, `path`,
+      # `if-no-files-found` (`warn` par défaut).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: notes
+          path: notes.md
+          if-no-files-found: error
+{{release_jobs}}
+
+  release:
+    name: release GitHub
+    needs: [{{release_needs}}]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # download-artifact v8.0.2, lu le 2026-11-20 sur
+      # https://github.com/actions/download-artifact (README) : sans `name`, tous
+      # les artefacts du run ; `merge-multiple: true` les met tous dans `path`.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: livraison
+          merge-multiple: true
+      # `gh release create "$TAG" --verify-tag --notes-file <fichier> <fichiers>…`,
+      # avec GH_TOKEN dans l'environnement ; `--verify-tag` arrête la commande si
+      # le tag n'existe pas (vérifié le 2026-11-20,
+      # https://cli.github.com/manual/gh_release_create).
+      - name: Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          archives=(livraison/*.tar.gz)
+          gh release create "$TAG" --verify-tag --notes-file livraison/notes.md "${archives[@]}"

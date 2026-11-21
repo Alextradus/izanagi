@@ -1,0 +1,46 @@
+# Déploiement d'un tag vX.Y.Z, lancé à la main : Actions, Run workflow, avec le
+# tag en entrée. Lancer le workflow vaut approbation du déploiement. Un dépôt
+# public, ou une offre payante, peut ajouter `environment: production` au job,
+# avec des relecteurs requis.
+#
+# Le tag passe au contrôle par `env:`, jamais par une expression dans un `run:`.
+# Le contrôle de forme s'arrête avant le checkout. La commande de déploiement,
+# écrite par le projet, est lancée telle quelle. GitHub ne met pas les secrets du
+# dépôt dans l'environnement. La commande les lit par une expression, par exemple
+# `FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy`.
+name: Déploiement
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag à déployer, de la forme vX.Y.Z"
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  deployer:
+    name: déployer le tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Contrôle du tag
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::deploiement.yml : tag « $TAG » refusé : vX.Y.Z attendu"
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - name: Déploiement
+        shell: bash
+        run: |
+{{commande}}

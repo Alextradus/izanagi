@@ -132,6 +132,32 @@ for t in references/types/*.md; do
   done
 done
 grep -qE '^- Fonctionnelle : .*Playwright' references/types/web-frontend.md || echoue "web-frontend : la couche fonctionnelle ne nomme pas Playwright"
+# Livrable (décision 126) : chaque fiche dit ce que la release publie. Les fiches
+# d'un type à registre renvoient à `wizard` pour la publication de confiance, et
+# `api` et `web-frontend` ont une section Déploiement (décision 128).
+for t in references/types/*.md; do
+  grep -qx '## Livrable' "$t" || echoue "$t : pas de section ## Livrable"
+done
+for t in library cli; do
+  section="$(awk '/^## / { dedans = ($0 == "## Livrable") ; next } dedans' "references/types/$t.md")"
+  grep -qF 'publication de confiance' <<<"$section" || echoue "$t : le livrable ne parle pas de la publication de confiance"
+  grep -qF 'wizard' <<<"$section" || echoue "$t : le livrable ne nomme pas wizard"
+done
+for t in api web-frontend; do
+  grep -qx '## Déploiement' "references/types/$t.md" || echoue "$t : pas de section ## Déploiement"
+  section="$(awk '/^## / { dedans = ($0 == "## Déploiement") ; next } dedans' "references/types/$t.md")"
+  grep -qF 'secrets du dépôt' <<<"$section" || echoue "$t : le déploiement ne nomme pas les secrets du dépôt"
+done
+for t in desktop mobile game data-ml; do
+  section="$(awk '/^## / { dedans = ($0 == "## Livrable") ; next } dedans' "references/types/$t.md")"
+  grep -qF 'release.yml' <<<"$section" || echoue "$t : le livrable ne renvoie pas à release.yml"
+done
+# L'entretien et `init` nomment les clés de la 0.8.
+for cle in langue_publique deploiement version_composant; do
+  grep -qF "$cle" references/interview.md || echoue "references/interview.md ne nomme pas $cle"
+  grep -qF "| \`$cle\` |" skills/init/SKILL.md || echoue "skills/init : pas de ligne $cle dans le tableau des valeurs"
+done
+grep -qF 'publication de confiance' skills/init/SKILL.md || echoue "skills/init : pas de rappel de la publication de confiance"
 # L'entretien et `init` suivent les couches : plus de clé `couches`, le cinquième
 # champ de `composant=`, la vérification complète à la fin de la pose.
 grep -qF 'couches=' references/interview.md && echoue "references/interview.md garde la clé couches="
@@ -246,6 +272,28 @@ for s in task fix; do
   awk '/scripts\/risk\.sh/ { if (!r) r = NR } /scripts\/mutation\.sh/ { if (!m) m = NR } END { exit !(r && m && r < m) }' "skills/$s/SKILL.md" ||
     echoue "skills/$s ne lance pas risk.sh avant mutation.sh"
 done
+
+# Changelog, tag et déploiement dans les clôtures (0.8).
+for mot in 'CHANGELOG.md' 'langue_publique' 'deploiement.yml' 'release.yml'; do
+  grep -qF "$mot" skills/jalon/SKILL.md || echoue "jalon ne nomme pas « $mot »"
+done
+for mot in 'CHANGELOG.md' 'deploiement.yml'; do
+  grep -qF "$mot" skills/fix/SKILL.md || echoue "fix ne nomme pas « $mot »"
+done
+grep -qF 'publier ce correctif ?' skills/fix/SKILL.md || echoue "fix ne pose pas la question « publier ce correctif ? »"
+grep -qF 'ne publie jamais' skills/task/SKILL.md || echoue "task ne dit pas qu'il ne publie pas"
+for s in jalon fix task; do
+  grep -qF '## Quoi' "skills/$s/SKILL.md" || echoue "skills/$s ne nomme pas le titre « ## Quoi » du template de PR"
+done
+grep -qF 'Release' references/versions.md || echoue "versions.md n'a pas de paragraphe « Release »"
+
+# Ordre : le changelog avant la fusion, le tag après (0.8).
+awk '/^[0-9]+\. Écris la section de la version dans `CHANGELOG\.md`/ { c = NR } /^[0-9]+\. Fusionne la PR dans la branche principale/ { m = NR } /^[0-9]+\. Reviens sur la branche principale à jour\. Pose le tag/ { t = NR } END { exit !(c && m && t && c < m && m < t) }' skills/jalon/SKILL.md ||
+  echoue "jalon n'écrit pas le changelog avant la fusion et le tag après"
+awk '/^[0-9]+\. \*\*Publication\.\*\*/ { c = NR } /^[0-9]+\. Fusionne la PR dans la branche principale/ { m = NR } /^[0-9]+\. Si l.utilisateur a voulu publier, pose le tag/ { t = NR } END { exit !(c && m && t && c < m && m < t) }' skills/fix/SKILL.md ||
+  echoue "fix n'écrit pas le changelog avant la fusion et le tag après"
+grep -F 'Sur un non' skills/fix/SKILL.md | grep -qF "l'étape 8 se saute" || echoue "fix ne saute pas l'étape du tag sur un non"
+if grep -F 'Sur un non' skills/fix/SKILL.md | grep -qE 'étapes? 4'; then echoue "fix saute l'étape 4 sur un non"; fi
 
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do

@@ -28,6 +28,10 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Commande construite à partir d'une entrée.** Un nom de fichier ou un texte saisi entre dans une commande système sans échappement.
 - **Mise à jour non vérifiée.** L'application télécharge et lance une mise à jour sans vérifier sa signature.
 
+## Livrable
+
+Ce type n'a pas de livrable par défaut. Le projet écrit dans `release.yml` le job `livrable`, qui construit l'application installable qu'il distribue. Tant que le projet ne l'a pas écrit, ce job échoue et la release ne se crée pas.
+
 ## Prérequis
 
 La toolchain de la pile, plus les bibliothèques système du cadre graphique (WebView2 et outils C++ sous Windows, `libwebkit2gtk` sous Linux pour Tauri).

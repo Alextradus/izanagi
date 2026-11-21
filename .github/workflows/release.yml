@@ -1,0 +1,60 @@
+# Release d'Izanagi au push d'un tag vX.Y.Z. Le job contrôle que le tag vaut la
+# version de .claude-plugin/plugin.json, extrait la section de la version dans
+# CHANGELOG.md, puis crée la release avec ces notes. Le type plugin n'a pas de
+# livrable à joindre.
+#
+# Action épinglée par SHA, avec l'étiquette en commentaire. Aucun droit par
+# défaut. Le tag passe au script par `env:`, jamais par une expression dans un
+# `run:`. Pas de job d'analyse Semgrep : Semgrep classe Bash comme expérimental
+# (décision 138).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  release:
+    name: release GitHub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - name: Version du plugin
+        id: version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -n 1)"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Tag et version
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [[ $TAG != "v$VERSION" ]]; then
+            echo "::error::release.yml : le tag $TAG ne vaut pas la version $VERSION de plugin.json"
+            exit 1
+          fi
+      - name: Notes de version
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # Le script lit CHANGELOG.md au-dessus de son dossier. On le copie donc
+        # dans scripts/, comme dans un projet posé.
+        run: |
+          cp templates/code/scripts/notes-de-version.sh scripts/notes-de-version.sh
+          bash scripts/notes-de-version.sh "$VERSION" >notes.md
+      - name: Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --verify-tag --notes-file notes.md

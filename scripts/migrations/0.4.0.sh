@@ -108,6 +108,10 @@ if [[ ! -f $config && -f $jalon ]]; then
   # un projet posé avant la 0.7.
   v[navigateur]=non
   v[mutation]=non
+  # Clés de la 0.8, que le gabarit porte : langue française, et la version se lit
+  # dans le premier composant (clé vide).
+  v[langue_publique]=fr
+  v[version_composant]=""
 
   # Le fichier suit le gabarit ligne à ligne, pour que la pose le trouve identique.
   mkdir -p "$cible/.izanagi"

@@ -1,0 +1,7 @@
+  - package-ecosystem: "uv"
+    directory: "{{repertoire}}"
+    schedule:
+      interval: "weekly"
+    groups:
+      {{composant}}-mineures:
+        update-types: ["minor", "patch"]

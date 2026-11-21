@@ -1,0 +1,7 @@
+  - package-ecosystem: "npm"
+    directory: "{{repertoire}}"
+    schedule:
+      interval: "weekly"
+    groups:
+      {{composant}}-mineures:
+        update-types: ["minor", "patch"]

@@ -25,6 +25,7 @@ Un jalon se livre par **tranches** : chacune a sa branche, sa revue, sa PR vers 
 | le test manuel, et son lieu | `test_manuel`, `lieu_test` |
 | la taille d'une tranche | `taille_tranche` |
 | le fichier de version | `fichier_version` |
+| la langue publique | `langue_publique` |
 | le vault | `vault` |
 
 **État.** L'état du jalon est dans `.izanagi/state.env`, versionné sur la branche du jalon. Tu ne l'écris jamais toi-même : tu passes par `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh"`, que ce skill abrège en `state.sh`. Avec `--commit`, le script commite ce seul fichier. La branche principale ne porte jamais d'état.
@@ -105,7 +106,7 @@ Traite les tranches dans l'ordre du plan. Pour chacune :
 1. **Branche** : `<branche du jalon>-tN`, créée depuis la branche du jalon à jour. Lance `state.sh set tranche=<N> tour=0 --commit`.
 2. **Tâches** : lance `izanagi:task-loop` sur les tâches de la tranche. Il rend la main après la dernière tâche, la vérification verte sur la branche de la tranche.
 3. **Revue** : lance `izanagi:review`, avec la branche du jalon pour point fixe, la tranche du plan pour axe Spec, le journal, et le niveau de risque de la tranche. Le plan donne ce niveau sur la ligne `**Risque :**` de la tranche (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`). Une tranche sans cette ligne, dans un plan d'avant la 0.5, est de niveau normal. Le plan écrit « élevé » : passe `eleve` à `review` et aux scripts.
-4. **PR de tranche** : `gh pr create --base <branche du jalon>`, corps passé par `--body-file` (`docs/agents/issue-tracker.md`). Le corps dit ce que la tranche fait, comment l'essayer (commandes et gestes) et colle la sortie de la vérification.
+4. **PR de tranche** : `gh pr create --base <branche du jalon>`, corps passé par `--body-file` (`docs/agents/issue-tracker.md`). Le corps suit les quatre titres de `.github/pull_request_template.md` : `## Quoi` dit ce que la tranche fait, `## Pourquoi` renvoie à la décision, `## Vérification` donne comment l'essayer (commandes et gestes) et colle la sortie de la vérification, `## Risque` donne le niveau de la tranche.
 5. **Test ciblé** : l'utilisateur essaie la tranche avec le test manuel, depuis la branche de la tranche. Traite ses retours selon la section 8. Une tranche dont la revue a retenu le niveau faible n'a pas de test ciblé : passe à la fusion.
 6. **Fusion** : avec l'accord de l'utilisateur, fusionne la PR dans la branche du jalon. Reviens sur la branche du jalon à jour, ajoute au journal la ligne `Tranche N : fusionnée, <k> tours de revue, niveau <niveau retenu>`, commite-la (`chore(izanagi): journal, tranche N`) et pousse. Ajoute la tranche à la note du jalon dans le vault.
 
@@ -118,7 +119,7 @@ Les tranches ont déjà passé leur revue. Celle-ci cherche ce qu'elles ne voyai
 1. Sur la branche du jalon, lance `state.sh set phase=revue tour=0 --commit`.
 2. Lance `bash "${CLAUDE_PLUGIN_ROOT}/scripts/mutation.sh" <projet> <branche principale>` et garde sa sortie, qui est le rapport de mutation. Le script ne fait jamais échouer la revue. Puis lance `izanagi:review`, avec le rapport de mutation, la branche principale pour point fixe, les sections de la spec propres au jalon pour axe Spec, le journal, et le niveau de risque le plus haut parmi ceux des lignes `Tranche N : fusionnée` et `Correctif <nom> : niveau` du journal. Si une de ces lignes n'a pas de niveau, prends le plus haut des lignes `**Risque :**` du plan.
 3. Lance la vérification sur la branche du jalon. Elle doit passer avant la PR.
-4. Pousse la branche du jalon, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps résume le jalon tranche par tranche, dit comment l'essayer et colle la sortie de la vérification.
+4. Pousse la branche du jalon, puis ouvre la PR : `gh pr create --base <branche principale>`, corps passé par `--body-file`. Le corps suit les quatre titres de `.github/pull_request_template.md` : `## Quoi` résume le jalon tranche par tranche, `## Pourquoi` renvoie à la spec, `## Vérification` dit comment l'essayer et colle la sortie de la vérification, `## Risque` donne le niveau retenu.
 5. Lance `state.sh set phase=test --commit` et pousse.
 
 Fin de phase : PR vers la branche principale ouverte, revue convergée, vault à jour.
@@ -135,14 +136,15 @@ Une fois la validation reçue, tout ce qui modifie un fichier se fait sur la bra
 
 1. Lance `state.sh set phase=cloture --commit`.
 2. Monte la version mineure et commite (`${CLAUDE_PLUGIN_ROOT}/references/versions.md`).
-3. Relis `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur. Commite s'il change.
-4. Fais la fin de jalon du vault (`docs/agents/vault.md`), qui lit le journal.
-5. Lance `izanagi:retro` avec l'outil Skill, sur la branche du jalon. Il lit le journal, les rapports du dossier du plan et les refus des hooks, propose des règles à l'utilisateur et commite celles qu'il accepte sur la branche du jalon. Pousse la branche.
-6. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
-7. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
-8. Reviens sur la branche principale à jour. Pose le tag sur le commit de fusion et pousse-le.
-9. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.
-10. Si une section `## À proposer au plugin` de `docs/standards/` a au moins une règle, dis-le à l'utilisateur en une ligne, et propose `/izanagi:contribuer <langage>`. Ne le lance pas toi-même : seul l'utilisateur le lance.
+3. Écris la section de la version dans `CHANGELOG.md`. Titre : `## [X.Y.Z] - <date du jour>`, où `X.Y.Z` est la version que l'étape 2 vient de monter. Lis `langue_publique` dans `.izanagi/config.env` (`fr` par défaut) et écris les rubriques et les lignes dans cette langue : `### Ajouté`, `### Modifié`, `### Corrigé` et `### Retiré` en français, `### Added`, `### Changed`, `### Fixed` et `### Removed` en anglais. Prends la matière dans les PR fusionnées dans la branche principale depuis le dernier tag (`gh pr list --state merged --limit 1000 --base <branche principale> --search "merged:>=<date du tag>"`, la date du tag venant de `git log -1 --format=%cs <dernier tag>`). Écarte celles que le tag contient déjà, fusionnées le jour même avant lui. S'il n'y a pas encore de tag, première release, prends toutes les PR fusionnées. Prends aussi les PR de tranche, qui visent la branche du jalon (`gh pr list --state merged --limit 1000 --base <branche du jalon>`). Écris une ligne par changement visible pour l'utilisateur du projet, rangée sous la rubrique qui lui convient, sans recopier de titre de commit. Omets les rubriques vides. Si `CHANGELOG.md` n'existe pas, crée-le avec son en-tête (`# Journal des modifications`, ou `# Changelog` en anglais, puis une phrase qui dit que le fichier suit Keep a Changelog). Montre la section à l'utilisateur, corrige-la selon ses remarques, puis commite-la sur la branche du jalon (`docs: changelog <version>`). `release.yml` échoue sans cette section, et elle doit être sur le commit de fusion avant le tag.
+4. Relis `CONTEXT.md` : chaque terme introduit par le jalon y figure, défini par son sens pour l'utilisateur. Commite s'il change.
+5. Fais la fin de jalon du vault (`docs/agents/vault.md`), qui lit le journal.
+6. Lance `izanagi:retro` avec l'outil Skill, sur la branche du jalon. Il lit le journal, les rapports du dossier du plan et les refus des hooks, propose des règles à l'utilisateur et commite celles qu'il accepte sur la branche du jalon. Pousse la branche.
+7. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi` : `clear` supprime `state.env` sans le retirer de l'index, et sans cette commande l'état partirait dans la fusion. L'option `-u` ne prend que les fichiers suivis : le journal non suivi d'un autre jalon reste hors du commit. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin du jalon <nom court>` et pousse la branche du jalon.
+8. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+9. Reviens sur la branche principale à jour. Pose le tag `vX.Y.Z` sur le commit de fusion, puis demande à l'utilisateur son accord avant de le pousser. Après le push, dis que `release.yml` publie la release. `release.yml` construit le livrable du type du projet et joint les notes tirées de `CHANGELOG.md`. Si la ligne `Déploiement` de `docs/agents/harness.md` porte une commande (et non « à préciser »), propose `gh workflow run deploiement.yml -f tag=vX.Y.Z` et ne le lance que sur l'accord de l'utilisateur.
+10. Supprime le dossier du plan, les branches de tranche et la branche du jalon, en local et sur le dépôt distant.
+11. Si une section `## À proposer au plugin` de `docs/standards/` a au moins une règle, dis-le à l'utilisateur en une ligne, et propose `/izanagi:contribuer <langage>`. Ne le lance pas toi-même : seul l'utilisateur le lance.
 
 Fin de phase : tag poussé, vault clos, rétrospective faite, la branche principale sans état ni journal, branches du jalon supprimées.
 

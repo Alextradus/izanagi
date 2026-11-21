@@ -30,6 +30,16 @@ Classes de failles que le relecteur sécurité cherche dans le diff, au niveau d
 - **Requête vers une adresse fournie.** Le service appelle une URL donnée par le client sans liste d'hôtes permis.
 - **Secret dans le dépôt.** Une clé ou un mot de passe est écrit dans le code ou dans un fichier suivi.
 
+## Livrable
+
+La release ne joint aucun fichier. Le tag et la release marquent la version, et `deploiement.yml` met cette version en service.
+
+## Déploiement
+
+Izanagi ne choisit pas d'hébergeur. Le projet écrit la commande qui déploie un tag, dans l'entrée `deploiement` de `docs/agents/harness.md`, et `deploiement.yml` la lance à la main sur un tag. Tant qu'elle vaut « à préciser », le workflow n'existe pas.
+
+La commande lit des secrets du dépôt, par exemple le jeton de l'hébergeur ou la chaîne de connexion à la base de production. GitHub ne les met pas dans son environnement. La commande les écrit donc en expression `${{ secrets.NOM }}`, par exemple `FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy`. Le skill `wizard` aide à poser ces secrets dans les réglages du dépôt.
+
 ## Prérequis
 
 La toolchain de la pile, et la base de données de test (service local, conteneur ou SQLite). Ajoute le port utilisé à la documentation du projet.

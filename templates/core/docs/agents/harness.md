@@ -5,6 +5,7 @@ Le contrat de vérification de ce projet. Le script `check-contract.sh` du plugi
 - **Type** : {{type}}.
 - **Systèmes cibles** : {{systemes}}.
 - **Test manuel** : `{{test_manuel}}`.
+- **Déploiement** : {{deploiement_ligne}}
 
 ## Composants
 

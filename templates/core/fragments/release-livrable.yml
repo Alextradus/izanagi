@@ -1,0 +1,17 @@
+
+  # Le type {{type}} n'a pas de livrable par défaut : le projet
+  # écrit ici la construction de son livrable. Une archive `.tar.gz` téléversée
+  # par actions/upload-artifact est jointe à la release.
+  livrable:
+    name: livrable de {{type}}
+    needs: verifier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # À ÉCRIRE : livrable de {{type}}
+      - name: Livrable de {{type}}
+        shell: bash
+        run: |
+          echo "::error::release.yml : le livrable de {{type}} est à écrire"
+          exit 1

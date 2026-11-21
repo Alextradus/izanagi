@@ -18,7 +18,9 @@
 # valeurs la donne. `hook_push` et `hook_verification` valent `bloque` ou `avertit`,
 # `hook_destructif` vaut `demande`, `bloque` ou `avertit`. `mutation` vaut `oui`
 # quand toutes les piles des composants ont un gabarit, `non` sinon, sauf si le
-# fichier de valeurs la donne.
+# fichier de valeurs la donne. `version_composant` nomme le composant dont
+# release.yml lit la version (vide : le premier) ; un nom inconnu sort avec 1.
+# config.env porte la valeur effective, `langue_publique` (`fr` par défaut) et lui.
 #
 # Pour chaque gabarit, une ligne :
 #   créé       <chemin>   le fichier manquait, il est posé
@@ -191,6 +193,18 @@ lire_valeurs "$valeurs_utilisateur"
 # Posées de nouveau : le fichier de valeurs ne doit pas écraser les valeurs calculées.
 valeurs[systemes]="$systemes"
 valeurs[ci_os]="[$ci_os]"
+
+# `version_composant` : le composant qui porte la version du projet, lue par
+# release.yml. Vide, elle vaut le premier composant.
+if [[ -n ${valeurs[version_composant]:-} && -z ${noms_vus[${valeurs[version_composant]}]:-} ]]; then
+  echo "install.sh : version_composant « ${valeurs[version_composant]} » n'est pas un composant" >&2
+  exit 1
+fi
+# La valeur effective va dans config.env, pour qu'upgrade la retrouve : le nom
+# donné, sinon le premier composant, sinon rien.
+if [[ -z ${valeurs[version_composant]:-} && ${#composants[@]} -gt 0 ]]; then
+  valeurs[version_composant]="${composants[0]%%|*}"
+fi
 
 # `branche` va entre guillemets dans le YAML de la CI : un `"` ou un `\`
 # casserait la chaîne. Git les accepte, le gabarit non.
@@ -458,6 +472,84 @@ if [[ -n $fonctionnel_projet && ${#composants[@]} -gt 0 ]]; then
   tableau_couches+=$'\n'"| projet | fonctionnelle | \`$p_dossier\` | \`${p_commande//|/\\|}\` |"
   lignes_couches+=$'\n'"- couche : projet | fonctionnelle | $p_dossier | $p_commande"
 fi
+# release.yml : la version se lit dans le composant `version_composant` (le
+# premier par défaut), puis un job de livrable par composant selon `type` et sa
+# pile (décision 126) : `binaires` pour un cli en Rust, `publier` pour un cli en
+# TypeScript ou en Python et pour une library (à écrire, depuis le fragment du cœur,
+# pour une pile sans gabarit de publication). desktop, game, mobile et data-ml
+# ont un job `livrable` à écrire ; les autres types n'ont que verifier et release.
+release_matrice=""
+for s in "${liste_systemes[@]}"; do
+  case "$s" in
+    linux) os=ubuntu-latest ;;
+    windows) os=windows-latest ;;
+    macos) os=macos-latest ;;
+  esac
+  release_matrice+="${release_matrice:+$'\n'}          - { systeme: $s, os: $os }"
+done
+release_version=""
+release_jobs=""
+release_needs="verifier"
+# ajouter_job_release <job> <fragment> [clé=valeur]… : rend le fragment, qui commence
+# par une ligne vide, et l'ajoute aux jobs ; une ligne vide sépare deux jobs.
+ajouter_job_release() {
+  local job="$1" f="$2" texte
+  shift 2
+  texte="$(rendre_fragment "$f" "$@")"
+  # Une publication sur un registre est irréversible : elle attend les binaires.
+  [[ $job == publier-* ]] && texte="${texte//$'\n'"    needs: verifier"$'\n'/$'\n'"    needs: $needs_publier"$'\n'}"
+  release_jobs+="${release_jobs:+$'\n'}$texte"
+  release_needs+=", $job"
+}
+# needs des jobs publier-* : verifier, plus les binaires d'un cli mixte.
+needs_publier=verifier
+if [[ ${valeurs[type]:-} == cli ]]; then
+  for entree in "${composants[@]}"; do
+    IFS='|' read -r c_nom _ c_pile _ <<<"$entree"
+    [[ $c_pile == rust ]] && needs_publier+=", binaires-$c_nom"
+  done
+  [[ $needs_publier == verifier ]] || needs_publier="[$needs_publier]"
+fi
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile _ <<<"$entree"
+  cles=("composant=$c_nom" "chemin=$c_chemin" "pile=$c_pile")
+  if [[ -z $release_version && ( -z ${valeurs[version_composant]:-} || ${valeurs[version_composant]} == "$c_nom" ) ]]; then
+    release_version="$(rendre_fragment "$(fragment release-version.yml "$c_pile")" "${cles[@]}")"
+  fi
+  case "${valeurs[type]:-}|$c_pile" in
+    cli\|rust)
+      ajouter_job_release "binaires-$c_nom" "$racine/templates/rust/fragments/release-binaires.yml" "${cles[@]}" "matrice=$release_matrice"
+      ;;
+    cli\|typescript | cli\|python | library\|*)
+      # Une pile sans gabarit de publication reçoit le job du cœur, à écrire.
+      ajouter_job_release "publier-$c_nom" "$(fragment release-registre.yml "$c_pile")" "${cles[@]}"
+      ;;
+  esac
+done
+case "${valeurs[type]:-}" in
+  desktop | game | mobile | data-ml)
+    ajouter_job_release livrable "$racine/templates/core/fragments/release-livrable.yml" "type=${valeurs[type]}"
+    ;;
+esac
+# dependabot.yml : une entrée par composant dont la pile a un gabarit ; les autres
+# piles laissent un commentaire. Le chemin `.` s'écrit `/`, un autre `/<chemin>`.
+dependabot_ecosystemes=""
+for entree in "${composants[@]}"; do
+  IFS='|' read -r c_nom c_chemin c_pile _ <<<"$entree"
+  if [[ -f $racine/templates/$c_pile/fragments/dependabot.yml ]]; then
+    c_chemin_db="${c_chemin#./}"
+    c_chemin_db="${c_chemin_db%/}"
+    if [[ -z $c_chemin_db || $c_chemin_db == . ]]; then c_repertoire=/; else c_repertoire="/$c_chemin_db"; fi
+    dependabot_ecosystemes+="${dependabot_ecosystemes:+$'\n'}$(rendre_fragment "$racine/templates/$c_pile/fragments/dependabot.yml" \
+      "composant=$c_nom" "repertoire=$c_repertoire")"
+  else
+    dependabot_ecosystemes+="${dependabot_ecosystemes:+$'\n'}  # $c_nom ($c_pile) : pas de gabarit Dependabot, à ajouter à la main."
+  fi
+done
+valeurs[dependabot_ecosystemes]="$dependabot_ecosystemes"
+valeurs[release_version]="$release_version"
+valeurs[release_jobs]="$release_jobs"
+valeurs[release_needs]="$release_needs"
 valeurs[tableau_couches]="$(tableau_des_couches "$tableau_couches")"
 valeurs[lignes_couches]="$lignes_couches"
 valeurs[tableau_composants]="$tableau"
@@ -467,6 +559,7 @@ valeurs[appels]="$appels"
 valeurs[appels_complets]="${appels_complets:-  :}"
 valeurs[ci_setup]="$ci_setup"
 valeurs[ci_audit]="$ci_audit"
+valeurs[ci_analyse]="$(cat "$racine/templates/core/fragments/ci-analyse.yml")"
 valeurs[ci_gitleaks]="$(cat "$racine/templates/core/fragments/ci-gitleaks.yml")"
 valeurs[preparations_couverture]="${preparations_couverture:-  :}"
 valeurs[resumes_couverture]="${resumes_couverture:-  :}"
@@ -496,6 +589,7 @@ if [[ ! ${valeurs[mutation]} =~ ^(oui|non)$ ]]; then
   exit 2
 fi
 
+valeurs[deploiement_ligne]="@@deploiement-ligne@@"
 declare -a fichiers=()
 manque=false
 for source in "${sources[@]}"; do
@@ -510,6 +604,29 @@ for source in "${sources[@]}"; do
   done < <(find "$source" -type f -print0 | sort -z)
 done
 $manque && exit 1
+
+# Déploiement : `deploiement` porte la commande, écrite par le projet. La ligne de
+# harness.md garde un repère, remplacé après le rendu : la commande peut contenir
+# `{{x}}`, qui ne doit pas passer pour une clé manquante. Le fichier
+# deploiement.yml n'est posé que si une commande existe ; il est rendu ici, avec
+# chaque ligne de la commande indentée sous `run: |`, puis posé sans autre rendu.
+repere_deploiement="@@deploiement-ligne@@"
+# Une valeur vide, ou faite d'espaces, vaut « à préciser ».
+[[ ${valeurs[deploiement]:-} =~ [^[:space:]] ]] || valeurs[deploiement]="à préciser"
+if [[ ${valeurs[deploiement]} == "à préciser" ]]; then
+  ligne_deploiement="à préciser."
+else
+  ligne_deploiement="\`${valeurs[deploiement]}\`."
+  commande_indentee=""
+  while IFS= read -r ligne || [[ -n $ligne ]]; do
+    ligne="${ligne%$'\r'}"
+    commande_indentee+="${commande_indentee:+$'\n'}          $ligne"
+  done <<<"${valeurs[deploiement]}"
+  mkdir -p "$rapport/deploiement/.github/workflows"
+  rendre_fragment "$racine/templates/code/fragments/deploiement.yml" "commande=$commande_indentee" \
+    >"$rapport/deploiement/.github/workflows/deploiement.yml"
+  [[ ${#composants[@]} -gt 0 ]] && fichiers+=("$rapport/deploiement|.github/workflows/deploiement.yml")
+fi
 
 # Règles par langage : un fichier docs/standards/<pile>.md par pile des composants,
 # rendu depuis le fragment, puis comparé comme les autres gabarits.
@@ -535,7 +652,16 @@ for entree in "${fichiers[@]}"; do
   dest="$cible/$rel"
   rendu="$rapport/rendu/$rel"
   mkdir -p "$(dirname "$rendu")"
-  rendre "$source/$rel" >"$rendu"
+  if [[ $source == "$rapport/deploiement" ]]; then
+    cp "$source/$rel" "$rendu"
+  else
+    rendre "$source/$rel" >"$rendu"
+  fi
+  if [[ $rel == docs/agents/harness.md ]]; then
+    texte="$(cat "$rendu"; printf x)"
+    texte="${texte%x}"
+    printf '%s' "${texte//"$repere_deploiement"/"$ligne_deploiement"}" >"$rendu"
+  fi
   if [[ ! -e $dest ]]; then
     mkdir -p "$(dirname "$dest")"
     cp "$rendu" "$dest"

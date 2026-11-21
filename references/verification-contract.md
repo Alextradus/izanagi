@@ -63,7 +63,7 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 
 ## Règles du contrôle
 
-`check-contract.sh` applique ces onze règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
+`check-contract.sh` applique ces treize règles et affiche `contrat : <fichier> : <règle enfreinte>` par écart.
 
 1. `scripts/check.sh` existe, est exécutable et passe `bash -n`.
 2. `check.sh --inconnu` sort avec le code 2 sans rien lancer. Cette règle ne court que si `check.sh` a un cas `--host`. Elle tourne sous `timeout`, avec un délai de 20 s (variable `IZANAGI_CONTRAT_DELAI`).
@@ -76,6 +76,8 @@ Le contrôle cherche le marqueur `# --- composant <nom> (`. Le sous-shell `( ...
 9. `check.sh` lance la recherche de secrets (`gitleaks git`).
 10. Chaque ligne `- couche : <composant> | <couche> | …` de `harness.md` a son étape `-- <composant> : <couche>` dans `check.sh`, et la ligne `projet` demande `-- projet : fonctionnelle`. Un `harness.md` qui a des composants et aucune ligne `- couche :` est un écart.
 11. `check.sh` gère `--complet`.
+12. Un projet qui a des composants a `.github/workflows/release.yml`, car chaque tag donne une release. Si la ligne `- **Déploiement** :` de `harness.md` porte une commande (`à préciser.` n'en est pas une), `.github/workflows/deploiement.yml` existe aussi. Dans ces deux fichiers, chaque ligne `uses:` désigne un SHA de 40 caractères (les actions locales `./…` n'en ont pas besoin, une image `docker://` s'épingle par `@sha256:`), et chaque job déclare ses `permissions:`.
+13. `ci.yml` a un job `analyse` qui lance `semgrep scan`.
 
 ## Remplir une section `# À ÉCRIRE`
 

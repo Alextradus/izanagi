@@ -15,7 +15,10 @@ Second appel, la technique :
 
 - les langages que l'utilisateur connaît ou veut apprendre ;
 - les systèmes cibles (Windows et Linux par WSL sont proposés par défaut, macOS en option) ;
-- le nom du projet, et si `init` crée le dépôt GitHub (privé par défaut).
+- le nom du projet, et si `init` crée le dépôt GitHub (privé par défaut) ;
+- la langue du changelog et des notes de version, `fr` par défaut ;
+- pour une api ou un front web, la commande qui déploie un tag, que l'utilisateur peut laisser à préciser ;
+- avec plusieurs composants, celui qui porte la version du projet.
 
 Ne repose pas une question dont la réponse est déjà dans le message de l'utilisateur.
 
@@ -62,6 +65,9 @@ Les piles de référence (Rust, TypeScript avec npm, Python avec uv) ont des gab
 - `test_manuel=<commande>` : avec un seul composant, la commande que donne l'utilisateur, sinon celle de la section « Test manuel par défaut » de la fiche du type, prise entre accents graves pour la pile du composant. Avec au moins deux composants, la valeur est `scripts/dev.sh` et la ligne s'omet.
 - `lieu_test=<complément>` : où l'utilisateur essaie, en complément de phrase (« dans un terminal », « dans son navigateur »), tiré de la section « Test manuel par défaut » de la fiche du type. Aucun défaut ne le fournit.
 
+- `langue_publique=<fr|en>` : la langue du changelog et des notes de version du projet. Sans cette ligne, la valeur est `fr`.
+- `deploiement=<commande>` : pour une api ou un front web, la commande qui déploie un tag, écrite par l'utilisateur. Elle tient sur une ligne. GitHub ne met pas les secrets du dépôt dans son environnement, donc elle les écrit en expression `${{ secrets.NOM }}`, par exemple `FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl deploy`. Sans cette ligne, ou si l'utilisateur ne la connaît pas, la valeur est `à préciser` et `deploiement.yml` n'est pas posé. Les autres types n'ont pas cette question.
+- `version_composant=<nom>` : avec plusieurs composants, le nom de celui qui porte la version du projet, lue par `release.yml`. Sans cette ligne, c'est le premier composant. Un nom qui n'est pas celui d'un composant fait sortir `install.sh` avec le code 1.
 - `chemins_sensibles=<motifs>` : les chemins dont tout changement demande la revue la plus profonde, séparés par des virgules (`db/migrations/*, src/auth/*`). Demande à l'utilisateur où sont les données, la sécurité, les migrations et l'API publique du projet. Dans un dossier vide, la clé reste vide : rappelle à l'utilisateur de la remplir quand ces dossiers existeront.
 
 Les autres clés (`projet`, `branche`, `spec`) gardent leur nom de la 0.1.

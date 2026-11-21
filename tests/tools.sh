@@ -28,6 +28,20 @@ valeurs_de() {
   grep -vE '^(#|$)' "$1/.izanagi/config.env"
 }
 
+# controle_config_08 <cas> <écarts> : config.env d'un projet migré avant la 0.8
+# diffère du gabarit par les seules lignes <écarts> (celles du diff, `-` et `+`
+# comprises, séparées par des retours à la ligne) : `langue_publique` et
+# `version_composant` (la migration 0.4.0 l'écrit vide, la pose y met le premier
+# composant ; une pose d'avant la 0.8 ne les a pas). Lit $sortie, la sortie
+# d'install.sh.
+controle_config_08() {
+  local rap diff_c
+  grep -qxF 'différent  .izanagi/config.env' <<<"$sortie" || echoue "$1 : config.env : $sortie"
+  rap="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+  diff_c="$(grep -E '^[+-]' "$rap/diff/.izanagi/config.env.diff" | grep -vE '^(\+\+\+|---) ' | tr -d '\r')"
+  [[ $diff_c == "$2" ]] || echoue "$1 : config.env diffère autrement que prévu : $diff_c"
+}
+
 # Système courant, pour `systemes` : `check.sh --host` ne lance alors que lui.
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*) ici=windows ;;
@@ -79,7 +93,7 @@ config="$tmp/p03/.izanagi/config.env"
 # La pose relancée avec ces valeurs trouve le config.env identique au gabarit.
 { echo pile=rust; valeurs_de "$tmp/p03"; } >"$tmp/p03v2"
 sortie="$("$install" "$tmp/p03" "$tmp/p03v2")"
-grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "config.env migré différent du gabarit : $sortie"
+controle_config_08 "migration 0.4.0" $'-version_composant=\n+version_composant=rust'
 grep -qxF 'identique  .izanagi/.gitignore' <<<"$sortie" || echoue ".gitignore migré différent du gabarit : $sortie"
 
 # Seconde migration : rien à faire, rien de changé.
@@ -145,7 +159,7 @@ for f in .izanagi/.gitignore .claude/settings.json; do
 done
 rapport06="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 ecarts06="$(grep -E '^[-+][^-+]' "$rapport06/diff/.izanagi/config.env.diff" 2>/dev/null || true)"
-[[ $ecarts06 == $'+navigateur=non\n+mutation=oui\n+mutation_delai=15' ]] ||
+[[ $ecarts06 == $'+navigateur=non\n+mutation=oui\n+mutation_delai=15\n+langue_publique=fr\n+version_composant=rust' ]] ||
   echoue "migration 0.6.0 : config.env diffère du gabarit hors des clés de la 0.7 : $ecarts06"
 [[ $(bash "$migration06" "$tmp/p04") == 'déjà migré' ]] || echoue "migration 0.6.0 relancée"
 
@@ -242,11 +256,11 @@ if git -C "$racine" cat-file -e '5bb1144^{commit}' 2>/dev/null; then
     esac
     grep -qxF "$etat  $f" <<<"$sortie" || echoue "0.1.1 : $f n'est pas $etat : $sortie"
   done
-  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md; do
+  for f in docs/agents/harness.md AGENTS.md .claude/settings.json .gitleaks.toml .github/dependabot.yml .github/workflows/securite.yml docs/standards/rust.md scripts/notes-de-version.sh .github/workflows/release.yml .github/pull_request_template.md; do
     grep -qxF "créé       $f" <<<"$sortie" || echoue "0.1.1 : $f non créé : $sortie"
   done
-  [[ $(grep -c '^créé' <<<"$sortie") -eq 7 ]] || echoue "0.1.1 : créations en trop : $sortie"
-  grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "0.1.1 : config.env migré différent du gabarit : $sortie"
+  [[ $(grep -c '^créé' <<<"$sortie") -eq 10 ]] || echoue "0.1.1 : créations en trop : $sortie"
+  controle_config_08 "0.1.1" $'-version_composant=\n+version_composant=rust'
 else
   echo "0.1.1 : commit 5bb1144 absent du dépôt, cas sauté"
 fi
@@ -255,12 +269,25 @@ fi
 migration07="$racine/scripts/migrations/0.7.0.sh"
 [[ -f $migration07 ]] || echoue "scripts/migrations/0.7.0.sh absent"
 
+# controle_harness_08 <cas> : après la 0.8, harness.md d'un projet posé avant elle
+# diffère du gabarit par la seule ligne « Déploiement » ; install.sh n'y touche pas.
+# Lit $sortie, la sortie d'install.sh.
+controle_harness_08() {
+  local rap diff_h
+  grep -qxF 'différent  docs/agents/harness.md' <<<"$sortie" || echoue "$1 : harness.md : $sortie"
+  rap="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+  diff_h="$(grep -E '^[+-]' "$rap/diff/docs/agents/harness.md.diff" | grep -vE '^(\+\+\+|---) ' | tr -d '\r')"
+  [[ $diff_h == '+- **Déploiement** : à préciser.' ]] || echoue "$1 : harness.md diffère autrement que par la ligne Déploiement : $diff_h"
+}
+
 # valeurs_upgrade <projet> : le fichier de valeurs que la section 3 d'upgrade écrit,
 # fait des clés de config.env et des lignes de harness.md. Le cinquième champ de
 # `composant=` vient des lignes `- couche :`, le sixième de la commande unitaire.
+# `version_composant` n'est gardé que s'il nomme un composant de harness.md : sinon
+# install.sh prend le premier. `deploiement` vient de la ligne « Déploiement ».
 valeurs_upgrade() {
-  local ligne nom chemin pile lancement couches ancienne
-  valeurs_de "$1"
+  local ligne nom chemin pile lancement couches ancienne vc noms=" "
+  valeurs_de "$1" | grep -v '^version_composant='
   while IFS= read -r ligne; do
     IFS='|' read -r nom chemin pile lancement <<<"${ligne#- composant : }"
     nom="${nom// /}" chemin="${chemin// /}" pile="${pile// /}"
@@ -274,8 +301,12 @@ valeurs_upgrade() {
       [[ $ancienne == 'à préciser' ]] && ancienne=""
     fi
     printf 'composant=%s|%s|%s|%s|%s|%s\n' "$nom" "$chemin" "$pile" "$lancement" "$couches" "$ancienne"
+    noms+="$nom "
   done < <(grep -E '^- composant : ' "$1/docs/agents/harness.md" | tr -d '\r')
-  sed -n 's/^- \*\*Systèmes cibles\*\* : \(.*\)\.$/systemes=\1/p; s/^- \*\*Type\*\* : \(.*\)\.$/type=\1/p' "$1/docs/agents/harness.md"
+  vc="$(kv_get "$1/.izanagi/config.env" version_composant || true)"
+  if [[ -n $vc && $noms == *" $vc "* ]]; then printf 'version_composant=%s\n' "$vc"; fi
+  tr -d '\r' <"$1/docs/agents/harness.md" | sed -n 's/^- \*\*Systèmes cibles\*\* : \(.*\)\.$/systemes=\1/p; s/^- \*\*Type\*\* : \(.*\)\.$/type=\1/p
+    s/^- \*\*Déploiement\*\* : `\(.*\)`\.$/deploiement=\1/p; s/^- \*\*Déploiement\*\* : à préciser\.$/deploiement=à préciser/p'
 }
 
 git -C "$racine" cat-file -e 'v0.6.0^{commit}' 2>/dev/null || echoue "tag v0.6.0 absent du dépôt : lance git fetch --tags"
@@ -317,7 +348,7 @@ git -C "$tmp/r06" add -A && git -C "$tmp/r06" commit -q -m migration
 valeurs_upgrade "$tmp/r06" >"$tmp/r06v7"
 grep -qxF 'composant=outil|.|rust|cargo run|unitaire,integration|' "$tmp/r06v7" || echoue "upgrade 0.7 : composant : $(cat "$tmp/r06v7")"
 sortie="$("$install" "$tmp/r06" "$tmp/r06v7")"
-grep -qxF 'identique  .izanagi/config.env' <<<"$sortie" || echoue "migration 0.7.0 : config.env différent du gabarit : $sortie"
+controle_config_08 "migration 0.7.0" $'+langue_publique=fr\n+version_composant=outil'
 for f in scripts/check.sh .github/workflows/ci.yml docs/agents/harness.md; do
   grep -qxF "différent  $f" <<<"$sortie" || echoue "upgrade 0.7 : $f pas différent : $sortie"
 done
@@ -333,7 +364,7 @@ sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/r06" 2>&1)" || echoue "
 # Relancée : rien à faire, rien de changé.
 git -C "$tmp/r06" checkout -q -- scripts .github docs
 [[ $(bash "$migration07" "$tmp/r06") == 'déjà migré' ]] || echoue "migration 0.7.0 relancée"
-[[ -z $(git -C "$tmp/r06" status --porcelain) ]] || echoue "migration 0.7.0 relancée : fichiers changés"
+[[ -z $(git -C "$tmp/r06" status --porcelain --untracked-files=no) ]] || echoue "migration 0.7.0 relancée : fichiers changés"
 
 # --- Projet Python posé par la 0.6.0, tests à plat ---
 mkdir -p "$tmp/y06/src/app" "$tmp/y06/tests/outils"
@@ -359,7 +390,7 @@ grep -qxF -- '- couche : app | unitaire | tests/unitaires | uv run pytest' "$har
 valeurs_upgrade "$tmp/y06" >"$tmp/y06v7"
 grep -qxF 'composant=app|.|python||unitaire|uv run pytest' "$tmp/y06v7" || echoue "upgrade 0.7 python : composant : $(cat "$tmp/y06v7")"
 sortie="$("$install" "$tmp/y06" "$tmp/y06v7")"
-grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 python : harness.md réécrit : $sortie"
+controle_harness_08 "upgrade 0.7 python"
 rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
 for f in scripts/check.sh .github/workflows/ci.yml; do
   cp "$rapport07/rendu/$f" "$tmp/y06/$f"
@@ -407,7 +438,7 @@ grep -q '^- couche : web | integration' "$tmp/w06/docs/agents/harness.md" && ech
 valeurs_upgrade "$tmp/w06" >"$tmp/w06v7"
 sortie="$("$install" "$tmp/w06" "$tmp/w06v7")"
 rapport07="$(sed -n 's/^rapport : //p' <<<"$sortie")"
-grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.7 typescript : harness.md réécrit : $sortie"
+controle_harness_08 "upgrade 0.7 typescript"
 grep -A1 -F 'echo "-- web : unitaire"' "$rapport07/rendu/scripts/check.sh" | grep -qxF '    npm test' ||
   echoue "upgrade 0.7 typescript : l'étape unitaire ne lance pas npm test : $(cat "$rapport07/rendu/scripts/check.sh")"
 grep -qF 'test:unitaire' "$rapport07/rendu/scripts/check.sh" && echoue "upgrade 0.7 typescript : check.sh lance test:unitaire, absent de package.json"
@@ -455,6 +486,124 @@ rm -rf "$tmp/p03/.claude"
 
 code=0; bash "$migration07" "$tmp/nu" >/dev/null 2>&1 || code=$?
 [[ $code -eq 2 ]] || echoue "migration 0.7.0 sans config.env : code $code"
+
+# ============ Migration 0.8.0 ============
+migration08="$racine/scripts/migrations/0.8.0.sh"
+[[ -f $migration08 ]] || echoue "scripts/migrations/0.8.0.sh absent"
+a_preciser08='à préciser  déploiement : écris la commande dans docs/agents/harness.md, puis relance /izanagi:upgrade'
+
+git -C "$racine" cat-file -e 'v0.7.0^{commit}' 2>/dev/null || echoue "tag v0.7.0 absent du dépôt : lance git fetch --tags"
+mkdir -p "$tmp/v07"
+git -C "$racine" archive v0.7.0 scripts templates .claude-plugin | tar -x -C "$tmp/v07"
+
+# pose_upgrade_08 <cas> <projet> : la pose d'upgrade après la migration. config.env et
+# harness.md sortent identiques, ci.yml, securite.yml et dependabot.yml différents,
+# release.yml, notes-de-version.sh et le template de PR créés, sans CHANGELOG.md.
+# Chaque fichier différent est repris du rendu, puis le contrat est respecté.
+# Avec un troisième argument, `ancien`, pour un projet posé avant la 0.7 et jamais
+# reposé : seul config.env doit sortir identique.
+pose_upgrade_08() {
+  local rap f
+  valeurs_upgrade "$2" >"$tmp/valeurs08"
+  sortie="$("$install" "$2" "$tmp/valeurs08")" || echoue "$1 : pose : $sortie"
+  grep -qxF "identique  .izanagi/config.env" <<<"$sortie" || echoue "$1 : config.env pas identique : $sortie"
+  if [[ ${3:-} != ancien ]]; then
+    grep -qxF "identique  docs/agents/harness.md" <<<"$sortie" || echoue "$1 : harness.md pas identique : $sortie"
+    for f in .github/workflows/ci.yml .github/workflows/securite.yml .github/dependabot.yml; do
+      grep -qxF "différent  $f" <<<"$sortie" || echoue "$1 : $f pas différent : $sortie"
+    done
+    for f in .github/workflows/release.yml scripts/notes-de-version.sh .github/pull_request_template.md; do
+      grep -qxF "créé       $f" <<<"$sortie" || echoue "$1 : $f non créé : $sortie"
+    done
+  fi
+  [[ ! -e $2/CHANGELOG.md ]] || echoue "$1 : CHANGELOG.md créé par la pose"
+  rap="$(sed -n 's/^rapport : //p' <<<"$sortie")"
+  while IFS= read -r f; do
+    cp "$rap/rendu/$f" "$2/$f"
+  done < <(sed -n 's/^différent  //p' <<<"$sortie")
+  sortie="$(bash "$racine/scripts/check-contract.sh" "$2" 2>&1)" || echoue "$1 : contrat après la pose : $sortie"
+  [[ $sortie == 'contrat : respecté' ]] || echoue "$1 : contrat : $sortie"
+}
+
+# --- Projet api posé par la 0.7.0 ---
+mkdir -p "$tmp/a07/src"
+printf 'composant=serveur|.|rust|cargo run\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntype=api\nsystemes=%s\n' "$ici" >"$tmp/a07v"
+bash "$tmp/v07/scripts/install.sh" "$tmp/a07" "$tmp/a07v" >/dev/null
+printf 'fn main() {}\n' >"$tmp/a07/src/main.rs"
+depot "$tmp/a07"
+sortie="$(bash "$migration08" "$tmp/a07")"
+[[ $sortie == "écrit      .izanagi/config.env"$'\n'"écrit      docs/agents/harness.md"$'\n'"$a_preciser08" ]] || echoue "migration 0.8.0 api : $sortie"
+config_a="$tmp/a07/.izanagi/config.env"
+[[ $(kv_get "$config_a" izanagi_version) == 0.8.0 ]] || echoue "migration 0.8.0 : izanagi_version"
+[[ $(kv_get "$config_a" langue_publique) == fr ]] || echoue "migration 0.8.0 : langue_publique : $(cat "$config_a")"
+[[ $(kv_get "$config_a" version_composant) == serveur ]] || echoue "migration 0.8.0 : version_composant : $(cat "$config_a")"
+[[ $(grep -A2 '^mutation_delai=' "$config_a" | tail -2 | tr '\n' ' ') == 'langue_publique=fr version_composant=serveur ' ]] ||
+  echoue "migration 0.8.0 : clés mal placées : $(cat "$config_a")"
+[[ $(grep -A1 '^- \*\*Test manuel\*\* : ' "$tmp/a07/docs/agents/harness.md" | tail -1) == '- **Déploiement** : à préciser.' ]] ||
+  echoue "migration 0.8.0 : ligne Déploiement : $(cat "$tmp/a07/docs/agents/harness.md")"
+[[ -z $(git -C "$tmp/a07" status --porcelain -- .github scripts) ]] || echoue "migration 0.8.0 : un workflow ou un script écrit"
+git -C "$tmp/a07" add -A && git -C "$tmp/a07" commit -q -m migration
+
+# Relancée : rien à faire, rien de changé.
+[[ $(bash "$migration08" "$tmp/a07") == 'déjà migré' ]] || echoue "migration 0.8.0 relancée"
+[[ -z $(git -C "$tmp/a07" status --porcelain) ]] || echoue "migration 0.8.0 relancée : fichiers changés"
+
+# La pose d'upgrade, puis le contrat.
+grep -qxF 'deploiement=à préciser' <(valeurs_upgrade "$tmp/a07") || echoue "upgrade 0.8 : deploiement : $(valeurs_upgrade "$tmp/a07")"
+grep -qxF 'langue_publique=fr' <(valeurs_upgrade "$tmp/a07") || echoue "upgrade 0.8 : langue_publique"
+grep -qxF 'version_composant=serveur' <(valeurs_upgrade "$tmp/a07") || echoue "upgrade 0.8 : version_composant"
+pose_upgrade_08 "upgrade 0.8 api" "$tmp/a07"
+[[ ! -e $tmp/a07/.github/workflows/deploiement.yml ]] || echoue "upgrade 0.8 : deploiement.yml sans commande"
+
+# Une commande de déploiement dans harness.md : la pose crée deploiement.yml. Un
+# version_composant qui ne nomme plus de composant est retiré des valeurs.
+sed -i 's/^- \*\*Déploiement\*\* : à préciser\.$/- **Déploiement** : `.\/deployer.sh "prod"`./' "$tmp/a07/docs/agents/harness.md"
+sed -i 's/^version_composant=.*/version_composant=ancien/' "$config_a"
+valeurs_upgrade "$tmp/a07" >"$tmp/a07v8"
+grep -qxF 'deploiement=./deployer.sh "prod"' "$tmp/a07v8" || echoue "upgrade 0.8 : commande de déploiement : $(cat "$tmp/a07v8")"
+grep -q '^version_composant=' "$tmp/a07v8" && echoue "upgrade 0.8 : version_composant inconnu gardé"
+sortie="$("$install" "$tmp/a07" "$tmp/a07v8")" || echoue "upgrade 0.8 : pose avec un version_composant inconnu : $sortie"
+grep -qxF 'créé       .github/workflows/deploiement.yml' <<<"$sortie" || echoue "upgrade 0.8 : deploiement.yml non créé : $sortie"
+grep -qxF 'identique  docs/agents/harness.md' <<<"$sortie" || echoue "upgrade 0.8 : harness.md avec commande : $sortie"
+sortie="$(bash "$racine/scripts/check-contract.sh" "$tmp/a07" 2>&1)" || echoue "upgrade 0.8 : contrat avec deploiement.yml : $sortie"
+
+# --- Projet cli posé par la 0.7.0 : pas de déploiement à préciser ---
+mkdir -p "$tmp/c07/src"
+printf 'composant=outil|.|rust|cargo run\nprojet=Essai\nspec=s.md\nlieu_test=ici\ntype=cli\nsystemes=%s\n' "$ici" >"$tmp/c07v"
+bash "$tmp/v07/scripts/install.sh" "$tmp/c07" "$tmp/c07v" >/dev/null
+printf 'fn main() {}\n' >"$tmp/c07/src/main.rs"
+depot "$tmp/c07"
+sortie="$(bash "$migration08" "$tmp/c07")"
+[[ $sortie == $'écrit      .izanagi/config.env\nécrit      docs/agents/harness.md' ]] || echoue "migration 0.8.0 cli : $sortie"
+grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/c07/docs/agents/harness.md" || echoue "migration 0.8.0 cli : ligne Déploiement absente"
+[[ $(bash "$migration08" "$tmp/c07") == 'déjà migré' ]] || echoue "migration 0.8.0 cli relancée"
+
+# --- Projet à la main sans composant, langue_publique déjà là ---
+mkdir -p "$tmp/m07/.izanagi" "$tmp/m07/docs/agents"
+printf 'izanagi_version=0.7.0\nmutation_delai=15\nlangue_publique=en\n' >"$tmp/m07/.izanagi/config.env"
+printf -- '# Harnais\n\n- **Type** : web-frontend.\n- **Test manuel** : `npm run dev`.\n\n## Composants\n' >"$tmp/m07/docs/agents/harness.md"
+sortie="$(bash "$migration08" "$tmp/m07")"
+[[ $sortie == "écrit      .izanagi/config.env"$'\n'"écrit      docs/agents/harness.md"$'\n'"$a_preciser08" ]] || echoue "migration 0.8.0 à la main : $sortie"
+[[ $(cat "$tmp/m07/.izanagi/config.env") == $'izanagi_version=0.8.0\nmutation_delai=15\nlangue_publique=en\nversion_composant=' ]] ||
+  echoue "migration 0.8.0 à la main : config.env : $(cat "$tmp/m07/.izanagi/config.env")"
+[[ $(bash "$migration08" "$tmp/m07") == 'déjà migré' ]] || echoue "migration 0.8.0 à la main relancée"
+
+# --- Enchaînée de la 0.4.0 à la 0.8.0 sur le projet posé en 0.3.0 ---
+sortie="$(for m in "$migration05" "$migration06" "$migration07"; do bash "$m" "$tmp/p03" >/dev/null; done; bash "$migration08" "$tmp/p03")"
+grep -qxF 'écrit      .izanagi/config.env' <<<"$sortie" || echoue "migration 0.8.0 après 0.7.0 : $sortie"
+[[ $(kv_get "$config" izanagi_version) == 0.8.0 ]] || echoue "migration 0.8.0 après 0.7.0 : izanagi_version"
+[[ $(grep -c '^langue_publique=' "$config") -eq 1 && $(grep -c '^version_composant=' "$config") -eq 1 ]] ||
+  echoue "migration 0.8.0 après 0.4.0 : clé en double : $(cat "$config")"
+[[ $(kv_get "$config" version_composant) == rust ]] || echoue "migration 0.8.0 après 0.4.0 : version_composant : $(cat "$config")"
+[[ $(kv_get "$config" projet) == 'Essai Rapide' ]] || echoue "migration 0.8.0 a perdu une valeur"
+grep -qxF -- '- **Déploiement** : à préciser.' "$tmp/p03/docs/agents/harness.md" || echoue "migration 0.8.0 sur 0.3.0 : ligne Déploiement"
+pose_upgrade_08 "upgrade 0.8 depuis 0.3" "$tmp/p03" ancien
+git -C "$tmp/p03" checkout -q -- .
+git -C "$tmp/p03" clean -qfd
+rm -rf "$tmp/p03/.claude"
+
+code=0; bash "$migration08" "$tmp/nu" >/dev/null 2>&1 || code=$?
+[[ $code -eq 2 ]] || echoue "migration 0.8.0 sans config.env : code $code"
 
 # ============ check.sh : recherche de secrets ============
 # Un faux gitleaks note ses arguments et rend le code de $GITLEAKS_CODE. Le projet n'a

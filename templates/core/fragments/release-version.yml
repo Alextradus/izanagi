@@ -1,0 +1,9 @@
+      # À ÉCRIRE : lecture de la version de {{composant}} ({{pile}}), écrite dans
+      # `$GITHUB_OUTPUT` sous la forme `version=X.Y.Z`.
+      - name: Version de {{composant}}
+        id: version
+        working-directory: {{chemin}}
+        shell: bash
+        run: |
+          echo "::error::release.yml : lecture de la version à écrire pour {{pile}}"
+          exit 1

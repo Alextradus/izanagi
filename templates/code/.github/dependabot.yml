@@ -1,7 +1,12 @@
-# Tient à jour les actions épinglées par SHA dans .github/workflows/.
+# Tient à jour les actions épinglées par SHA dans .github/workflows/ et les
+# dépendances de chaque composant, une entrée par composant.
+# Dependabot (vérifié le 2026-11-20, https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference) :
+# `uv` est un `package-ecosystem` accepté, et un groupe s'écrit
+# `groups: <nom>: update-types: ["minor", "patch"]`.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+{{dependabot_ecosystemes}}

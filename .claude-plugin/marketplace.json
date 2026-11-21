@@ -8,7 +8,7 @@
     {
       "name": "izanagi",
       "source": "./",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "description": "Cadre de projet : init d'un projet de toute pile (conventions, vérifications, CI), conduite des jalons, des petits changements et des correctifs, hooks, mise à jour du cadre"
     }
   ]

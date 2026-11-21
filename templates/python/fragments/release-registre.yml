@@ -1,0 +1,25 @@
+
+  # Publication sur PyPI par la publication de confiance : déclarer ce dépôt et
+  # le fichier release.yml comme éditeur de confiance du projet sur PyPI.
+  # `uv build` écrit dans dist/ ; `uv publish` n'a besoin d'aucun identifiant
+  # depuis GitHub Actions quand le job porte `id-token: write` (lu le 2026-11-20
+  # sur https://docs.astral.sh/uv/guides/package/).
+  publier-{{composant}}:
+    name: publication de {{composant}} sur PyPI
+    needs: verifier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - name: Publication de {{composant}}
+        working-directory: {{chemin}}
+        shell: bash
+        run: |
+          uv build
+          uv publish

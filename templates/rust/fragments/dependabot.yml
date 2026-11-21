@@ -1,0 +1,7 @@
+  - package-ecosystem: "cargo"
+    directory: "{{repertoire}}"
+    schedule:
+      interval: "weekly"
+    groups:
+      {{composant}}-mineures:
+        update-types: ["minor", "patch"]
