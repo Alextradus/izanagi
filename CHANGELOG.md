@@ -11,6 +11,7 @@ Ce fichier suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le p
 ### Corrigé
 
 - La revue de jalon prend le niveau normal au minimum. Un jalon dont toutes les tranches étaient de niveau faible était relu par le seul relecteur Standards, sans relecteur Spec (décision 141).
+- `install.sh` refuse une pile réservée (`vault`, `core`, `code`, `multi`) même quand le fichier de valeurs a une ligne `composant=` (#47). Avant, `pile=vault` posait `docs/agents/vault.md` avec « Le vault `non` ».
 - Le template de PR, celui du dépôt et celui posé dans un projet, nommait le niveau du milieu « moyen » au lieu de « normal ». Un projet déjà posé garde son template : corrige la ligne à la main.
 
 ## [0.8.1] - 2026-11-21
