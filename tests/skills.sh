@@ -92,6 +92,21 @@ for s in review planning jalon task fix; do
 done
 grep -qF 'scripts/risk.sh' skills/review/SKILL.md || echoue "skills/review ne lance pas scripts/risk.sh"
 grep -qF '**Risque :**' skills/planning/SKILL.md || echoue "le gabarit de plan n'a pas de ligne Risque"
+# Décision 141 : la revue de jalon garde le relecteur Spec, même si toutes ses
+# tranches étaient de niveau faible.
+for f in skills/jalon/SKILL.md references/risk.md; do
+  grep -qF 'avec `normal` au minimum' "$f" || echoue "$f : la revue de jalon n'a pas le niveau normal au minimum"
+done
+# Décision 142 (remplace la 39) : un Important au tour unique du niveau faible
+# fait monter le niveau retenu à normal.
+for f in skills/review/SKILL.md references/risk.md; do
+  grep -qF 'monte à `normal`' "$f" || echoue "$f : un Important au niveau faible ne monte pas le niveau"
+done
+grep -qF 'les corrections n'"'"'ont pas été relues' skills/review/SKILL.md && echoue "skills/review laisse encore un Important du niveau faible sans relecture"
+# Le niveau du milieu s'appelle normal, jamais moyen.
+for f in .github/pull_request_template.md templates/core/.github/pull_request_template.md; do
+  grep -qF 'moyen' "$f" && echoue "$f : niveau « moyen » au lieu de normal"
+done
 
 # La clôture met en index la suppression de l'état, que `state.sh clear` ne fait pas.
 grep -qF 'git add -u -- .izanagi' skills/jalon/SKILL.md || echoue "la clôture de jalon ne retire pas state.env de l'index"
