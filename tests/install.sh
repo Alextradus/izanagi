@@ -748,6 +748,16 @@ set +e; "$install" "$tmp/ci" "$tmp/civ" >/dev/null 2>"$tmp/err"; code=$?; set -e
 grep -qxF 'install.sh : couche « e2e » du composant cli refusée' "$tmp/err" || echoue "couche inconnue : message : $(cat "$tmp/err")"
 [[ -z $(ls -A "$tmp/ci") ]] || echoue "couche inconnue : écriture malgré le refus"
 
+# Pile réservée, même avec une ligne `composant=` : refus avant toute écriture.
+for p in core code vault multi ../rust; do
+  rm -rf "$tmp/pr" && mkdir "$tmp/pr"
+  printf '%s\n' "pile=$p" 'composant=app|.|rust|' "${base[@]}" >"$tmp/prv"
+  set +e; "$install" "$tmp/pr" "$tmp/prv" >/dev/null 2>"$tmp/err"; code=$?; set -e
+  [[ $code -eq 2 ]] || echoue "pile $p : code $code au lieu de 2"
+  grep -qxF "install.sh : pile « $p » refusée" "$tmp/err" || echoue "pile $p : message : $(cat "$tmp/err")"
+  [[ -z $(ls -A "$tmp/pr") ]] || echoue "pile $p : écriture malgré le refus"
+done
+
 # Une valeur vide garde sa ligne `clé=` : la ligne suivante ne s'y colle pas.
 mkdir "$tmp/cle-vide"
 printf 'pile=rust\nprojet=Essai\nspec=s.md\nlieu_test=ici\n' >"$tmp/cle-vide-v"

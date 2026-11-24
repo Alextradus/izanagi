@@ -64,6 +64,13 @@ lire_valeurs() {
 lire_valeurs "$racine/templates/core/defaults.env"
 pile_demandee="$(grep -E '^pile=' "$valeurs_utilisateur" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
 pile="${pile_demandee:-aucune}"
+# `pile` désigne aussi un dossier de gabarits : les dossiers réservés, posés
+# selon d'autres clés, ne sont pas des piles. Sans ce refus, `pile=vault` avec
+# une ligne `composant=` poserait `vault.md` sans vault.
+if [[ $pile != aucune && ( ! $pile =~ ^[a-z0-9-]+$ || $pile =~ ^(core|code|vault|multi)$ ) ]]; then
+  echo "install.sh : pile « $pile » refusée" >&2
+  exit 2
+fi
 if [[ $pile != aucune && ! -d $racine/templates/$pile ]]; then
   echo "install.sh : pas de gabarit pour la pile « $pile »" >&2
   exit 2
