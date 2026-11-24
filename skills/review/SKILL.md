@@ -57,7 +57,7 @@ Le niveau retenu règle la suite :
 
 | Niveau | Relecteurs | Tours | Après la revue |
 |---|---|---|---|
-| `faible` | `izanagi:reviewer-standards` seul | un | rien |
+| `faible` | `izanagi:reviewer-standards` seul | un, sauf Important (section 6) | rien |
 | `normal` | Standards et Spec | trois au plus | rien |
 | `eleve` | Standards, Spec et Sécurité | trois au plus | l'utilisateur relit le diff |
 
@@ -98,7 +98,7 @@ Lance la vérification. Les sous-agents `izanagi:implementer` ont déjà commit�
 
 ## 6. Tours suivants
 
-**Niveau `faible` : pas de tour suivant.** Les constats Important du tour unique se corrigent, la vérification passe, et la revue s'arrête là. Dis à l'utilisateur que les corrections n'ont pas été relues, et qu'il peut monter le niveau à `normal` pour qu'elles le soient.
+**Niveau `faible`.** Si le tour unique ne rend aucun Important, la revue s'arrête là. S'il en rend un, le niveau retenu monte à `normal` (`${CLAUDE_PLUGIN_ROOT}/references/risk.md`) : annonce-le en une ligne, avec le constat qui l'a fait monter. Le tour 1 compte, le plafond reste trois tours, et l'état reçoit `risque=normal` au commit du tour (section 5). Au tour 2, lance Standards et Spec. Standards relit les corrections, comme ci-dessous. Spec n'a encore rien relu : il reçoit le diff entier depuis le point fixe d'origine, écrit dans un nouveau fichier. La phase qui t'a appelé applique ensuite le niveau `normal`, test manuel compris.
 
 Aux niveaux `normal` et `eleve`, relance les relecteurs du premier tour avec les mêmes pièces, plus la liste des constats Important du tour précédent, mot pour mot. La même liste va à chaque relecteur, et chacun répond sur les constats de son axe. Contrôle de nouveau toi-même ce que le relecteur Spec dit non vérifiable depuis le diff. Le point fixe devient le dernier commit relu au tour précédent, pour qu'ils ne relisent que les corrections. Écris ce nouveau diff dans un nouveau fichier. Ne relance pas la mutation et ne passe plus `mutation.txt`.
 
@@ -114,7 +114,7 @@ Si une règle ou une classe de bug a déjà été signalée dans une tranche pr�
 
 ## Fin
 
-La revue est finie sur un tour sans Important, sur le tour unique du niveau `faible`, ou sur la décision de l'utilisateur au plafond.
+La revue est finie sur un tour sans Important, ou sur la décision de l'utilisateur au plafond.
 
 **Niveau `eleve` : relecture par l'utilisateur.** Une fois la revue finie, donne à l'utilisateur de quoi lire le diff entier : le lien de la PR si elle existe, sinon la commande `git diff <point fixe>...HEAD`. Dis-lui quels chemins sensibles le diff touche. Attends qu'il dise avoir relu, et traite ses remarques comme des constats Jugement. La phase qui t'a appelé ne fusionne rien avant.
 

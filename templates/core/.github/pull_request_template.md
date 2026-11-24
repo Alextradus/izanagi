@@ -12,4 +12,4 @@
 
 ## Risque
 
-<!-- Donne le niveau de risque (faible, moyen ou élevé) et la raison en une phrase. -->
+<!-- Donne le niveau de risque (faible, normal ou élevé) et la raison en une phrase. -->

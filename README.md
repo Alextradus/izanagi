@@ -41,11 +41,11 @@ Une tranche, un petit changement ou un correctif porte un niveau de risque, qui 
 
 | Niveau | Exemples | Revue | Test manuel |
 |---|---|---|---|
-| faible | documentation, renommage, configuration | un relecteur, un tour | non |
+| faible | documentation, renommage, configuration | un relecteur, un tour ; un constat Important fait passer au niveau normal | non |
 | normal | comportement nouveau | deux relecteurs, trois tours au plus | oui |
 | élevé | données, sécurité, migration, API publique | trois relecteurs, Sécurité compris, trois tours au plus, puis tu relis le diff | oui |
 
-Le plan d'un jalon donne le niveau de chaque tranche. `task` et `fix` en proposent un au départ. Tu peux le changer à tout moment.
+Le plan d'un jalon donne le niveau de chaque tranche. `task` et `fix` en proposent un au départ. Tu peux le changer à tout moment. La revue de jalon prend le niveau le plus haut de ses tranches, normal au minimum.
 
 La clé `chemins_sensibles` de `.izanagi/config.env` liste des motifs de chemins, séparés par des virgules (`db/migrations/*, src/auth/*`). Un diff qui touche un de ces chemins est de niveau élevé, quel que soit le niveau déclaré.
 

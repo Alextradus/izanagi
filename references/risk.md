@@ -4,7 +4,7 @@ Une tranche, une tâche (`task`) ou un correctif (`fix`) porte un niveau de risq
 
 | Niveau | Valeur écrite | Exemples | Relecteurs | Tours | Test manuel | Relecture du diff par l'utilisateur |
 |---|---|---|---|---|---|---|
-| faible | `faible` | documentation, renommage, configuration | Standards seul | un | non | non |
+| faible | `faible` | documentation, renommage, configuration | Standards seul | un, sauf si ce tour rend un Important : le niveau monte alors à `normal` | non | non |
 | normal | `normal` | comportement nouveau | Standards et Spec | trois au plus | oui | non |
 | élevé | `eleve` | données, sécurité, migration, API publique | Standards, Spec et Sécurité, avec la passe de mutation sur le diff | trois au plus | oui | oui, après la revue |
 
@@ -15,9 +15,14 @@ La valeur écrite est celle des fichiers et des scripts : `state.sh set risque=e
 - **Dans un jalon**, le plan donne le niveau de chaque tranche, sur sa ligne `**Risque :**`. Une tranche sans cette ligne, dans un plan d'avant la 0.5, est de niveau normal.
 - **Dans `task` et `fix`**, le flux propose un niveau au départ, d'après les exemples de la table, et l'utilisateur le confirme.
 - **L'utilisateur** peut changer le niveau à tout moment. Applique sa réponse et écris-la avec `state.sh set risque=<valeur>`.
+- **La revue de jalon** prend le niveau le plus haut de ses tranches et de ses correctifs, avec `normal` au minimum : elle cherche les écarts à la spec sur tout le jalon, et il lui faut le relecteur Spec.
 - **Un correctif né d'un jalon** n'écrit pas son niveau dans l'état, qui est celui du jalon. Son niveau se note au journal du jalon.
 
 Dans le doute entre deux niveaux, propose le plus haut.
+
+## Un Important au niveau faible
+
+Le niveau faible parie que le changement ne peut pas casser grand-chose : un seul relecteur, un seul tour, pas de test manuel. Un constat Important au tour unique montre que le pari est perdu. Le niveau retenu monte à `normal`, et la revue continue comme à ce niveau : relecteur Spec, tours suivants, test manuel. Sans cela, la correction de l'Important partirait sans relecture ni essai. `review` fait monter le niveau ; l'utilisateur peut toujours le changer ensuite.
 
 ## Chemins sensibles
 

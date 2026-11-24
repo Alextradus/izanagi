@@ -2,6 +2,18 @@
 
 Ce fichier suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le projet suit le [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.8.2] - 2026-11-24
+
+### Modifié
+
+- Au niveau de risque faible, un constat Important fait monter le niveau à normal : la correction est relue par les relecteurs Standards et Spec, puis testée à la main. Avant, elle partait sans relecture ni test manuel (décision 142, qui remplace la décision 39).
+
+### Corrigé
+
+- La revue de jalon prend le niveau normal au minimum. Un jalon dont toutes les tranches étaient de niveau faible était relu par le seul relecteur Standards, sans relecteur Spec (décision 141).
+- `install.sh` refuse une pile réservée (`vault`, `core`, `code`, `multi`) même quand le fichier de valeurs a une ligne `composant=` (#47). Avant, `pile=vault` posait `docs/agents/vault.md` avec « Le vault `non` ».
+- Le template de PR, celui du dépôt et celui posé dans un projet, nommait le niveau du milieu « moyen » au lieu de « normal ». Un projet déjà posé garde son template : corrige la ligne à la main.
+
 ## [0.8.1] - 2026-11-21
 
 ### Modifié
@@ -46,7 +58,7 @@ Ce fichier suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le p
 
 ### Ajouté
 
-- Un niveau de risque (faible, moyen, élevé) règle la profondeur de revue d'une tranche, calculé par `risk.sh` sur le diff.
+- Un niveau de risque (faible, normal, élevé) règle la profondeur de revue d'une tranche, calculé par `risk.sh` sur le diff.
 - `/izanagi:task` conduit un petit changement et `/izanagi:fix` un correctif, avec une cause prouvée par un test rouge.
 
 ## [0.4.1] - 2026-11-13

@@ -115,6 +115,11 @@ Ces décisions précisent ou corrigent des décisions précédentes, qui restent
 41. Un flux `task` passe par les phases `debut`, `travail`, `revue`, `test` et `cloture`. Un flux `fix` hors jalon commence par la phase `diagnostic` à la place de `debut`. Le journal d'un flux hors jalon est `.izanagi/journal/<flux>-<nom>.md`.
 42. Un correctif né d'un jalon (décision 22) vit sur une branche `fix/<nom>` partie de la branche du jalon ou d'une tranche. Cette branche garde le `state.env` du jalon, comme une branche de tranche, et y ajoute la clé `correctif`, que le correctif retire avant sa fusion. Il n'a ni état ni phase propres, et la version ne bouge pas.
 
+### Décisions ajoutées le 2026-11-24, pour la 0.8.2
+
+141. La revue de jalon prend le niveau le plus haut de ses tranches et de ses correctifs, avec `normal` au minimum. Elle cherche les écarts à la spec sur tout le jalon : un jalon dont toutes les tranches étaient de niveau faible garde le relecteur Spec (précise la décision 26).
+142. Au niveau faible, un constat Important au tour unique fait monter le niveau retenu à `normal`. La revue continue avec les relecteurs Standards et Spec et le plafond de trois tours, le premier compris. Au tour 2, le relecteur Spec relit le diff entier, qu'il n'a pas encore vu. La phase appelante applique ensuite le niveau normal, test manuel compris (remplace la décision 39 pour ce point). Avant, la correction partait sans relecture ni test manuel.
+
 ## Hors périmètre
 
 - La release et le déploiement d'un projet. La release reste dans la clôture de `jalon`.
