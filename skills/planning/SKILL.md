@@ -35,7 +35,7 @@ Si la forme d'une couture est en question (profondeur du module, place de l'inte
 
 Regroupe les tâches en tranches. Une tranche livre un comportement que l'utilisateur peut essayer avec le test manuel (clé `test_manuel`), et son diff reste sous la taille d'une tranche (clé `taille_tranche`). Chaque tranche dit en une phrase ce que l'utilisateur pourra essayer à la fin.
 
-Une tranche qui change un comportement visible de l'utilisateur porte une ligne `**Acceptation :** <scénario>`. Le scénario décrit ce que l'utilisateur fait et voit, et il s'écrit à la couche fonctionnelle. Si le projet n'a aucune couche fonctionnelle dans `harness.md`, la tranche n'a pas cette ligne et le plan le dit.
+Une tranche qui change un comportement visible de l'utilisateur porte une ligne `**Acceptation :** <scénario>`. Le scénario décrit ce que l'utilisateur fait et voit, et il s'écrit à la couche fonctionnelle. Si le projet n'a aucune couche fonctionnelle dans `harness.md`, la tranche n'a pas cette ligne et le plan le dit. Si le comportement ne se voit que par une voie que la couche fonctionnelle ne traverse pas, d'après la section « Couches de test » de la fiche du type (la partie jouée d'un jeu), la tranche n'a pas non plus cette ligne, et le plan dit pourquoi.
 
 Donne à chaque tranche un niveau de risque, d'après `${CLAUDE_PLUGIN_ROOT}/references/risk.md` : faible, normal ou élevé. Propose le niveau élevé pour une tranche qui touchera sans doute un chemin de la clé `chemins_sensibles` : à la revue, `risk.sh` le vérifie sur le diff et monte le niveau de lui-même. Dans le doute entre deux niveaux, prends le plus haut.
 
