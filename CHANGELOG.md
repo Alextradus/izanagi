@@ -2,6 +2,19 @@
 
 Ce fichier suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le projet suit le [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [0.9.0] - 2026-11-26
+
+### Ajouté
+
+- Le critère de sortie de la 1.0 (`docs/specs/2026-11-26-izanagi-1.0-critere.md`, décisions 143 à 148) : un projet témoin Rust posé en 0.8.0 ou plus, qui a mené avec le plugin un jalon, un `task`, un `fix` et une première release dont le livrable tourne sans la toolchain. Quinze des dix-neuf issues de réception sont exigées, quatre passent en 1.x.
+- `scripts/attendre-ci.sh` attend que les checks d'une PR apparaissent puis finissent. `/izanagi:jalon`, `/izanagi:task` et `/izanagi:fix` ne proposent plus la fusion avant la fin de la CI : « no checks reported » juste après un push ne passe plus pour une CI verte.
+- `scripts/historique.sh` compte les commits d'un flux par type. `/izanagi:retro` le lit en plus du journal, et propose une leçon sur le harnais quand plus d'un quart des commits sont des `chore(izanagi)`.
+- Un guide détaillé dans `docs/guide/` : démarrer, les flux phase par phase, les tests, les garde-fous, la release. Le README se limite aux bases, avec un schéma du workflow.
+
+### Modifié
+
+- La fiche `game` déclare une couche fonctionnelle : le binaire du jeu lancé par ses entrées hors partie (`--version`, un fichier en argument), sans fenêtre. `init` y écrit un premier test `--version`. Une tranche qui ne se voit qu'en jouant n'a pas de scénario d'acceptation, et le plan dit pourquoi. Un jeu déjà posé garde ses couches. Pour ajouter celle-ci : déplace ses tests qui lancent le binaire dans `tests/fonctionnel_<nom>.rs`, déclarés dans `Cargo.toml` avec la feature `fonctionnel`, ajoute à `docs/agents/harness.md` la ligne `- couche : <composant> | fonctionnelle | tests/fonctionnel_*.rs | …`, puis lance `/izanagi:upgrade`, qui montre l'étape à ajouter à `check.sh`.
+
 ## [0.8.2] - 2026-11-24
 
 ### Modifié

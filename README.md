@@ -110,7 +110,7 @@ Les décisions qui fondent chaque comportement sont dans `docs/specs/`, et les p
 
 ## Feuille de route
 
-La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, la 0.7 les couches de test, la couverture et la mutation, la 0.8 le changelog, la release, le livrable, le déploiement, Dependabot et l'analyse Semgrep. Chaque version a sa spec dans `docs/specs/`.
+La 0.5 clôt le chantier que fixe `docs/specs/2026-11-12-izanagi-harness-design.md`. La 0.6 ajoute la sécurité et l'auto-amélioration, la 0.7 les couches de test, la couverture et la mutation, la 0.8 le changelog, la release, le livrable, le déploiement, Dependabot et l'analyse Semgrep. La 0.9 fixe le critère de la 1.0, fait attendre la CI aux flux avant une fusion et fait lire l'historique git à la rétrospective. Chaque version a sa spec dans `docs/specs/`.
 
 La 1.0 est la version où le harnais mène un projet de son cadrage jusqu'à une version publiée et livrée. Elle sort quand un projet témoin réel, posé en 0.8.0 ou plus sur la pile Rust, a mené avec le plugin un jalon complet, un `task`, un `fix` et une première release dont le livrable a tourné sur un système sans la toolchain. Quinze des dix-neuf issues de réception sont exigées, ainsi que la correction de #13 et #49 à #52. La liste, et la raison de chaque choix, est dans [`docs/specs/2026-11-26-izanagi-1.0-critere.md`](docs/specs/2026-11-26-izanagi-1.0-critere.md).
 
