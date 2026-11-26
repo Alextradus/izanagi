@@ -107,7 +107,7 @@ Fin : la PR est ouverte et l'utilisateur valide le changement.
 2. **Leçon.** Si le tour de revue de l'état vaut 2 ou plus, ou si `bash "${CLAUDE_PLUGIN_ROOT}/scripts/refus.sh" task/<nom court>` affiche une ligne, demande à l'utilisateur : « une leçon à garder ? », en citant ce qui a coûté. Sur un oui, lance `izanagi:retro` avec l'outil Skill pour cette seule leçon : il l'écrit et la commite sur la branche. Sinon, ne demande rien.
 3. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de task <nom court>` et pousse.
 4. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner.
-5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+5. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur, une fois sa CI finie et verte sur le commit de l'étape 3 (« Attente de la CI », hors étapes).
 6. Reviens sur la branche principale à jour, puis supprime la branche `task/<nom court>`, en local et sur le dépôt distant.
 
 `task` ne publie jamais. Il ne pose aucun tag et n'écrit pas dans `CHANGELOG.md`. Le changement part dans la prochaine version publiée par `izanagi:jalon`, ou par `izanagi:fix` pour un correctif.
@@ -117,6 +117,7 @@ Fin : la PR est fusionnée, l'issue fermée, la branche principale sans état ni
 ## Hors étapes
 
 - **Conflit.** Un rebase ou une fusion en conflit passe par `izanagi:merge-conflicts`.
+- **Attente de la CI.** Avant de proposer la fusion d'une PR, attends la fin de sa CI : `bash "${CLAUDE_PLUGIN_ROOT}/scripts/attendre-ci.sh" <numéro de la PR>`. Le script attend que les checks du dernier commit apparaissent, puis qu'ils finissent. Code 0 : propose la fusion. Code 1 : ne la propose pas, montre les checks rouges, corrige sur la branche de la PR, pousse, puis relance l'attente. Code 3 (aucun check) ou 4 (délai dépassé) : montre la sortie à l'utilisateur et ne fusionne que s'il le demande. « no checks reported » juste après un push ne veut pas dire que la CI est verte.
 - **Push refusé.** Un hook du plugin refuse un `git push` qui vise la branche principale. Ne le contourne pas.
 - **Abandon.** Si l'utilisateur renonce au changement, ne laisse ni état ni branche : lance `state.sh clear --commit`, ferme la PR si elle existe (`gh pr close`), reviens sur la branche principale et supprime la branche `task/<nom court>`, en local avec `git branch -D`, puisqu'elle n'est pas fusionnée, et sur le dépôt distant. Laisse l'issue ouverte, sauf s'il demande de la fermer.
 - **Bug trouvé en route**, sans lien avec le changement : ne le corrige pas ici. Propose `/izanagi:fix` après la clôture, ou ouvre une issue avec l'accord de l'utilisateur.

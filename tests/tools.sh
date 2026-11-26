@@ -1138,4 +1138,115 @@ fi
 export PATH="$path_initial"
 unset FAUX_JOURNAL
 
+# ============ historique.sh ============
+# Compte les commits de la branche absents de la base, par type, chore(izanagi) à part.
+hi="$tmp/hi"
+mkdir -p "$hi/.izanagi"
+echo 'branche=main' >"$hi/.izanagi/config.env"
+depot "$hi"
+git -C "$hi" checkout -q -b jalon/essai
+git -C "$hi" commit -q --allow-empty -m 'feat: a'
+git -C "$hi" branch essai-base
+for m in 'chore(izanagi): journal, tâche 1' 'chore(izanagi): état' 'fix(core): b' 'feat!: c' 'wip'; do
+  git -C "$hi" commit -q --allow-empty -m "$m"
+done
+# Une tranche fusionnée par un commit de fusion : ses commits comptent, la fusion non.
+git -C "$hi" checkout -q -b jalon/essai-t1
+git -C "$hi" commit -q --allow-empty -m 'chore(izanagi): journal, tâche 2'
+git -C "$hi" checkout -q jalon/essai
+git -C "$hi" merge -q --no-ff --no-edit jalon/essai-t1
+sortie="$(cd "$hi" && bash "$racine/scripts/historique.sh" jalon/essai)" || echoue "historique : code $?"
+attendu='commits : 7
+chore(izanagi) : 3 (43 %)
+feat : 2 (29 %)
+autre : 1 (14 %)
+fix : 1 (14 %)'
+[[ $sortie == "$attendu" ]] || echoue "historique : sortie fausse : $sortie"
+sortie="$(cd "$hi" && bash "$racine/scripts/historique.sh" jalon/essai essai-base)"
+grep -qxF 'commits : 6' <<<"$sortie" || echoue "historique : base passée en argument : $sortie"
+code=0
+(cd "$hi" && bash "$racine/scripts/historique.sh" absente 2>/dev/null) || code=$?
+[[ $code -eq 2 ]] || echoue "historique : branche absente : code $code"
+code=0
+(cd "$tmp" && bash "$racine/scripts/historique.sh" main 2>/dev/null) || code=$?
+[[ $code -eq 2 ]] || echoue "historique : hors projet : code $code"
+
+# ============ attendre-ci.sh ============
+# Un faux gh rend, à son k-ième appel, le fichier $FAUX_GH/<k> (le dernier s'il n'y en
+# a pas d'autre) : la première ligne est son code, la suite sa sortie.
+fg="$tmp/fg"
+mkdir -p "$fg/bin"
+cat >"$fg/bin/gh" <<'FAUX'
+#!/usr/bin/env bash
+n=$(($(cat "$FAUX_GH/n" 2>/dev/null || echo 0) + 1))
+echo "$n" >"$FAUX_GH/n"
+f="$FAUX_GH/$n"
+[[ -f $f ]] || f="$FAUX_GH/$(ls "$FAUX_GH" | grep -E '^[0-9]+$' | sort -n | tail -1)"
+tail -n +2 "$f"
+exit "$(head -1 "$f")"
+FAUX
+chmod +x "$fg/bin/gh"
+path_initial="$PATH"
+export PATH="$fg/bin:$PATH" IZANAGI_CI_PAUSE=0 IZANAGI_CI_APPARITION=2
+
+# reponses <code> <sortie> [<code> <sortie>]… : les réponses successives du faux gh.
+reponses() {
+  rm -rf "$fg/r"
+  mkdir -p "$fg/r"
+  export FAUX_GH="$fg/r"
+  local k=1
+  while (($#)); do
+    printf '%s\n%s\n' "$1" "$2" >"$fg/r/$k"
+    shift 2
+    k=$((k + 1))
+  done
+}
+ci() {
+  code=0
+  sortie="$(bash "$racine/scripts/attendre-ci.sh" "$@" 2>&1)" || code=$?
+}
+
+# Pas de check juste après le push, puis un check en cours, puis tout vert.
+reponses 1 "no checks reported on the 'jalon/x' branch" \
+  8 $'pending\tcheck (ubuntu-latest)\npass\taudit' \
+  0 $'pass\tcheck (ubuntu-latest)\npass\taudit'
+ci 7
+[[ $code -eq 0 ]] || echoue "attendre-ci : vert : code $code : $sortie"
+grep -qxF 'ci : verte' <<<"$sortie" || echoue "attendre-ci : vert : $sortie"
+# Le vert se confirme par une relecture : 4 appels au moins.
+(($(cat "$fg/r/n") >= 4)) || echoue "attendre-ci : vert sans relecture"
+
+# Un check apparu à la relecture est attendu lui aussi.
+reponses 0 $'pass\tcheck (ubuntu-latest)' \
+  8 $'pass\tcheck (ubuntu-latest)\npending\tcheck (windows-latest)' \
+  1 $'pass\tcheck (ubuntu-latest)\nfail\tcheck (windows-latest)'
+ci 7
+[[ $code -eq 1 ]] || echoue "attendre-ci : check tardif : code $code : $sortie"
+grep -qE '^fail +check \(windows-latest\)$' <<<"$sortie" || echoue "attendre-ci : rouge : check non cité : $sortie"
+
+# Aucun check : code 3, sans attendre au-delà du délai d'apparition.
+reponses 1 "no checks reported on the 'task/x' branch"
+debut=$SECONDS
+ci 7
+[[ $code -eq 3 ]] || echoue "attendre-ci : aucun check : code $code : $sortie"
+((SECONDS - debut < 10)) || echoue "attendre-ci : aucun check : attente trop longue"
+
+# Délai dépassé : code 4.
+reponses 8 $'pending\tcheck (ubuntu-latest)'
+IZANAGI_CI_PAUSE=1 ci 7 --delai 0
+[[ $code -eq 4 ]] || echoue "attendre-ci : délai : code $code : $sortie"
+
+# Erreur de gh : code 2.
+reponses 4 'HTTP 401: Bad credentials'
+ci 7
+[[ $code -eq 2 ]] || echoue "attendre-ci : erreur gh : code $code : $sortie"
+
+# Appel refusé.
+ci
+[[ $code -eq 2 ]] || echoue "attendre-ci : sans argument : code $code"
+ci 7 --delai x
+[[ $code -eq 2 ]] || echoue "attendre-ci : délai invalide : code $code"
+export PATH="$path_initial"
+unset FAUX_GH IZANAGI_CI_PAUSE IZANAGI_CI_APPARITION
+
 echo "tools.sh : tous les cas passent"

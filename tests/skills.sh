@@ -226,7 +226,7 @@ awk '/izanagi:retro/ { r = NR } /git rm -f --ignore-unmatch/ { s = NR } END { ex
 for s in task fix; do
   grep -qF 'une leçon à garder ?' "skills/$s/SKILL.md" || echoue "skills/$s ne pose pas la question de la leçon"
 done
-for mot in 'scripts/refus.sh' 'Correction : ' 'docs/standards/' '## À proposer au plugin' 'chemins_sensibles' 'gh issue create'; do
+for mot in 'scripts/refus.sh' 'scripts/historique.sh' 'chore(izanagi)' 'Correction : ' 'docs/standards/' '## À proposer au plugin' 'chemins_sensibles' 'gh issue create'; do
   grep -qF -- "$mot" skills/retro/SKILL.md || echoue "skills/retro ne nomme pas « $mot »"
 done
 
@@ -315,6 +315,14 @@ if grep -F 'Sur un non' skills/fix/SKILL.md | grep -qE 'étapes? 4'; then echoue
 [[ -f NOTICE ]] || echoue "NOTICE absent"
 for mot in 'Matt Pocock' 'Jesse Vincent' 'MIT'; do
   grep -qF "$mot" NOTICE || echoue "NOTICE ne cite pas « $mot »"
+done
+
+# Aucun flux ne propose une fusion avant la fin de la CI : chaque étape de fusion
+# renvoie à la règle « Attente de la CI », qui lance scripts/attendre-ci.sh.
+for s in jalon task fix; do
+  grep -qF 'scripts/attendre-ci.sh' "skills/$s/SKILL.md" || echoue "skills/$s n'attend pas la CI avant la fusion"
+  awk '/^[0-9]+\. .*[Ff]usionne la PR/ && !/Attente de la CI/ { bad = 1 } END { exit bad }' "skills/$s/SKILL.md" ||
+    echoue "skills/$s : une étape fusionne une PR sans attendre la CI"
 done
 
 echo "skills.sh : tous les cas passent"

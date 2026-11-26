@@ -6,7 +6,7 @@ argument-hint: "[branche du flux]"
 
 # Retro
 
-Tu tires les leçons d'un flux : ce qui a coûté des tours de revue, des refus de hook ou des corrections de l'utilisateur. Chaque leçon devient une ligne dans un fichier du projet, ou un brouillon d'issue pour le plugin. L'utilisateur décide de chaque ligne.
+Tu tires les leçons d'un flux : ce qui a coûté des tours de revue, des refus de hook, des corrections de l'utilisateur ou du bruit dans l'historique git. Chaque leçon devient une ligne dans un fichier du projet, ou un brouillon d'issue pour le plugin. L'utilisateur décide de chaque ligne.
 
 Tu ne modifies jamais le plugin, `hooks.json`, ni les clés `hook_*` de `.izanagi/config.env`. Tu proposes, l'utilisateur décide.
 
@@ -20,7 +20,7 @@ La branche est l'argument, ou la branche courante. Lis `.izanagi/state.env` avec
 | `task` | `.izanagi/journal/task-<nom>.md` | aucun dossier |
 | `fix` hors jalon | `.izanagi/journal/fix-<nom>.md` | aucun dossier |
 
-Sans journal, par exemple après la clôture d'un `task` ou d'un `fix`, qui le supprime, travaille sur les seuls refus de la branche (section 2). Sans journal ni refus, dis-le et arrête-toi : la rétrospective n'a rien à lire.
+Sans journal, par exemple après la clôture d'un `task` ou d'un `fix`, qui le supprime, travaille sur les refus et l'historique de la branche (section 2). Sans journal, ni refus, ni commit propre à la branche, dis-le et arrête-toi : la rétrospective n'a rien à lire.
 
 Lancé depuis la question de clôture de `task` ou `fix` avec une seule leçon, va droit à la section 3 avec elle.
 
@@ -31,7 +31,10 @@ Lis, et rien d'autre :
 - le journal du flux : lignes de tâches, tours de revue, `Décision :`, constats écartés, retours de test ;
 - les lignes `Correction : ` du journal, chacune une reprise de l'utilisateur ;
 - les rapports de revue du dossier du plan, quand il existe ;
-- les refus des hooks pour cette branche : `bash "${CLAUDE_PLUGIN_ROOT}/scripts/refus.sh" <branche>`. Chaque ligne a la forme `<date>|<branche>|<hook>|<motif>`.
+- les refus des hooks pour cette branche : `bash "${CLAUDE_PLUGIN_ROOT}/scripts/refus.sh" <branche>`. Chaque ligne a la forme `<date>|<branche>|<hook>|<motif>` ;
+- l'historique git de la branche : `bash "${CLAUDE_PLUGIN_ROOT}/scripts/historique.sh" <branche>`, qui compte ses commits par type, avec à part les commits de suivi `chore(izanagi)` (journal et état). Pour un correctif né d'un jalon, passe la branche du jalon en second argument. Lis ensuite les titres eux-mêmes (`git log --no-merges --format=%s <branche principale>..<branche>`) : une suite de `fix` sur le même fichier après une revue, un `revert`, un commit qui défait le précédent.
+
+Le journal ne dit que ce que le flux y a écrit. L'historique montre ce qu'il n'y écrit pas : le bruit des commits de suivi, les reprises, les allers-retours.
 
 Ne lis pas les transcripts de Claude Code : ils sont hors du dépôt, et la clôture tourne souvent dans une autre session que les tranches.
 
@@ -41,7 +44,8 @@ Une leçon est un constat qui revient, ou un coût que l'utilisateur a nommé :
 
 - la même classe de bug relevée dans deux tranches, ou deux tours de revue sur le même point ;
 - un refus de hook répété, ou une vérification rouge qui revient sur la même cause ;
-- une ligne `Correction : `.
+- une ligne `Correction : ` ;
+- un historique dont plus d'un quart des commits sont des `chore(izanagi)`, ou qui porte des reprises en série (section 2). Les commits de suivi tiennent au harnais : la leçon est une leçon **harnais**, avec la part et le décompte en preuve.
 
 Un incident isolé, déjà corrigé, sans règle à en tirer, n'est pas une leçon : ne le propose pas.
 
@@ -88,4 +92,4 @@ gh issue create --repo <dépôt> --title "$(cat <fichier du titre>)" --body-file
 
 ## 6. Rendre compte
 
-Donne à l'utilisateur, en quelques lignes : les règles écrites et leurs fichiers, les leçons écartées, les issues ouvertes et leurs liens. Si une section `## À proposer au plugin` n'est pas vide, dis-le : ces règles attendent d'être proposées au plugin par `/izanagi:contribuer <langage>`, que seul l'utilisateur lance.
+Donne à l'utilisateur, en quelques lignes : la part des commits `chore(izanagi)` de la branche, même sous le quart, les règles écrites et leurs fichiers, les leçons écartées, les issues ouvertes et leurs liens. Si une section `## À proposer au plugin` n'est pas vide, dis-le : ces règles attendent d'être proposées au plugin par `/izanagi:contribuer <langage>`, que seul l'utilisateur lance.
