@@ -117,7 +117,7 @@ Fin : la PR est ouverte et l'utilisateur confirme que le bug a disparu.
 3. **Publication.** Demande à l'utilisateur : « publier ce correctif ? ». Sur un non, ne change rien. Le correctif n'a pas de tag, et l'étape 8 se saute, comme l'écriture du changelog qui suit. Sur un oui, écris la section du patch dans `CHANGELOG.md` : `## [X.Y.Z] - <date du jour>`, avec la version que la section 6 a montée, une ligne sous la rubrique Corrigé (`### Corrigé` en français, `### Fixed` en anglais, selon `langue_publique` dans `.izanagi/config.env`, `fr` par défaut), qui dit ce que l'utilisateur du projet ne voit plus. Si `CHANGELOG.md` n'existe pas, crée-le avec son en-tête comme le fait `izanagi:jalon`. Commite la section (`docs: changelog <version>`). `release.yml` échoue sans elle, et elle doit être sur le commit de fusion avant le tag.
 4. Lance `state.sh clear`, sans `--commit`, et supprime le journal avec `git rm -f --ignore-unmatch`, qui passe même si une ligne du journal n'est pas commitée ou si le journal n'existe pas. Lance ensuite `git add -u -- .izanagi`, qui met en index la suppression de l'état. Contrôle que `git ls-files .izanagi` ne liste plus ni `state.env` ni le journal, puis fais un seul commit `chore(izanagi): fin de fix <nom court>` et pousse.
 5. Relis la version de la branche principale à jour (`references/versions.md`) : si une autre PR a pris le même patch, remonte-le avant de fusionner, et reporte le numéro dans le titre de la section du changelog si tu l'as écrite.
-6. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur.
+6. Fusionne la PR dans la branche principale, avec l'accord de l'utilisateur, une fois sa CI finie et verte sur le commit de l'étape 4 (« Attente de la CI », hors étapes).
 7. Reviens sur la branche principale à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
 8. Si l'utilisateur a voulu publier, pose le tag `vX.Y.Z` sur le commit de fusion, puis demande son accord avant de le pousser. Après le push, dis que `release.yml` publie la release. Si la ligne `Déploiement` de `docs/agents/harness.md` porte une commande (et non « à préciser »), propose `gh workflow run deploiement.yml -f tag=vX.Y.Z` et ne le lance que sur l'accord de l'utilisateur.
 
@@ -125,7 +125,7 @@ Fin : la PR est ouverte et l'utilisateur confirme que le bug a disparu.
 
 1. Ajoute au journal du jalon la ligne `Correctif <nom court> : <cause en une phrase>`, et commite-la. Ne pose pas la question de la leçon : la rétrospective du jalon lira ce journal.
 2. Lance `state.sh set correctif= --commit`, qui retire la clé. Contrôle avec `git diff <base> -- .izanagi/state.env` que l'état ne diffère plus de celui de la base que par sa date, puis pousse.
-3. Fusionne la PR dans la base, avec l'accord de l'utilisateur.
+3. Fusionne la PR dans la base, avec l'accord de l'utilisateur, une fois sa CI finie et verte (« Attente de la CI », hors étapes).
 4. Reviens sur la base à jour, puis supprime la branche `fix/<nom court>`, en local et sur le dépôt distant.
 5. Rends la main à la phase de `izanagi:jalon` qui a lancé le correctif.
 
@@ -134,6 +134,7 @@ Fin : la PR est fusionnée, la branche du correctif supprimée, et la base ne po
 ## Hors étapes
 
 - **Conflit.** Un rebase ou une fusion en conflit passe par `izanagi:merge-conflicts`.
+- **Attente de la CI.** Avant de proposer la fusion d'une PR, attends la fin de sa CI : `bash "${CLAUDE_PLUGIN_ROOT}/scripts/attendre-ci.sh" <numéro de la PR>`. Le script attend que les checks du dernier commit apparaissent, puis qu'ils finissent. Code 0 : propose la fusion. Code 1 : ne la propose pas, montre les checks rouges, corrige sur la branche de la PR, pousse, puis relance l'attente. Code 3 (aucun check) ou 4 (délai dépassé) : montre la sortie à l'utilisateur et ne fusionne que s'il le demande. « no checks reported » juste après un push ne veut pas dire que la CI est verte.
 - **Push refusé.** Un hook du plugin refuse un `git push` qui vise la branche principale. Ne le contourne pas.
 - **Abandon.** Si l'utilisateur renonce au correctif, ne laisse ni état ni branche. Hors jalon : `state.sh clear --commit`. Dans un jalon : `state.sh set correctif= --commit`. Ferme ensuite la PR si elle existe (`gh pr close`), reviens sur la base et supprime la branche `fix/<nom court>`, en local avec `git branch -D`, puisqu'elle n'est pas fusionnée, et sur le dépôt distant. Dans un jalon, note l'abandon au journal du jalon.
 - **Second bug trouvé en route.** Ne le corrige pas dans cette branche. Ouvre une issue avec l'accord de l'utilisateur, ou note-le au journal du jalon.

@@ -6,7 +6,8 @@ Jeu vidéo (moteur maison, Bevy, Godot, Unity, Phaser).
 
 - Unitaire : les règles, le score et les déplacements, sans rendu (`cargo test`, `vitest`, `pytest`).
 - Intégration : la boucle de jeu sans fenêtre pendant N images, avec une graine aléatoire fixe. Le test vérifie l'état final, avec les mêmes outils.
-- Fonctionnelle : sans objet par défaut, le test manuel en tient lieu.
+- Fonctionnelle : le binaire du jeu lancé par le test, par ses entrées hors partie : `--version`, `--help`, un niveau, une chanson ou une sauvegarde passés en argument, valides ou non. Le test vérifie le code de sortie, stdout, stderr et les fichiers écrits, sans ouvrir de fenêtre (`assert_cmd` en Rust, `execa` avec vitest, `subprocess` avec pytest). En Rust, ces tests vont dans `tests/fonctionnel_*.rs`, avec la feature `fonctionnel` : un test de `tests/` qui lance le binaire relève de cette couche, pas de l'intégration. Un jeu qui a un mode sans rendu piloté par un fichier d'entrées (`--sans-rendu --entrees partie.txt`, qui écrit l'état final) y écrit aussi ses scénarios d'acceptation.
+- Ce que la couche fonctionnelle ne traverse pas, la partie jouée, le rendu et la sensation de jeu, reste au test manuel. Une tranche dont le comportement visible ne se voit qu'en jouant n'a pas de ligne `**Acceptation :**`, et le plan dit pourquoi.
 
 ## Test manuel par défaut
 
